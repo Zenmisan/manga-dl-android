@@ -1,0 +1,5 @@
+-keep class com.mangadl.android.data.model.** { *; }
+-keep class com.mangadl.android.data.extensions.ExtensionMeta { *; }
+-keepattributes *Annotation*
+-dontwarn okhttp3.**
+-dontwarn okio.**

@@ -1,0 +1,67 @@
+package com.mangadl.android.data.db
+
+import androidx.room.*
+import com.mangadl.android.data.model.DownloadEntry
+import com.mangadl.android.data.model.LibraryManga
+import com.mangadl.android.data.model.ReadingProgress
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface LibraryDao {
+    @Query("SELECT * FROM library ORDER BY addedAt DESC")
+    fun getAll(): Flow<List<LibraryManga>>
+
+    @Query("SELECT * FROM library WHERE id = :id")
+    suspend fun getById(id: String): LibraryManga?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM library WHERE id = :id)")
+    fun isInLibrary(id: String): Flow<Boolean>
+
+    @Upsert
+    suspend fun upsert(manga: LibraryManga)
+
+    @Query("DELETE FROM library WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Query("UPDATE library SET lastReadChapterId = :chapterId, lastReadAt = :readAt WHERE id = :mangaId")
+    suspend fun updateLastRead(mangaId: String, chapterId: String, readAt: Long)
+
+    @Query("UPDATE library SET readCount = :count WHERE id = :mangaId")
+    suspend fun updateReadCount(mangaId: String, count: Int)
+}
+
+@Dao
+interface ProgressDao {
+    @Query("SELECT * FROM reading_progress WHERE mangaId = :mangaId ORDER BY readAt DESC")
+    fun getForManga(mangaId: String): Flow<List<ReadingProgress>>
+
+    @Query("SELECT * FROM reading_progress WHERE mangaId = :mangaId AND chapterId = :chapterId")
+    suspend fun get(mangaId: String, chapterId: String): ReadingProgress?
+
+    @Upsert
+    suspend fun upsert(progress: ReadingProgress)
+
+    @Query("SELECT COUNT(*) FROM reading_progress WHERE mangaId = :mangaId AND completed = 1")
+    suspend fun countCompleted(mangaId: String): Int
+}
+
+@Dao
+interface DownloadDao {
+    @Query("SELECT * FROM download_queue ORDER BY addedAt DESC")
+    fun getAll(): Flow<List<DownloadEntry>>
+
+    @Query("SELECT * FROM download_queue WHERE status = 'queued' OR status = 'downloading' ORDER BY addedAt ASC")
+    suspend fun getPending(): List<DownloadEntry>
+
+    @Upsert
+    suspend fun upsert(entry: DownloadEntry)
+
+    @Query("UPDATE download_queue SET status = :status, progress = :progress WHERE id = :id")
+    suspend fun updateProgress(id: String, status: String, progress: Int)
+
+    @Query("UPDATE download_queue SET status = 'completed', completedAt = :completedAt, filePath = :filePath, progress = totalPages WHERE id = :id")
+    suspend fun markCompleted(id: String, completedAt: Long, filePath: String)
+
+    @Query("DELETE FROM download_queue WHERE id = :id")
+    suspend fun delete(id: String)
+}
