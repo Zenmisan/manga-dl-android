@@ -10,11 +10,11 @@ import com.mangadl.android.data.model.MangaDetail
 import com.mangadl.android.data.model.MangaSearchResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 
 class ExtensionManager(
@@ -22,7 +22,6 @@ class ExtensionManager(
     private val httpClient: OkHttpClient,
 ) {
     private val extensions = mutableMapOf<String, ExtensionMeta>()
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     fun loadAll() {
         val assetFiles = context.assets.list("extensions") ?: return
@@ -34,7 +33,6 @@ class ExtensionManager(
                     .bufferedReader().readText()
                 val meta = parseMetaComment(id, script)
                 extensions[id] = ExtensionMeta(id, file, script, meta)
-                Log.d(TAG, "Loaded extension: $id")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load extension: $file", e)
             }
@@ -47,56 +45,57 @@ class ExtensionManager(
     fun getExtension(id: String): ExtensionMeta? = extensions[id]
 
     suspend fun search(extensionId: String, query: String, page: Int = 1): List<MangaSearchResult> {
-        return evalExtension(extensionId) { js ->
-            js.asyncFunction("apiFetch", ::apiFetch)
-            val result = js.evaluate<String>(
+        val script = extensions[extensionId]?.script ?: return emptyList()
+        val result = evalJs(extensionId, script) { js ->
+            js.evaluate<String>(
                 """
                 (async () => {
-                    const ext = (() => { ${extensions[extensionId]?.script}; return extension; })();
-                    const results = await ext.search(${json.encodeToString(kotlinx.serialization.json.JsonPrimitive(query))}, $page);
+                    const ext = (() => { $script; return extension; })();
+                    const results = await ext.search(${jsString(query)}, $page);
                     return JSON.stringify(results);
                 })()
                 """.trimIndent()
             )
-            parseSearchResults(result)
         }
+        return parseSearchResults(result)
     }
 
     suspend fun getMangaDetail(extensionId: String, mangaId: String): MangaDetail {
-        return evalExtension(extensionId) { js ->
-            js.asyncFunction("apiFetch", ::apiFetch)
-            val result = js.evaluate<String>(
+        val script = extensions[extensionId]?.script ?: return MangaDetail()
+        val result = evalJs(extensionId, script) { js ->
+            js.evaluate<String>(
                 """
                 (async () => {
-                    const ext = (() => { ${extensions[extensionId]?.script}; return extension; })();
-                    const detail = await ext.getMangaDetail(${json.encodeToString(kotlinx.serialization.json.JsonPrimitive(mangaId))});
+                    const ext = (() => { $script; return extension; })();
+                    const detail = await ext.getMangaDetail(${jsString(mangaId)});
                     return JSON.stringify(detail);
                 })()
                 """.trimIndent()
             )
-            parseMangaDetail(result)
         }
+        return parseMangaDetail(result)
     }
 
     suspend fun getPages(extensionId: String, chapterId: String): List<String> {
-        return evalExtension(extensionId) { js ->
-            js.asyncFunction("apiFetch", ::apiFetch)
-            val result = js.evaluate<String>(
+        val script = extensions[extensionId]?.script ?: return emptyList()
+        val result = evalJs(extensionId, script) { js ->
+            js.evaluate<String>(
                 """
                 (async () => {
-                    const ext = (() => { ${extensions[extensionId]?.script}; return extension; })();
-                    const pages = await ext.getPages(${json.encodeToString(kotlinx.serialization.json.JsonPrimitive(chapterId))});
+                    const ext = (() => { $script; return extension; })();
+                    const pages = await ext.getPages(${jsString(chapterId)});
                     return JSON.stringify(pages);
                 })()
                 """.trimIndent()
             )
-            parsePages(result)
         }
+        return parsePages(result)
     }
 
-    private suspend fun <T> evalExtension(id: String, block: suspend (QuickJs) -> T): T {
+    private suspend fun <T> evalJs(id: String, script: String, block: suspend (QuickJs) -> T): T {
         return withContext(Dispatchers.IO) {
-            QuickJs.create().use { js ->
+            val js = QuickJs.create(Dispatchers.IO)
+            try {
                 js.define("console") {
                     asyncFunction("log") { args: Array<Any?> ->
                         Log.d("JS[$id]", args.joinToString(" "))
@@ -108,26 +107,30 @@ class ExtensionManager(
                         Log.w("JS[$id]", args.joinToString(" "))
                     }
                 }
+                js.asyncFunction("apiFetch") { args: Array<Any?> ->
+                    val url = args.getOrNull(0) as? String ?: return@asyncFunction null
+                    val options = args.getOrNull(1)
+                    apiFetch(url, options)
+                }
                 block(js)
+            } finally {
+                js.close()
             }
         }
     }
 
-    private suspend fun apiFetch(
-        url: String,
-        options: Map<String, Any?>? = null,
-    ): Map<String, Any?> {
+    private suspend fun apiFetch(url: String, options: Any?): Map<String, Any?> {
         return withContext(Dispatchers.IO) {
-            val method = options?.get("method") as? String ?: "GET"
-            val headers = @Suppress("UNCHECKED_CAST")
-            (options?.get("headers") as? Map<String, String>) ?: emptyMap()
-            val body = options?.get("body") as? String
+            val optsMap = options as? Map<*, *>
+            val method = optsMap?.get("method") as? String ?: "GET"
+            @Suppress("UNCHECKED_CAST")
+            val headers = optsMap?.get("headers") as? Map<String, String> ?: emptyMap()
+            val body = optsMap?.get("body") as? String
 
             val requestBuilder = Request.Builder().url(url)
-
             headers.forEach { (k, v) -> requestBuilder.header(k, v) }
 
-            if (method == "POST" && body != null) {
+            if (method.uppercase() == "POST" && body != null) {
                 val ct = headers["Content-Type"] ?: "application/json"
                 requestBuilder.post(body.toRequestBody(ct.toMediaType()))
             }
@@ -136,20 +139,10 @@ class ExtensionManager(
                 val response = httpClient.newCall(requestBuilder.build()).execute()
                 val responseBody = response.body?.string() ?: ""
                 val status = response.code
-
-                var parsedJson: Any? = null
-                try {
-                    parsedJson = org.json.JSONObject(responseBody)
-                } catch (_: Exception) {
-                    try {
-                        parsedJson = org.json.JSONArray(responseBody)
-                    } catch (_: Exception) {}
-                }
-
                 mapOf(
                     "status" to status,
                     "text" to responseBody,
-                    "json" to parsedJson,
+                    "json" to tryParseJson(responseBody),
                     "ok" to (status in 200..299),
                 )
             } catch (e: Exception) {
@@ -159,10 +152,18 @@ class ExtensionManager(
         }
     }
 
+    private fun tryParseJson(text: String): Any? {
+        return try { JSONObject(text) } catch (_: Exception) {
+            try { JSONArray(text) } catch (_: Exception) { null }
+        }
+    }
+
+    private fun jsString(value: String): String = JSONObject.quote(value)
+
     private fun parseSearchResults(json: String?): List<MangaSearchResult> {
         if (json.isNullOrBlank()) return emptyList()
         return try {
-            val arr = org.json.JSONArray(json)
+            val arr = JSONArray(json)
             (0 until arr.length()).map { i ->
                 val obj = arr.getJSONObject(i)
                 MangaSearchResult(
@@ -221,7 +222,7 @@ class ExtensionManager(
     private fun parsePages(json: String?): List<String> {
         if (json.isNullOrBlank()) return emptyList()
         return try {
-            val arr = org.json.JSONArray(json)
+            val arr = JSONArray(json)
             (0 until arr.length()).map { i -> arr.optString(i) }
         } catch (e: Exception) {
             Log.e(TAG, "Parse pages error", e)
