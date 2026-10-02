@@ -9,6 +9,8 @@ import com.mangadl.android.data.model.Chapter
 import com.mangadl.android.data.model.MangaDetail
 import com.mangadl.android.data.model.MangaSearchResult
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -16,12 +18,17 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.ConcurrentHashMap
 
 class ExtensionManager(
     private val context: Context,
     private val httpClient: OkHttpClient,
 ) {
     private val extensions = mutableMapOf<String, ExtensionMeta>()
+
+    // Persistent JS contexts — created once per extension, reused across calls
+    private data class JsContext(val js: QuickJs, val mutex: Mutex)
+    private val jsContexts = ConcurrentHashMap<String, JsContext>()
 
     fun loadAll() {
         val assetFiles = context.assets.list("extensions") ?: return
@@ -45,78 +52,63 @@ class ExtensionManager(
     fun getExtension(id: String): ExtensionMeta? = extensions[id]
 
     suspend fun search(extensionId: String, query: String, page: Int = 1): List<MangaSearchResult> {
-        val script = extensions[extensionId]?.script ?: return emptyList()
-        val result = evalJs(extensionId, script) { js ->
+        val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
-                """
-                (async () => {
-                    const ext = (() => { $script; return extension; })();
-                    const results = await ext.search(${jsString(query)}, $page);
-                    return JSON.stringify(results);
-                })()
-                """.trimIndent()
+                "(async () => { const r = await __ext.search(${jsString(query)}, $page); return JSON.stringify(r); })()"
             )
         }
         return parseSearchResults(result)
     }
 
     suspend fun getMangaDetail(extensionId: String, mangaId: String): MangaDetail {
-        val script = extensions[extensionId]?.script ?: return MangaDetail()
-        val result = evalJs(extensionId, script) { js ->
+        val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
-                """
-                (async () => {
-                    const ext = (() => { $script; return extension; })();
-                    const detail = await ext.getMangaDetail(${jsString(mangaId)});
-                    return JSON.stringify(detail);
-                })()
-                """.trimIndent()
+                "(async () => { const r = await __ext.getMangaDetail(${jsString(mangaId)}); return JSON.stringify(r); })()"
             )
         }
         return parseMangaDetail(result)
     }
 
     suspend fun getPages(extensionId: String, chapterId: String): List<String> {
-        val script = extensions[extensionId]?.script ?: return emptyList()
-        val result = evalJs(extensionId, script) { js ->
+        val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
-                """
-                (async () => {
-                    const ext = (() => { $script; return extension; })();
-                    const pages = await ext.getPages(${jsString(chapterId)});
-                    return JSON.stringify(pages);
-                })()
-                """.trimIndent()
+                "(async () => { const r = await __ext.getPages(${jsString(chapterId)}); return JSON.stringify(r); })()"
             )
         }
         return parsePages(result)
     }
 
-    private suspend fun <T> evalJs(id: String, script: String, block: suspend (QuickJs) -> T): T {
-        return withContext(Dispatchers.IO) {
+    // Get or create a persistent JS context for this extension.
+    // The context is initialized once: bindings set + script evaluated + __ext captured.
+    private suspend fun <T> evalWithContext(id: String, block: suspend (QuickJs) -> T): T {
+        val ctx = jsContexts.getOrPut(id) {
+            val script = extensions[id]?.script ?: error("Unknown extension: $id")
             val js = QuickJs.create(Dispatchers.IO)
-            try {
+            withContext(Dispatchers.IO) {
                 js.define("console") {
-                    asyncFunction("log") { args: Array<Any?> ->
-                        Log.d("JS[$id]", args.joinToString(" "))
-                    }
-                    asyncFunction("error") { args: Array<Any?> ->
-                        Log.e("JS[$id]", args.joinToString(" "))
-                    }
-                    asyncFunction("warn") { args: Array<Any?> ->
-                        Log.w("JS[$id]", args.joinToString(" "))
-                    }
+                    asyncFunction("log") { args: Array<Any?> -> Log.d("JS[$id]", args.joinToString(" ")) }
+                    asyncFunction("error") { args: Array<Any?> -> Log.e("JS[$id]", args.joinToString(" ")) }
+                    asyncFunction("warn") { args: Array<Any?> -> Log.w("JS[$id]", args.joinToString(" ")) }
                 }
                 js.asyncFunction("apiFetch") { args: Array<Any?> ->
                     val url = args.getOrNull(0) as? String ?: return@asyncFunction null
-                    val options = args.getOrNull(1)
-                    apiFetch(url, options)
+                    apiFetch(url, args.getOrNull(1))
                 }
-                block(js)
-            } finally {
-                js.close()
+                // Evaluate the extension script once and bind it to __ext
+                js.evaluate<Any?>("const __ext = (() => { $script; return extension; })();")
+            }
+            JsContext(js, Mutex())
+        }
+        return ctx.mutex.withLock {
+            withContext(Dispatchers.IO) {
+                block(ctx.js)
             }
         }
+    }
+
+    fun closeAll() {
+        jsContexts.values.forEach { it.js.close() }
+        jsContexts.clear()
     }
 
     private suspend fun apiFetch(url: String, options: Any?): Map<String, Any?> {
@@ -254,6 +246,5 @@ data class ExtensionMeta(
     val name: String get() = meta["name"] ?: id
     val lang: String get() = meta["lang"] ?: "en"
     val version: String get() = meta["version"] ?: "1.0.0"
-    val iconUrl: String get() = meta["icon"] ?: ""
-    val isNsfw: Boolean get() = meta["nsfw"] == "true"
+    val nsfw: Boolean get() = meta["nsfw"] == "true"
 }

@@ -1,79 +1,115 @@
 package com.mangadl.android.ui.screens.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.mangadl.android.ui.theme.AntonStyleSub
+import com.mangadl.android.ui.theme.MangaDlColors
+
+private data class SettingsItem(
+    val icon: ImageVector,
+    val label: String,
+    val desc: String,
+    val onClick: () -> Unit,
+)
 
 @Composable
-fun SettingsScreen() {
-    Column(Modifier.fillMaxSize()) {
-        Text(
-            text = "Settings",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(16.dp),
-        )
+fun SettingsScreen(
+    onBack: () -> Unit,
+    onGeneral: () -> Unit,
+    onReader: () -> Unit,
+) {
+    val items = listOf(
+        SettingsItem(Icons.Default.Person, "Account", "Profile, cloud sync, sign out", {}),
+        SettingsItem(Icons.Default.Tune, "General", "Theme, accent, backend, notifications", onGeneral),
+        SettingsItem(Icons.Default.MenuBook, "Reader", "Reading mode, tap zones, volume keys", onReader),
+        SettingsItem(Icons.Default.LocalLibrary, "Library", "Grid, categories, auto-update", {}),
+        SettingsItem(Icons.Default.Refresh, "Trackers", "AniList, MAL, Kitsu and more", {}),
+        SettingsItem(Icons.Default.Storage, "System & backup", "Storage, sync, backup, servers", {}),
+    )
 
-        SettingsSection("Reader") {
-            SettingsRow("Reading direction", "Left to right")
-            SettingsRow("Page scaling", "Fit width")
-        }
-        SettingsSection("Library") {
-            SettingsRow("Auto-refresh", "On app open")
-        }
-        SettingsSection("Downloads") {
-            SettingsRow("Download location", "Internal storage")
-            SettingsRow("Download format", "CBZ")
-        }
-        SettingsSection("Security") {
-            SettingsRow("Biometric lock", "Off")
-        }
-        SettingsSection("About") {
-            SettingsRow("Version", "1.0.0")
-            SettingsRow("Sources", "Loaded from bundled scripts")
-        }
-    }
-}
-
-@Composable
-private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-        content()
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-        Spacer(Modifier.height(8.dp))
-    }
-}
-
-@Composable
-private fun SettingsRow(label: String, value: String? = null) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MangaDlColors.Background)
     ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge)
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, top = 16.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (value != null) {
-                Text(value, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MangaDlColors.TextPrimary)
             }
-            Icon(Icons.Default.ChevronRight, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = "Settings".uppercase(),
+                style = AntonStyleSub,
+                color = MangaDlColors.TextPrimary,
+            )
         }
+
+        LazyColumn(
+            Modifier
+                .weight(1f)
+                .padding(horizontal = 20.dp),
+        ) {
+            items(items.size) { i ->
+                val item = items[i]
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 68.dp)
+                        .clickable(onClick = item.onClick)
+                        .border(
+                            width = 0.dp,
+                            color = Color.Transparent,
+                        ),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MangaDlColors.CardBg),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(item.icon, contentDescription = null, tint = MangaDlColors.TextPrimary, modifier = Modifier.size(20.dp))
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(item.label, color = MangaDlColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text(item.desc, color = MangaDlColors.TextSecondary, fontSize = 12.sp)
+                    }
+                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0x80FFFFFF), modifier = Modifier.size(18.dp))
+                }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x0FFFFFFF)))
+            }
+        }
+
+        Text(
+            text = "manga-dl 1.0.0 · Android",
+            color = Color(0x80FFFFFF),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(20.dp),
+        )
     }
 }

@@ -87,6 +87,7 @@ dependencies {
     implementation(libs.okhttp.logging)
 
     implementation(libs.coil.compose)
+    implementation(libs.androidx.ui.text.google.fonts)
 
     implementation(libs.quickjs.android)
 
