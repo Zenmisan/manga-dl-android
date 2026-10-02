@@ -1,18 +1,33 @@
 *.iml
 .gradle/
-/local.properties
+local.properties
 /.idea/
 .DS_Store
 /build/
 /captures
-.externalNativeBuild
-.cxx
-local.properties
+.externalNativeBuild/
+.cxx/
 app/build/
 *.apk
 *.aab
 *.keystore
 !debug.keystore
+
+# Android generated
+generated/
+*.hprof
+
+# Kotlin
+.kotlin/
+
+# Secrets / Firebase
+google-services.json
+**/google-services.json
+*.jks
+*.p12
+*.pfx
+
+# Project-specific
 .agents/
 .claude/
 CLAUDE.md
