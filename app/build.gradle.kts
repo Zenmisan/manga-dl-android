@@ -101,5 +101,11 @@ dependencies {
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.crashlytics)
 
+    val supabaseBom = platform(libs.supabase.bom)
+    implementation(supabaseBom)
+    implementation(libs.supabase.auth)
+    implementation(libs.supabase.postgrest)
+    implementation(libs.ktor.client.okhttp)
+
     debugImplementation(libs.androidx.ui.tooling)
 }

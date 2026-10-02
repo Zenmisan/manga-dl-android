@@ -36,14 +36,18 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onGeneral: () -> Unit,
     onReader: () -> Unit,
+    onAccount: () -> Unit = {},
+    onLibrary: () -> Unit = {},
+    onTrackers: () -> Unit = {},
+    onSystem: () -> Unit = {},
 ) {
     val items = listOf(
-        SettingsItem(Icons.Default.Person, "Account", "Profile, cloud sync, sign out", {}),
+        SettingsItem(Icons.Default.Person, "Account", "Profile, cloud sync, sign out", onAccount),
         SettingsItem(Icons.Default.Tune, "General", "Theme, accent, backend, notifications", onGeneral),
         SettingsItem(Icons.Default.MenuBook, "Reader", "Reading mode, tap zones, volume keys", onReader),
-        SettingsItem(Icons.Default.LocalLibrary, "Library", "Grid, categories, auto-update", {}),
-        SettingsItem(Icons.Default.Refresh, "Trackers", "AniList, MAL, Kitsu and more", {}),
-        SettingsItem(Icons.Default.Storage, "System & backup", "Storage, sync, backup, servers", {}),
+        SettingsItem(Icons.Default.LocalLibrary, "Library", "Grid, categories, auto-update", onLibrary),
+        SettingsItem(Icons.Default.Refresh, "Trackers", "AniList, MAL, Kitsu and more", onTrackers),
+        SettingsItem(Icons.Default.Storage, "System & backup", "Storage, sync, backup, servers", onSystem),
     )
 
     Column(

@@ -78,7 +78,7 @@ private fun SourceRow(src: ExtensionMeta) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        if (src.isNsfw) {
+        if (src.nsfw) {
             SuggestionChip(onClick = {}, label = { Text("18+") })
         }
     }

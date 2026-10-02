@@ -29,6 +29,11 @@ fun MoreScreen(
     onDownloads: () -> Unit,
     onSettings: () -> Unit,
     onHistory: () -> Unit,
+    onStatistics: () -> Unit = {},
+    onHelp: () -> Unit = {},
+    onProfile: () -> Unit = {},
+    onNotifications: () -> Unit = {},
+    onSignIn: () -> Unit = {},
 ) {
     var incognito by remember { mutableStateOf(false) }
     var downloadedOnly by remember { mutableStateOf(false) }
@@ -49,7 +54,7 @@ fun MoreScreen(
                     .clip(RoundedCornerShape(16.dp))
                     .background(MangaDlColors.CardBg)
                     .border(1.dp, MangaDlColors.CardBorder, RoundedCornerShape(16.dp))
-                    .clickable {}
+                    .clickable(onClick = onProfile)
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -112,8 +117,9 @@ fun MoreScreen(
                 Spacer(Modifier.height(8.dp))
                 LinkRow(icon = Icons.Default.Download, label = "Downloads", onClick = onDownloads)
                 LinkRow(icon = Icons.Default.History, label = "History", onClick = onHistory)
-                LinkRow(icon = Icons.Default.PieChart, label = "Statistics", onClick = {})
-                LinkRow(icon = Icons.Default.Help, label = "Help center", onClick = {})
+                LinkRow(icon = Icons.Default.Notifications, label = "Notifications", onClick = onNotifications)
+                LinkRow(icon = Icons.Default.PieChart, label = "Statistics", onClick = onStatistics)
+                LinkRow(icon = Icons.Default.Help, label = "Help center", onClick = onHelp)
                 LinkRow(icon = Icons.Default.Settings, label = "Settings", onClick = onSettings)
             }
         }

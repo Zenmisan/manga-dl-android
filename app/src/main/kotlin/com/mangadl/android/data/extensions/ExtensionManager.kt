@@ -247,4 +247,5 @@ data class ExtensionMeta(
     val lang: String get() = meta["lang"] ?: "en"
     val version: String get() = meta["version"] ?: "1.0.0"
     val nsfw: Boolean get() = meta["nsfw"] == "true"
+    val iconUrl: String get() = meta["icon"] ?: ""
 }

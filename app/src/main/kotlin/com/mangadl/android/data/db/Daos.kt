@@ -46,6 +46,9 @@ interface ProgressDao {
 
     @Query("SELECT COUNT(*) FROM reading_progress WHERE mangaId = :mangaId AND completed = 1")
     suspend fun countCompleted(mangaId: String): Int
+
+    @Query("DELETE FROM reading_progress")
+    suspend fun deleteAll()
 }
 
 @Dao

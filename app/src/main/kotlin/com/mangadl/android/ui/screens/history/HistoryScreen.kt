@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.mangadl.android.MangaDlApp
 import com.mangadl.android.data.model.LibraryManga
+import com.mangadl.android.data.model.ReadingProgress
 import com.mangadl.android.ui.components.PillButton
 import com.mangadl.android.ui.theme.AntonStyle
 import com.mangadl.android.ui.theme.MangaDlColors
@@ -36,26 +37,33 @@ import java.util.*
 private enum class HistoryFilter { Today, ThisWeek, Month, All }
 
 @Composable
-fun HistoryScreen(onMangaClick: (provider: String, mangaId: String) -> Unit) {
+fun HistoryScreen(
+    onMangaClick: (provider: String, mangaId: String) -> Unit,
+    onResumeReading: (provider: String, mangaId: String, chapterId: String) -> Unit = { p, m, _ -> onMangaClick(p, m) },
+) {
     val db = MangaDlApp.instance.database
+
+    val allProgress by db.progressDao().getRecent(500)
+        .catch { emit(emptyList()) }
+        .collectAsState(initial = emptyList())
+
     val library by db.libraryDao().getAll()
         .catch { emit(emptyList()) }
         .collectAsState(initial = emptyList())
 
+    val libraryMap = remember(library) { library.associateBy { it.id } }
+
     var filter by remember { mutableStateOf(HistoryFilter.ThisWeek) }
 
-    val history = remember(library, filter) {
+    val history = remember(allProgress, filter) {
         val now = System.currentTimeMillis()
-        val filtered = library
-            .filter { it.lastReadAt != null }
-            .sortedByDescending { it.lastReadAt }
-
-        when (filter) {
-            HistoryFilter.Today -> filtered.filter { (now - (it.lastReadAt ?: 0L)) < 86_400_000L }
-            HistoryFilter.ThisWeek -> filtered.filter { (now - (it.lastReadAt ?: 0L)) < 7 * 86_400_000L }
-            HistoryFilter.Month -> filtered.filter { (now - (it.lastReadAt ?: 0L)) < 30 * 86_400_000L }
-            HistoryFilter.All -> filtered
+        val filtered = when (filter) {
+            HistoryFilter.Today -> allProgress.filter { (now - it.readAt) < 86_400_000L }
+            HistoryFilter.ThisWeek -> allProgress.filter { (now - it.readAt) < 7 * 86_400_000L }
+            HistoryFilter.Month -> allProgress.filter { (now - it.readAt) < 30 * 86_400_000L }
+            HistoryFilter.All -> allProgress
         }
+        filtered.sortedByDescending { it.readAt }
     }
 
     Column(
@@ -106,8 +114,20 @@ fun HistoryScreen(onMangaClick: (provider: String, mangaId: String) -> Unit) {
             }
         } else {
             LazyColumn(Modifier.fillMaxSize()) {
-                items(history, key = { it.id }) { manga ->
-                    HistoryRow(manga = manga, onClick = { onMangaClick(manga.provider, manga.id) })
+                items(history, key = { "${it.mangaId}:${it.chapterId}:${it.readAt}" }) { progress ->
+                    val manga = libraryMap[progress.mangaId]
+                    HistoryRow(
+                        progress = progress,
+                        manga = manga,
+                        onClick = {
+                            val cleanMangaId = progress.mangaId.removePrefix("${progress.provider}:")
+                            onMangaClick(progress.provider, cleanMangaId)
+                        },
+                        onResume = {
+                            val cleanMangaId = progress.mangaId.removePrefix("${progress.provider}:")
+                            onResumeReading(progress.provider, cleanMangaId, progress.chapterId)
+                        },
+                    )
                 }
             }
         }
@@ -115,7 +135,12 @@ fun HistoryScreen(onMangaClick: (provider: String, mangaId: String) -> Unit) {
 }
 
 @Composable
-private fun HistoryRow(manga: LibraryManga, onClick: () -> Unit) {
+private fun HistoryRow(
+    progress: ReadingProgress,
+    manga: LibraryManga?,
+    onClick: () -> Unit,
+    onResume: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -130,10 +155,11 @@ private fun HistoryRow(manga: LibraryManga, onClick: () -> Unit) {
                 .clip(RoundedCornerShape(6.dp))
                 .background(MangaDlColors.CoverPlaceholder),
         ) {
-            if (manga.coverUrl.isNotBlank()) {
+            val coverUrl = manga?.coverUrl ?: ""
+            if (coverUrl.isNotBlank()) {
                 AsyncImage(
-                    model = manga.coverUrl,
-                    contentDescription = manga.title,
+                    model = coverUrl,
+                    contentDescription = manga?.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -142,18 +168,18 @@ private fun HistoryRow(manga: LibraryManga, onClick: () -> Unit) {
 
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                text = manga.title,
+                text = manga?.title ?: progress.mangaId,
                 color = MangaDlColors.TextPrimary,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = if (manga.lastReadChapterId != null) "Last read chapter" else "Not started",
+                text = "Ch. ${progress.chapterId} · page ${progress.page} of ${progress.totalPages}",
                 color = MangaDlColors.TextSecondary,
                 fontSize = 13.sp,
             )
             Text(
-                text = manga.lastReadAt?.let { formatRelativeTime(it) } ?: "",
+                text = formatRelativeTime(progress.readAt),
                 color = Color(0x8CFFFFFF),
                 fontSize = 12.sp,
             )
@@ -164,7 +190,7 @@ private fun HistoryRow(manga: LibraryManga, onClick: () -> Unit) {
                 .size(44.dp)
                 .clip(RoundedCornerShape(22.dp))
                 .background(Color(0x29DC2626))
-                .clickable(onClick = onClick),
+                .clickable(onClick = onResume),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

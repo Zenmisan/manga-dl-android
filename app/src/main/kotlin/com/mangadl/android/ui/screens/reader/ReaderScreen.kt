@@ -6,6 +6,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -22,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -96,6 +99,24 @@ fun ReaderScreen(
                 val currentPage = pagerState.currentPage
                 val progress = if (pages.isNotEmpty()) (currentPage + 1).toFloat() / pages.size else 0f
 
+                // Zoom state — reset on page change
+                var scale by remember { mutableFloatStateOf(1f) }
+                var offsetX by remember { mutableFloatStateOf(0f) }
+                var offsetY by remember { mutableFloatStateOf(0f) }
+                val transformableState = rememberTransformableState { zoomChange, panChange, _ ->
+                    scale = (scale * zoomChange).coerceIn(1f, 5f)
+                    val maxX = (scale - 1f) * 300f
+                    val maxY = (scale - 1f) * 400f
+                    offsetX = (offsetX + panChange.x).coerceIn(-maxX, maxX)
+                    offsetY = (offsetY + panChange.y).coerceIn(-maxY, maxY)
+                }
+
+                LaunchedEffect(pagerState.currentPage) {
+                    scale = 1f
+                    offsetX = 0f
+                    offsetY = 0f
+                }
+
                 // Save progress whenever the page changes
                 LaunchedEffect(currentPage, pages.size) {
                     if (pages.isNotEmpty()) {
@@ -119,16 +140,29 @@ fun ReaderScreen(
 
                 HorizontalPager(
                     state = pagerState,
+                    userScrollEnabled = scale <= 1f,
                     modifier = Modifier
                         .fillMaxSize()
                         .clickable { showUi = !showUi },
                 ) { pageIndex ->
-                    AsyncImage(
-                        model = pages[pageIndex],
-                        contentDescription = "Page ${pageIndex + 1}",
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .transformable(state = transformableState, lockRotationOnZoomPan = true)
+                            .graphicsLayer(
+                                scaleX = scale,
+                                scaleY = scale,
+                                translationX = offsetX,
+                                translationY = offsetY,
+                            ),
+                    ) {
+                        AsyncImage(
+                            model = pages[pageIndex],
+                            contentDescription = "Page ${pageIndex + 1}",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
 
                 AnimatedVisibility(

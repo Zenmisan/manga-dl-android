@@ -1,8 +1,10 @@
 package com.mangadl.android.ui.screens.detail
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +15,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,7 +24,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -28,13 +35,16 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.mangadl.android.MangaDlApp
 import com.mangadl.android.data.model.Chapter
+import com.mangadl.android.data.model.DownloadEntry
 import com.mangadl.android.data.model.LibraryManga
 import com.mangadl.android.data.model.MangaDetail
+import com.mangadl.android.data.model.ReadingProgress
 import com.mangadl.android.ui.theme.AntonStyle
 import com.mangadl.android.ui.theme.MangaDlColors
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MangaDetailScreen(
     provider: String,
@@ -45,11 +55,14 @@ fun MangaDetailScreen(
     val extensionManager = MangaDlApp.instance.extensionManager
     val db = MangaDlApp.instance.database
     val scope = rememberCoroutineScope()
+    val clipboardManager = LocalClipboardManager.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     var detail by remember { mutableStateOf<MangaDetail?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var descExpanded by remember { mutableStateOf(false) }
+    var contextChapter by remember { mutableStateOf<Chapter?>(null) }
 
     val inLibrary by db.libraryDao().isInLibrary("$provider:$mangaId")
         .catch { emit(false) }
@@ -97,7 +110,6 @@ fun MangaDetailScreen(
             }
             detail != null -> {
                 val d = detail!!
-                val firstChapter = d.chapters.lastOrNull()
                 val lastChapter = d.chapters.firstOrNull()
 
                 LazyColumn(Modifier.fillMaxSize()) {
@@ -338,13 +350,160 @@ fun MangaDetailScreen(
                         ChapterRow(
                             chapter = chapter,
                             onClick = { onReadChapter(provider, mangaId, chapter.id) },
+                            onLongClick = { contextChapter = chapter },
                         )
                     }
 
                     item { Spacer(Modifier.height(32.dp)) }
                 }
+
+                // Chapter long-press action sheet
+                if (contextChapter != null) {
+                    val chapter = contextChapter!!
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0x80000000))
+                            .clickable { contextChapter = null },
+                        contentAlignment = Alignment.BottomCenter,
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                                .background(Color(0xFF141414))
+                                .padding(bottom = 24.dp)
+                                .clickable(enabled = false) {}
+                        ) {
+                            Box(
+                                Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(top = 12.dp, bottom = 16.dp)
+                                    .size(36.dp, 4.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(Color(0x33FFFFFF))
+                            )
+                            Text(
+                                chapter.title.ifBlank { "Chapter ${chapter.number}" },
+                                color = MangaDlColors.TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            DetailActionSheetRow(
+                                icon = Icons.Default.Visibility,
+                                label = "Mark as Read",
+                                tint = Color(0xFF22c55e),
+                            ) {
+                                scope.launch {
+                                    db.progressDao().upsert(
+                                        ReadingProgress(
+                                            mangaId = "$provider:$mangaId",
+                                            chapterId = chapter.id,
+                                            provider = provider,
+                                            page = 1,
+                                            totalPages = 1,
+                                            readAt = System.currentTimeMillis(),
+                                            completed = true,
+                                        )
+                                    )
+                                }
+                                contextChapter = null
+                            }
+                            DetailActionSheetRow(
+                                icon = Icons.Default.CheckCircle,
+                                label = "Mark Previous Read",
+                                tint = Color(0xFF3b82f6),
+                            ) {
+                                scope.launch {
+                                    val chaptersToMark = d.chapters.filter { it.number <= chapter.number }
+                                    val now = System.currentTimeMillis()
+                                    chaptersToMark.forEach { ch ->
+                                        db.progressDao().upsert(
+                                            ReadingProgress(
+                                                mangaId = "$provider:$mangaId",
+                                                chapterId = ch.id,
+                                                provider = provider,
+                                                page = 1,
+                                                totalPages = 1,
+                                                readAt = now,
+                                                completed = true,
+                                            )
+                                        )
+                                    }
+                                }
+                                contextChapter = null
+                            }
+                            DetailActionSheetRow(
+                                icon = Icons.Default.Download,
+                                label = "Download Chapter",
+                                tint = MangaDlColors.Primary,
+                            ) {
+                                scope.launch {
+                                    db.downloadDao().upsert(
+                                        DownloadEntry(
+                                            id = "$provider:${chapter.id}",
+                                            mangaId = "$provider:$mangaId",
+                                            mangaTitle = d.title,
+                                            chapterId = chapter.id,
+                                            chapterTitle = chapter.title.ifBlank { "Chapter ${chapter.number}" },
+                                            provider = provider,
+                                        )
+                                    )
+                                }
+                                contextChapter = null
+                            }
+                            DetailActionSheetRow(
+                                icon = Icons.Default.Bookmark,
+                                label = "Bookmark",
+                                tint = Color(0xFFf59e0b),
+                            ) {
+                                scope.launch { snackbarHostState.showSnackbar("Bookmarks coming soon") }
+                                contextChapter = null
+                            }
+                            DetailActionSheetRow(
+                                icon = Icons.Default.ContentCopy,
+                                label = "Copy Link",
+                                tint = Color(0xFF9ca3af),
+                            ) {
+                                clipboardManager.setText(AnnotatedString("https://mangadl.app/manga/$provider/$mangaId/${chapter.id}"))
+                                contextChapter = null
+                            }
+                            DetailActionSheetRow(
+                                icon = Icons.Default.VisibilityOff,
+                                label = "Hide Chapter",
+                                tint = Color(0xFFef4444),
+                            ) {
+                                scope.launch { snackbarHostState.showSnackbar("Chapter hiding coming soon") }
+                                contextChapter = null
+                            }
+                        }
+                    }
+                }
             }
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
+    }
+}
+
+@Composable
+private fun DetailActionSheetRow(icon: ImageVector, label: String, tint: Color, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
+        Text(label, color = tint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -381,12 +540,13 @@ private fun ActionButton(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChapterRow(chapter: Chapter, onClick: () -> Unit) {
+private fun ChapterRow(chapter: Chapter, onClick: () -> Unit, onLongClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
