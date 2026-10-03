@@ -35,7 +35,9 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.mangadl.android.MangaDlApp
 import com.mangadl.android.data.prefs.dataStore
+import androidx.compose.ui.tooling.preview.Preview
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -351,4 +353,50 @@ private fun wrapHtml(body: String, theme: NovelTheme, fontSize: Int, lineHeight:
         img { max-width: 100%; }
         </style></head><body>$body</body></html>
     """.trimIndent()
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF13111A)
+@Composable
+private fun NovelReaderScreenPreview() {
+    MangaDlTheme {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color(0xFF13111A))
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    IconButton(onClick = {}) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+                    }
+                    Text(
+                        "The Wandering Inn · Ch. 1",
+                        color = Color(0xCCFFFFFF),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Column(Modifier.padding(horizontal = 20.dp)) {
+                    repeat(6) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(14.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0x1AFFFFFF))
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+    }
 }

@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
@@ -29,6 +31,7 @@ import com.mangadl.android.ui.screens.auth.SignInScreen
 import com.mangadl.android.ui.screens.auth.WelcomeScreen
 import com.mangadl.android.ui.screens.browse.BrowseScreen
 import com.mangadl.android.ui.screens.browse.SourceBrowseScreen
+import com.mangadl.android.ui.screens.search.SearchScreen
 import com.mangadl.android.ui.screens.detail.MangaDetailScreen
 import com.mangadl.android.ui.screens.downloads.DownloadsScreen
 import com.mangadl.android.ui.screens.help.HelpScreen
@@ -51,6 +54,7 @@ import com.mangadl.android.ui.screens.settings.SettingsSystemScreen
 import com.mangadl.android.ui.screens.settings.SettingsTrackersScreen
 import com.mangadl.android.ui.screens.statistics.StatisticsScreen
 import com.mangadl.android.ui.screens.tracking.TrackingSheet
+import com.mangadl.android.ui.components.rememberHapticClick
 import com.mangadl.android.ui.theme.MangaDlColors
 
 private data class NavTab(val route: String, val label: String, val icon: ImageVector)
@@ -92,6 +96,7 @@ fun MangaDlNavHost() {
                         onForgotPassword = { navController.navigate("forgot_password") },
                         onCreateAccount = { navController.navigate("create_account") },
                         onBack = { navController.popBackStack() },
+                        onGuest = { navController.navigate("library") { popUpTo("welcome") { inclusive = true } } },
                     )
                 }
                 composable("create_account") {
@@ -144,6 +149,15 @@ fun MangaDlNavHost() {
                         onSourceClick = { provider ->
                             navController.navigate("source/$provider")
                         },
+                        onSearchClick = { navController.navigate("search") },
+                    )
+                }
+                composable("search") {
+                    SearchScreen(
+                        onMangaClick = { provider, mangaId ->
+                            navController.navigate("detail/$provider/$mangaId")
+                        },
+                        onBack = { navController.popBackStack() },
                     )
                 }
                 composable("more") {
@@ -326,45 +340,59 @@ fun MangaDlNavHost() {
 
 @Composable
 private fun MangaDlBottomNav(currentRoute: String, onTabClick: (String) -> Unit) {
-    Row(
+    val haptic = rememberHapticClick()
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(72.dp)
-            .background(MangaDlColors.NavBg)
-            .border(
-                width = 1.dp,
-                color = Color(0x1AFFFFFF),
-                shape = androidx.compose.ui.graphics.RectangleShape,
-            ),
-        verticalAlignment = Alignment.CenterVertically,
+            .background(MangaDlColors.NavBg),
     ) {
-        navTabs.forEach { tab ->
-            val selected = currentRoute == tab.route
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clickable { onTabClick(tab.route) },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Box(
-                    modifier = Modifier.size(width = 56.dp, height = 30.dp),
-                    contentAlignment = Alignment.Center,
+        // Top border line
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(Color(0x1AFFFFFF))
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            navTabs.forEach { tab ->
+                val selected = currentRoute == tab.route
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { haptic(); onTabClick(tab.route) }
+                        .padding(vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
-                    Icon(
-                        imageVector = tab.icon,
-                        contentDescription = tab.label,
-                        tint = if (selected) MangaDlColors.Primary else MangaDlColors.TextSecondary,
-                        modifier = Modifier.size(22.dp),
+                    Box(
+                        modifier = Modifier
+                            .size(width = 52.dp, height = 32.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                if (selected) MangaDlColors.Primary.copy(alpha = 0.15f)
+                                else Color.Transparent
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = tab.icon,
+                            contentDescription = tab.label,
+                            tint = if (selected) MangaDlColors.Primary else MangaDlColors.TextSecondary,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                    Text(
+                        text = tab.label,
+                        color = if (selected) MangaDlColors.Primary else MangaDlColors.TextSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                     )
                 }
-                Text(
-                    text = tab.label,
-                    color = if (selected) MangaDlColors.Primary else MangaDlColors.TextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
             }
         }
     }

@@ -23,14 +23,19 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.mangadl.android.MangaDlApp
 import com.mangadl.android.data.model.LibraryManga
 import com.mangadl.android.data.model.ReadingProgress
+import androidx.compose.ui.tooling.preview.Preview
+import com.mangadl.android.ui.components.ConfirmDialog
+import com.mangadl.android.ui.components.EmptyState
 import com.mangadl.android.ui.components.PillButton
 import com.mangadl.android.ui.theme.AntonStyle
 import com.mangadl.android.ui.theme.MangaDlColors
-import kotlinx.coroutines.flow.catch
+import com.mangadl.android.ui.theme.MangaDlTheme
+import com.mangadl.android.ui.viewmodels.HistoryViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -38,22 +43,17 @@ private enum class HistoryFilter { Today, ThisWeek, Month, All }
 
 @Composable
 fun HistoryScreen(
+    viewModel: HistoryViewModel = viewModel(),
     onMangaClick: (provider: String, mangaId: String) -> Unit,
     onResumeReading: (provider: String, mangaId: String, chapterId: String) -> Unit = { p, m, _ -> onMangaClick(p, m) },
 ) {
-    val db = MangaDlApp.instance.database
-
-    val allProgress by db.progressDao().getRecent(500)
-        .catch { emit(emptyList()) }
-        .collectAsState(initial = emptyList())
-
-    val library by db.libraryDao().getAll()
-        .catch { emit(emptyList()) }
-        .collectAsState(initial = emptyList())
+    val allProgress by viewModel.allProgress.collectAsStateWithLifecycle()
+    val library by viewModel.library.collectAsStateWithLifecycle()
 
     val libraryMap = remember(library) { library.associateBy { it.id } }
 
     var filter by remember { mutableStateOf(HistoryFilter.ThisWeek) }
+    var showClearConfirm by remember { mutableStateOf(false) }
 
     val history = remember(allProgress, filter) {
         val now = System.currentTimeMillis()
@@ -74,7 +74,8 @@ fun HistoryScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 12.dp, top = 20.dp, bottom = 8.dp),
+                .statusBarsPadding()
+                .padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -83,7 +84,7 @@ fun HistoryScreen(
                 IconButton(onClick = {}) {
                     Icon(Icons.Default.Search, contentDescription = "Search", tint = MangaDlColors.TextPrimary)
                 }
-                IconButton(onClick = {}) {
+                IconButton(onClick = { showClearConfirm = true }) {
                     Icon(Icons.Default.Delete, contentDescription = "Clear", tint = MangaDlColors.TextPrimary)
                 }
             }
@@ -104,14 +105,26 @@ fun HistoryScreen(
             }
         }
 
+        if (showClearConfirm) {
+            ConfirmDialog(
+                title = "Clear History",
+                body = "This will remove all reading history. This cannot be undone.",
+                confirmLabel = "Clear",
+                onConfirm = {
+                    showClearConfirm = false
+                    // TODO: wire actual DB clear when progressDao supports deleteAll
+                },
+                onDismiss = { showClearConfirm = false },
+            )
+        }
+
         if (history.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("No reading history", color = MangaDlColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(6.dp))
-                    Text("Start reading to build history", color = MangaDlColors.TextSecondary, fontSize = 13.sp)
-                }
-            }
+            EmptyState(
+                icon = Icons.Default.Search,
+                title = "No reading history",
+                subtitle = "Start reading to build history",
+                modifier = Modifier.fillMaxSize(),
+            )
         } else {
             LazyColumn(Modifier.fillMaxSize()) {
                 items(history, key = { "${it.mangaId}:${it.chapterId}:${it.readAt}" }) { progress ->
@@ -211,5 +224,58 @@ private fun formatRelativeTime(millis: Long): String {
         diff < 86_400_000L -> "${diff / 3_600_000}h ago"
         diff < 7 * 86_400_000L -> "${diff / 86_400_000}d ago"
         else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(millis))
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun HistoryScreenPreview() {
+    MangaDlTheme {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(MangaDlColors.Background)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 20.dp, end = 12.dp, top = 32.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("HISTORY", style = AntonStyle, color = MangaDlColors.TextPrimary)
+                Row {
+                    Icon(Icons.Default.Search, contentDescription = null, tint = MangaDlColors.TextPrimary)
+                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = MangaDlColors.TextPrimary)
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(width = 48.dp, height = 72.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(MangaDlColors.CoverPlaceholder),
+                )
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Hollow Crown", color = MangaDlColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text("Ch. 48 · page 14 of 38", color = MangaDlColors.TextSecondary, fontSize = 13.sp)
+                    Text("2h ago", color = Color(0x8CFFFFFF), fontSize = 12.sp)
+                }
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(Color(0x29DC2626)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = MangaDlColors.SectionRed, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
     }
 }

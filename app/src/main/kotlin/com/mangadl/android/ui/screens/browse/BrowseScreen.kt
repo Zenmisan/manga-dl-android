@@ -8,9 +8,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
@@ -21,28 +18,36 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mangadl.android.MangaDlApp
 import com.mangadl.android.data.extensions.ExtensionMeta
-import com.mangadl.android.data.model.MangaSearchResult
 import com.mangadl.android.ui.components.PillButton
 import com.mangadl.android.ui.components.SectionLabel
 import com.mangadl.android.ui.theme.AntonStyle
 import com.mangadl.android.ui.theme.MangaDlColors
-import kotlinx.coroutines.launch
+import com.mangadl.android.ui.theme.MangaDlTheme
 
-private enum class BrowseTab { Sources, Extensions, Migrate }
+private enum class BrowseTab(val label: String) {
+    Sources("Sources"), Extensions("Extensions"), Migrate("Migrate")
+}
+
+// Deterministic icon background per source name
+private fun sourceIconColor(name: String): Color {
+    val palette = listOf(
+        Color(0xFF2D1716), Color(0xFF1A2433), Color(0xFF1A2D1A),
+        Color(0xFF2D2016), Color(0xFF1D1A2D), Color(0xFF2D1A2D),
+    )
+    return palette[name.hashCode().and(0x7FFFFFFF) % palette.size]
+}
 
 @Composable
 fun BrowseScreen(
-    onMangaClick: (provider: String, mangaId: String) -> Unit,
+    onMangaClick: (provider: String, mangaId: String) -> Unit = { _, _ -> },
     onSourceClick: (provider: String) -> Unit = {},
+    onSearchClick: () -> Unit = {},
 ) {
     var activeTab by remember { mutableStateOf(BrowseTab.Sources) }
 
@@ -51,62 +56,62 @@ fun BrowseScreen(
             .fillMaxSize()
             .background(MangaDlColors.Background)
     ) {
-        Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp)) {
+        Column(
+            Modifier
+                .statusBarsPadding()
+                .padding(start = 20.dp, end = 20.dp, top = 12.dp)
+        ) {
             Text(
-                text = "Browse".uppercase(),
+                text = "BROWSE",
                 style = AntonStyle,
                 color = MangaDlColors.TextPrimary,
             )
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
+
+            // Tappable search bar — navigates to global search
             Row(
-                Modifier
+                modifier = Modifier
                     .fillMaxWidth()
-                    .border(
-                        1.dp,
-                        Color(0x1AFFFFFF),
-                        RoundedCornerShape(1000.dp),
-                    ),
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF111111))
+                    .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(12.dp))
+                    .clickable(onClick = onSearchClick)
+                    .padding(horizontal = 14.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Spacer(Modifier.width(14.dp))
                 Icon(
                     Icons.Default.Search,
                     contentDescription = null,
                     tint = MangaDlColors.TextSecondary,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(18.dp),
                 )
-                Spacer(Modifier.width(10.dp))
                 Text(
                     text = "Search all sources",
                     color = MangaDlColors.TextSecondary,
                     fontSize = 15.sp,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(vertical = 14.dp),
                 )
             }
-            Spacer(Modifier.height(14.dp))
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .border(width = 0.dp, color = Color.Transparent)
-                    .padding(bottom = 0.dp),
-            ) {
+
+            Spacer(Modifier.height(18.dp))
+
+            // Underline tabs
+            Row(Modifier.fillMaxWidth()) {
                 BrowseTab.entries.forEach { tab ->
                     val selected = activeTab == tab
                     Box(
                         modifier = Modifier
-                            .height(44.dp)
+                            .height(40.dp)
                             .clickable { activeTab = tab }
-                            .padding(end = 24.dp),
+                            .padding(end = 28.dp),
                         contentAlignment = Alignment.BottomStart,
                     ) {
                         Text(
-                            text = tab.name,
+                            text = tab.label,
                             color = if (selected) MangaDlColors.TextPrimary else MangaDlColors.TextSecondary,
                             fontSize = 14.sp,
-                            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
-                            modifier = Modifier.padding(bottom = 2.dp),
+                            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
+                            modifier = Modifier.padding(bottom = 8.dp),
                         )
                         if (selected) {
                             Box(
@@ -124,12 +129,12 @@ fun BrowseScreen(
                 Modifier
                     .fillMaxWidth()
                     .height(1.dp)
-                    .background(Color(0x1AFFFFFF))
+                    .background(Color(0x14FFFFFF))
             )
         }
 
         when (activeTab) {
-            BrowseTab.Sources -> SourcesTab(onMangaClick = onMangaClick, onSourceClick = onSourceClick)
+            BrowseTab.Sources -> SourcesTab(onSourceClick = onSourceClick)
             BrowseTab.Extensions -> ExtensionsTab()
             BrowseTab.Migrate -> MigrateTab()
         }
@@ -137,20 +142,20 @@ fun BrowseScreen(
 }
 
 @Composable
-private fun SourcesTab(
-    onMangaClick: (String, String) -> Unit,
-    onSourceClick: (String) -> Unit,
-) {
+private fun SourcesTab(onSourceClick: (String) -> Unit) {
     val sources = remember { MangaDlApp.instance.extensionManager.listExtensions() }
     val lastUsed = sources.firstOrNull()
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 24.dp),
+    ) {
         if (lastUsed != null) {
             item {
                 SectionLabel(
                     text = "Last used",
                     color = MangaDlColors.SectionRed,
-                    modifier = Modifier.padding(start = 20.dp, top = 10.dp, bottom = 6.dp),
+                    modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 4.dp),
                 )
             }
             item { SourceRow(src = lastUsed, onLatestClick = { onSourceClick(lastUsed.id) }) }
@@ -159,8 +164,8 @@ private fun SourcesTab(
         item {
             SectionLabel(
                 text = "All sources",
-                color = MangaDlColors.SectionDim,
-                modifier = Modifier.padding(start = 20.dp, top = 18.dp, bottom = 6.dp),
+                color = MangaDlColors.TextSecondary,
+                modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 4.dp),
             )
         }
 
@@ -176,22 +181,22 @@ private fun SourceRow(src: ExtensionMeta, onLatestClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onLatestClick)
-            .padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = 20.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF2D1716)),
+                .size(42.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(sourceIconColor(src.name)),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 text = src.name.first().uppercaseChar().toString(),
                 color = MangaDlColors.TextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.ExtraBold,
             )
         }
         Column(Modifier.weight(1f)) {
@@ -199,17 +204,23 @@ private fun SourceRow(src: ExtensionMeta, onLatestClick: () -> Unit) {
                 text = src.name,
                 color = MangaDlColors.TextPrimary,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "${src.lang.uppercase()} · v${src.version}",
+                text = buildString {
+                    append(src.lang.uppercase())
+                    append(" · ")
+                    append(if (src.version == "0.0.0" || src.version.isBlank()) "Built-in" else "v${src.version}")
+                },
                 color = MangaDlColors.TextSecondary,
                 fontSize = 12.sp,
             )
         }
+
+        // Latest button
         Box(
             modifier = Modifier
-                .height(36.dp)
+                .height(34.dp)
                 .clip(RoundedCornerShape(999.dp))
                 .border(1.dp, Color(0x29FFFFFF), RoundedCornerShape(999.dp))
                 .clickable(onClick = onLatestClick)
@@ -223,9 +234,11 @@ private fun SourceRow(src: ExtensionMeta, onLatestClick: () -> Unit) {
                 fontWeight = FontWeight.Bold,
             )
         }
+
+        // Pin icon
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(40.dp)
                 .clickable {},
             contentAlignment = Alignment.Center,
         ) {
@@ -243,12 +256,15 @@ private fun SourceRow(src: ExtensionMeta, onLatestClick: () -> Unit) {
 private fun ExtensionsTab() {
     val sources = remember { MangaDlApp.instance.extensionManager.listExtensions() }
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 24.dp),
+    ) {
         item {
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
+                modifier = Modifier.padding(top = 14.dp, bottom = 10.dp),
             ) {
                 item { PillButton("English", active = true, onClick = {}) }
                 item { PillButton("All languages", active = false, onClick = {}) }
@@ -260,14 +276,14 @@ private fun ExtensionsTab() {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(start = 20.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                    .padding(start = 20.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 SectionLabel("Updates pending · ${sources.size}", color = MangaDlColors.SectionRed)
                 Box(
                     modifier = Modifier
-                        .height(36.dp)
+                        .height(34.dp)
                         .clip(RoundedCornerShape(999.dp))
                         .background(MangaDlColors.Primary)
                         .clickable {}
@@ -282,8 +298,8 @@ private fun ExtensionsTab() {
         item {
             SectionLabel(
                 "Installed",
-                color = MangaDlColors.SectionDim,
-                modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 6.dp),
+                color = MangaDlColors.TextSecondary,
+                modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 4.dp),
             )
         }
 
@@ -291,31 +307,31 @@ private fun ExtensionsTab() {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+                    .padding(start = 20.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF2D1716)),
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(sourceIconColor(src.name)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = src.name.first().uppercaseChar().toString(),
                         color = MangaDlColors.TextPrimary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.ExtraBold,
                     )
                 }
                 Column(Modifier.weight(1f)) {
-                    Text(src.name, color = MangaDlColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text(src.name, color = MangaDlColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     Text("${src.lang.uppercase()} · v${src.version}", color = MangaDlColors.TextSecondary, fontSize = 12.sp)
                 }
                 Box(
                     modifier = Modifier
-                        .height(36.dp)
+                        .height(34.dp)
                         .clip(RoundedCornerShape(999.dp))
                         .border(1.dp, MangaDlColors.Primary, RoundedCornerShape(999.dp))
                         .clickable {}
@@ -332,6 +348,27 @@ private fun ExtensionsTab() {
 @Composable
 private fun MigrateTab() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text("Migrate coming soon", color = MangaDlColors.TextSecondary, fontSize = 14.sp)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                "Migration",
+                color = MangaDlColors.TextPrimary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Move manga between sources",
+                color = MangaDlColors.TextSecondary,
+                fontSize = 13.sp,
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun BrowseScreenPreview() {
+    MangaDlTheme {
+        BrowseScreen()
     }
 }

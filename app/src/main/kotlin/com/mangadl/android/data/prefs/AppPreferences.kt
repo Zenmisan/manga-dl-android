@@ -41,6 +41,13 @@ object PrefKeys {
 
     // System
     val SYNC_WIFI_ONLY = booleanPreferencesKey("sync_wifi_only")
+
+    // Connection
+    val BACKEND_URL = stringPreferencesKey("backend_url")
+    val API_KEY = stringPreferencesKey("api_key")
+
+    // Appearance extras
+    val AMBILIGHT = booleanPreferencesKey("ambilight")
 }
 
 class AppPreferences(private val context: Context) {
@@ -65,6 +72,9 @@ class AppPreferences(private val context: Context) {
     val anilistConnected: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.ANILIST_CONNECTED] ?: false }
     val malConnected: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.MAL_CONNECTED] ?: false }
     val syncWifiOnly: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.SYNC_WIFI_ONLY] ?: true }
+    val backendUrl: Flow<String> = context.dataStore.data.map { it[PrefKeys.BACKEND_URL] ?: "" }
+    val apiKey: Flow<String> = context.dataStore.data.map { it[PrefKeys.API_KEY] ?: "" }
+    val ambilight: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.AMBILIGHT] ?: false }
 
     suspend fun set(key: Preferences.Key<String>, value: String) {
         context.dataStore.edit { it[key] = value }

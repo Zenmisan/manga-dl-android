@@ -22,7 +22,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mangadl.android.data.prefs.PrefKeys
 import com.mangadl.android.data.prefs.dataStore
+import androidx.compose.ui.tooling.preview.Preview
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -316,6 +318,31 @@ private fun TrackerCard(
                         Icon(Icons.Default.Add, contentDescription = "Increase", tint = MangaDlColors.TextPrimary, modifier = Modifier.size(16.dp))
                     }
                 }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun TrackingSheetPreview() {
+    MangaDlTheme {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(MangaDlColors.Background)
+        ) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp, 16.dp),
+            ) {
+                Text(
+                    "Tracking Preview",
+                    color = MangaDlColors.TextPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         }
     }

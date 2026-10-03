@@ -26,8 +26,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mangadl.android.ui.theme.AntonStyle
+import com.mangadl.android.ui.theme.AntonStyleSub
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
+import androidx.compose.ui.tooling.preview.Preview
 
 private data class FaqItem(val question: String, val answer: String)
 
@@ -84,7 +86,7 @@ fun HelpScreen(onBack: () -> Unit) {
             }
             Text(
                 "HELP",
-                style = AntonStyle,
+                style = AntonStyleSub,
                 color = MangaDlColors.TextPrimary,
                 modifier = Modifier.weight(1f),
             )
@@ -241,6 +243,41 @@ private fun FaqCard(faq: FaqItem, isExpanded: Boolean, onToggle: () -> Unit) {
                     modifier = Modifier.padding(16.dp),
                 )
             }
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun HelpScreenPreview() {
+    MangaDlTheme {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(MangaDlColors.Background)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, end = 12.dp, top = 32.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = MangaDlColors.TextPrimary, modifier = Modifier.padding(8.dp))
+                Text("HELP", style = AntonStyleSub, color = MangaDlColors.TextPrimary, modifier = Modifier.weight(1f))
+            }
+            Text(
+                "FREQUENTLY ASKED",
+                color = MangaDlColors.SectionRed,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            )
+            FaqCard(
+                faq = FaqItem("How do I add manga to my library?", "Tap Browse, pick a source, search for manga, open it and tap the heart icon on the detail page."),
+                isExpanded = true,
+                onToggle = {},
+            )
         }
     }
 }

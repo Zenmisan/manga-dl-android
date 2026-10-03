@@ -21,8 +21,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import androidx.compose.ui.tooling.preview.Preview
 import com.mangadl.android.ui.theme.AntonStyle
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
 import java.io.File
 
 @Composable
@@ -271,5 +273,33 @@ private fun formatSize(bytes: Long): String {
         bytes < 1024 * 1024 -> "${bytes / 1024} KB"
         bytes < 1024 * 1024 * 1024 -> "%.1f MB".format(bytes.toFloat() / (1024 * 1024))
         else -> "%.2f GB".format(bytes.toFloat() / (1024 * 1024 * 1024))
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun LocalFileDetailScreenPreview() {
+    MangaDlTheme {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(MangaDlColors.Background)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(start = 4.dp, top = 8.dp, end = 12.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = null,
+                    tint = MangaDlColors.TextPrimary,
+                    modifier = Modifier.padding(8.dp).size(24.dp),
+                )
+                Text("local_manga.cbz", style = AntonStyle, color = MangaDlColors.TextPrimary, modifier = Modifier.weight(1f))
+            }
+        }
     }
 }

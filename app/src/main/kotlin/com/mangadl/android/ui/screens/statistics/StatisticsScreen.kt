@@ -19,31 +19,24 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mangadl.android.MangaDlApp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mangadl.android.data.model.LibraryManga
 import com.mangadl.android.data.model.ReadingProgress
-import com.mangadl.android.ui.theme.AntonStyle
+import com.mangadl.android.ui.theme.AntonStyleSub
 import com.mangadl.android.ui.theme.MangaDlColors
-import kotlinx.coroutines.flow.catch
+import com.mangadl.android.ui.theme.MangaDlTheme
+import androidx.compose.ui.tooling.preview.Preview
+import com.mangadl.android.ui.viewmodels.StatisticsViewModel
 import java.util.*
 
 @Composable
-fun StatisticsScreen(onBack: () -> Unit) {
-    val db = MangaDlApp.instance.database
-
-    var library by remember { mutableStateOf<List<LibraryManga>>(emptyList()) }
-    var allProgress by remember { mutableStateOf<List<ReadingProgress>>(emptyList()) }
-
-    LaunchedEffect(Unit) {
-        db.libraryDao().getAll()
-            .catch { /* ignore */ }
-            .collect { library = it }
-    }
-    LaunchedEffect(Unit) {
-        db.progressDao().getRecent(1000)
-            .catch { /* ignore */ }
-            .collect { allProgress = it }
-    }
+fun StatisticsScreen(
+    viewModel: StatisticsViewModel = viewModel(),
+    onBack: () -> Unit,
+) {
+    val library by viewModel.library.collectAsStateWithLifecycle()
+    val allProgress by viewModel.allProgress.collectAsStateWithLifecycle()
 
     val chaptersRead = allProgress.count { it.completed }
     val pagesRead = allProgress.sumOf { it.page }
@@ -90,7 +83,7 @@ fun StatisticsScreen(onBack: () -> Unit) {
                 }
                 Text(
                     "STATISTICS",
-                    style = AntonStyle,
+                    style = AntonStyleSub,
                     color = MangaDlColors.TextPrimary,
                     modifier = Modifier.weight(1f),
                 )
@@ -266,5 +259,45 @@ private fun StatusPill(label: String, count: Int) {
     ) {
         Text(label, color = MangaDlColors.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         Text(count.toString(), color = MangaDlColors.TextSecondary, fontSize = 12.sp)
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun StatisticsScreenPreview() {
+    MangaDlTheme {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(MangaDlColors.Background)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, end = 12.dp, top = 32.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = MangaDlColors.TextPrimary, modifier = Modifier.padding(8.dp))
+                Text("STATISTICS", style = AntonStyleSub, color = MangaDlColors.TextPrimary, modifier = Modifier.weight(1f))
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                StatTile("Manga in Library", "42", Modifier.weight(1f))
+                StatTile("Chapters Read", "381", Modifier.weight(1f))
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 0.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                StatTile("Pages Read", "5,120", Modifier.weight(1f))
+                StatTile("Sources Used", "3", Modifier.weight(1f))
+            }
+        }
     }
 }

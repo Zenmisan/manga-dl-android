@@ -21,8 +21,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import com.mangadl.android.ui.theme.AntonStyleSub
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
 
 private data class SettingsItem(
     val icon: ImageVector,
@@ -58,7 +60,8 @@ fun SettingsScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 8.dp, top = 16.dp, bottom = 8.dp),
+                .statusBarsPadding()
+                .padding(start = 8.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
@@ -115,5 +118,43 @@ fun SettingsScreen(
             fontSize = 12.sp,
             modifier = Modifier.padding(20.dp),
         )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun SettingsScreenPreview() {
+    MangaDlTheme {
+        Column(Modifier.fillMaxSize().background(MangaDlColors.Background)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 8.dp, top = 32.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = MangaDlColors.TextPrimary, modifier = Modifier.padding(8.dp))
+                Text("SETTINGS", style = AntonStyleSub, color = MangaDlColors.TextPrimary)
+            }
+            listOf(
+                Icons.Default.Person to "Account",
+                Icons.Default.Tune to "General",
+                Icons.Default.MenuBook to "Reader",
+                Icons.Default.Settings to "System & backup",
+            ).forEach { (icon, label) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Box(
+                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(MangaDlColors.CardBg),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(icon, contentDescription = null, tint = MangaDlColors.TextPrimary, modifier = Modifier.size(20.dp))
+                    }
+                    Text(label, color = MangaDlColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0x80FFFFFF), modifier = Modifier.size(18.dp))
+                }
+                Box(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 20.dp).background(Color(0x0FFFFFFF)))
+            }
+        }
     }
 }

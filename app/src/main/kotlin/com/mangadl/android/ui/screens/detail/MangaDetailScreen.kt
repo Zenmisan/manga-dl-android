@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarHost
@@ -39,8 +38,15 @@ import com.mangadl.android.data.model.DownloadEntry
 import com.mangadl.android.data.model.LibraryManga
 import com.mangadl.android.data.model.MangaDetail
 import com.mangadl.android.data.model.ReadingProgress
+import androidx.compose.ui.tooling.preview.Preview
+import com.mangadl.android.ui.components.ConfirmDialog
+import com.mangadl.android.ui.components.ErrorState
+import com.mangadl.android.ui.components.SkeletonBox
+import com.mangadl.android.ui.components.rememberHapticClick
+import com.mangadl.android.ui.components.rememberHapticLongPress
 import com.mangadl.android.ui.theme.AntonStyle
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
@@ -63,13 +69,15 @@ fun MangaDetailScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var descExpanded by remember { mutableStateOf(false) }
     var contextChapter by remember { mutableStateOf<Chapter?>(null) }
+    var retryKey by remember { mutableStateOf(0) }
 
     val inLibrary by db.libraryDao().isInLibrary("$provider:$mangaId")
         .catch { emit(false) }
         .collectAsState(initial = false)
 
-    LaunchedEffect(provider, mangaId) {
+    LaunchedEffect(provider, mangaId, retryKey) {
         loading = true
+        error = null
         try {
             detail = extensionManager.getMangaDetail(provider, mangaId)
         } catch (e: Exception) {
@@ -85,29 +93,13 @@ fun MangaDetailScreen(
             .background(MangaDlColors.Background)
     ) {
         when {
-            loading -> CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center),
-                color = MangaDlColors.Primary,
+            loading -> DetailLoadingSkeleton(onBack = onBack)
+            error != null -> ErrorState(
+                message = error ?: "Unknown error",
+                onRetry = { retryKey++ },
+                onBack = onBack,
+                modifier = Modifier.fillMaxSize(),
             )
-            error != null -> Column(
-                modifier = Modifier.align(Alignment.Center).padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text("Failed to load", color = MangaDlColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Text(error ?: "Unknown error", color = MangaDlColors.TextSecondary, fontSize = 13.sp)
-                Box(
-                    modifier = Modifier
-                        .height(44.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(MangaDlColors.Primary)
-                        .clickable { onBack() }
-                        .padding(horizontal = 20.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("Go back", color = Color.White, fontWeight = FontWeight.ExtraBold)
-                }
-            }
             detail != null -> {
                 val d = detail!!
                 val lastChapter = d.chapters.firstOrNull()
@@ -143,7 +135,8 @@ fun MangaDetailScreen(
                                 onClick = onBack,
                                 modifier = Modifier
                                     .align(Alignment.TopStart)
-                                    .padding(top = 16.dp, start = 4.dp),
+                                    .statusBarsPadding()
+                                    .padding(top = 8.dp, start = 4.dp),
                             ) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MangaDlColors.TextPrimary)
                             }
@@ -540,13 +533,55 @@ private fun ActionButton(
     }
 }
 
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun MangaDetailScreenPreview() {
+    MangaDlTheme {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(MangaDlColors.Background)
+        ) {
+            Column {
+                Box(Modifier.fillMaxWidth().height(300.dp).background(MangaDlColors.CoverPlaceholder)) {
+                    Box(
+                        Modifier.fillMaxSize().background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                listOf(MangaDlColors.DetailHeaderBg.copy(alpha = 0.7f), MangaDlColors.Background)
+                            )
+                        )
+                    )
+                    Row(
+                        Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp, vertical = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        Box(Modifier.width(100.dp).height(145.dp).clip(RoundedCornerShape(10.dp)).background(MangaDlColors.CardBg))
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(bottom = 4.dp)) {
+                            Text("HOLLOW CROWN", style = AntonStyle, color = MangaDlColors.TextPrimary)
+                            Text("Studio Zero", color = MangaDlColors.TextSecondary, fontSize = 13.sp)
+                            Text("Ongoing", color = MangaDlColors.SectionRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                Text("48 Chapters", color = MangaDlColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp))
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ChapterRow(chapter: Chapter, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val hapticClick = rememberHapticClick()
+    val hapticLong = rememberHapticLongPress()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .combinedClickable(
+                onClick = { hapticClick(); onClick() },
+                onLongClick = { hapticLong(); onLongClick() },
+            )
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -567,4 +602,74 @@ private fun ChapterRow(chapter: Chapter, onClick: () -> Unit, onLongClick: () ->
         Icon(Icons.Default.Download, contentDescription = null, tint = Color(0x60FFFFFF), modifier = Modifier.size(18.dp))
     }
     Box(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 20.dp).background(Color(0x0FFFFFFF)))
+}
+
+@Composable
+private fun DetailLoadingSkeleton(onBack: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(MangaDlColors.Background)
+    ) {
+        // Header placeholder
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(300.dp)
+                .background(MangaDlColors.DetailHeaderBg)
+        ) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .padding(8.dp),
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = MangaDlColors.TextPrimary,
+                )
+            }
+            // Cover + text placeholders at bottom
+            Row(
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                SkeletonBox(
+                    modifier = Modifier
+                        .width(100.dp)
+                        .height(145.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(bottom = 4.dp),
+                ) {
+                    SkeletonBox(Modifier.width(160.dp).height(20.dp).clip(RoundedCornerShape(4.dp)))
+                    SkeletonBox(Modifier.width(100.dp).height(14.dp).clip(RoundedCornerShape(4.dp)))
+                    SkeletonBox(Modifier.width(60.dp).height(12.dp).clip(RoundedCornerShape(4.dp)))
+                }
+            }
+        }
+        // Chapter list placeholders
+        repeat(6) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SkeletonBox(Modifier.width(200.dp).height(14.dp).clip(RoundedCornerShape(4.dp)))
+                    SkeletonBox(Modifier.width(100.dp).height(11.dp).clip(RoundedCornerShape(4.dp)))
+                }
+                SkeletonBox(Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)))
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 20.dp).background(Color(0x0FFFFFFF)))
+        }
+    }
 }

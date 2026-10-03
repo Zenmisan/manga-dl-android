@@ -1,7 +1,6 @@
 package com.mangadl.android.ui.screens.notifications
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,38 +12,41 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mangadl.android.MangaDlApp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mangadl.android.data.model.LibraryManga
-import com.mangadl.android.ui.theme.AntonStyle
+import com.mangadl.android.ui.theme.AntonStyleSub
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
+import com.mangadl.android.ui.viewmodels.NotificationsViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
 @Composable
 fun NotificationsScreen(
+    viewModel: NotificationsViewModel = viewModel(),
     onBack: () -> Unit,
     onMangaClick: (provider: String, mangaId: String) -> Unit,
 ) {
-    val db = MangaDlApp.instance.database
+    val allLibrary by viewModel.library.collectAsStateWithLifecycle()
 
-    var notifications by remember { mutableStateOf<List<LibraryManga>>(emptyList()) }
     var cleared by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        db.libraryDao().getAll().collect { lib ->
-            notifications = lib
-                .filter { it.totalChapters > it.readCount && !cleared }
-                .sortedByDescending { it.lastReadAt ?: it.addedAt }
-        }
+    val notifications = remember(allLibrary, cleared) {
+        if (cleared) emptyList()
+        else allLibrary
+            .filter { it.totalChapters > it.readCount }
+            .sortedByDescending { it.lastReadAt ?: it.addedAt }
     }
 
     Column(
@@ -52,11 +54,12 @@ fun NotificationsScreen(
             .fillMaxSize()
             .background(MangaDlColors.Background),
     ) {
+        // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 4.dp, end = 12.dp, top = 20.dp, bottom = 8.dp)
-                .statusBarsPadding(),
+                .statusBarsPadding()
+                .padding(start = 8.dp, top = 8.dp, bottom = 4.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
@@ -67,19 +70,18 @@ fun NotificationsScreen(
                 )
             }
             Text(
-                "NOTIFICATIONS",
-                style = AntonStyle,
+                "Notifications".uppercase(),
+                style = AntonStyleSub,
                 color = MangaDlColors.TextPrimary,
                 modifier = Modifier.weight(1f),
             )
             if (notifications.isNotEmpty()) {
-                IconButton(
-                    onClick = { cleared = true; notifications = emptyList() },
-                ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Clear all",
-                        tint = MangaDlColors.TextSecondary,
+                TextButton(onClick = { cleared = true }) {
+                    Text(
+                        "Mark All Read",
+                        color = MangaDlColors.Primary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
                     )
                 }
             }
@@ -96,21 +98,29 @@ fun NotificationsScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Icon(
-                        Icons.Default.Notifications,
-                        contentDescription = null,
-                        tint = MangaDlColors.TextSecondary,
-                        modifier = Modifier.size(48.dp),
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(MangaDlColors.CardBg),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Default.Notifications,
+                            contentDescription = null,
+                            tint = MangaDlColors.TextSecondary,
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
+                    Text(
+                        "All caught up",
+                        color = MangaDlColors.TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
                     )
                     Text(
                         "No new notifications",
                         color = MangaDlColors.TextSecondary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                    Text(
-                        "You're all caught up",
-                        color = Color(0x66FFFFFF),
                         fontSize = 13.sp,
                     )
                 }
@@ -122,8 +132,7 @@ fun NotificationsScreen(
                     NotificationRow(
                         manga = manga,
                         onClick = {
-                            val mangaId = manga.id.removePrefix("${manga.provider}:")
-                            onMangaClick(manga.provider, mangaId)
+                            onMangaClick(manga.provider, manga.id.removePrefix("${manga.provider}:"))
                         },
                     )
                 }
@@ -141,68 +150,65 @@ private fun NotificationRow(manga: LibraryManga, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Box {
-            Box(
-                modifier = Modifier
-                    .size(width = 48.dp, height = 72.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MangaDlColors.CardBg)
-                    .border(1.dp, MangaDlColors.CardBorder, RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Default.MenuBook,
-                    contentDescription = null,
-                    tint = MangaDlColors.TextSecondary,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            // Red dot indicator
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(MangaDlColors.Primary)
-                    .align(Alignment.TopEnd),
+        // Circle icon
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color(0x29DC2626)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Default.Notifications,
+                contentDescription = null,
+                tint = MangaDlColors.PrimaryLight,
+                modifier = Modifier.size(20.dp),
             )
         }
 
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // Content
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
             Text(
                 manga.title,
                 color = MangaDlColors.TextPrimary,
                 fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 maxLines = 2,
             )
             Text(
                 "$newChapters new chapter${if (newChapters == 1) "" else "s"} available",
-                color = MangaDlColors.TextSecondary,
-                fontSize = 12.sp,
+                color = Color(0xBFFFFFFF),
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
             )
             Text(
                 timeAgo(manga.lastReadAt ?: manga.addedAt),
-                color = Color(0x66FFFFFF),
-                fontSize = 11.sp,
+                color = Color(0x80FFFFFF),
+                fontSize = 12.sp,
             )
         }
 
-        Icon(
-            Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = Color(0x80FFFFFF),
-            modifier = Modifier.size(18.dp),
+        // Unread dot
+        Box(
+            modifier = Modifier
+                .padding(top = 6.dp)
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(MangaDlColors.Primary),
         )
     }
     Box(
         Modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(MangaDlColors.CardBorder),
+            .background(Color(0x0FFFFFFF)),
     )
 }
 
@@ -214,5 +220,39 @@ private fun timeAgo(ms: Long): String {
         diff < TimeUnit.DAYS.toMillis(1) -> "${TimeUnit.MILLISECONDS.toHours(diff)}h ago"
         diff < TimeUnit.DAYS.toMillis(7) -> "${TimeUnit.MILLISECONDS.toDays(diff)}d ago"
         else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(ms))
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun NotificationsScreenPreview() {
+    MangaDlTheme {
+        Column(Modifier.fillMaxSize().background(MangaDlColors.Background)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 8.dp, top = 36.dp, bottom = 4.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MangaDlColors.TextPrimary, modifier = Modifier.padding(8.dp))
+                Text("NOTIFICATIONS", style = AntonStyleSub, color = MangaDlColors.TextPrimary, modifier = Modifier.weight(1f))
+                Text("Mark All Read", color = MangaDlColors.Primary, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp))
+            }
+            // Sample row
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Box(Modifier.size(40.dp).clip(CircleShape).background(Color(0x29DC2626)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Notifications, null, tint = MangaDlColors.PrimaryLight, modifier = Modifier.size(20.dp))
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("One Piece", color = MangaDlColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("3 new chapters available", color = Color(0xBFFFFFFF), fontSize = 13.sp)
+                    Text("2h ago", color = Color(0x80FFFFFF), fontSize = 12.sp)
+                }
+                Box(Modifier.padding(top = 6.dp).size(8.dp).clip(CircleShape).background(MangaDlColors.Primary))
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x0FFFFFFF)))
+        }
     }
 }

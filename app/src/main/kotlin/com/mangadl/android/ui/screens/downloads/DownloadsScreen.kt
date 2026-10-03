@@ -23,8 +23,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mangadl.android.MangaDlApp
 import com.mangadl.android.data.model.DownloadEntry
+import androidx.compose.ui.tooling.preview.Preview
+import com.mangadl.android.ui.components.EmptyState
 import com.mangadl.android.ui.theme.AntonStyleSub
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
 import kotlinx.coroutines.flow.catch
 
 @Composable
@@ -77,9 +80,12 @@ fun DownloadsScreen(onBack: () -> Unit) {
         )
 
         if (downloads.isEmpty()) {
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Text("No downloads yet", color = MangaDlColors.TextSecondary, fontSize = 14.sp)
-            }
+            EmptyState(
+                icon = Icons.Default.Download,
+                title = "No downloads yet",
+                subtitle = "Downloaded chapters appear here",
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+            )
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f),
@@ -202,6 +208,34 @@ private fun DownloadCard(entry: DownloadEntry) {
                 contentDescription = "Action",
                 tint = MangaDlColors.TextPrimary,
                 modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun DownloadsScreenPreview() {
+    MangaDlTheme {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(MangaDlColors.Background)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, end = 12.dp, top = 32.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MangaDlColors.TextPrimary, modifier = Modifier.padding(8.dp))
+                Text("DOWNLOADS", style = AntonStyleSub, color = MangaDlColors.TextPrimary, modifier = Modifier.weight(1f))
+            }
+            EmptyState(
+                icon = Icons.Default.Download,
+                title = "No downloads yet",
+                subtitle = "Downloaded chapters appear here",
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }

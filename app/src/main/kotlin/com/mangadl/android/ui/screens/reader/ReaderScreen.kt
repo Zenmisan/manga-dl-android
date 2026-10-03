@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,13 +29,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.mangadl.android.MangaDlApp
 import com.mangadl.android.data.model.ReadingProgress
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
 import kotlinx.coroutines.launch
+
+private val ReaderBarBg = Color(0xEB080808)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -51,6 +57,7 @@ fun ReaderScreen(
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var showUi by remember { mutableStateOf(true) }
+    var bookmarked by remember { mutableStateOf(false) }
 
     val compositeId = "$provider:$mangaId"
 
@@ -97,7 +104,6 @@ fun ReaderScreen(
             pages.isNotEmpty() -> {
                 val pagerState = rememberPagerState(pageCount = { pages.size })
                 val currentPage = pagerState.currentPage
-                val progress = if (pages.isNotEmpty()) (currentPage + 1).toFloat() / pages.size else 0f
 
                 // Zoom state — reset on page change
                 var scale by remember { mutableFloatStateOf(1f) }
@@ -117,7 +123,7 @@ fun ReaderScreen(
                     offsetY = 0f
                 }
 
-                // Save progress whenever the page changes
+                // Save progress on page change
                 LaunchedEffect(currentPage, pages.size) {
                     if (pages.isNotEmpty()) {
                         val completed = currentPage >= pages.size - 1
@@ -165,100 +171,105 @@ fun ReaderScreen(
                     }
                 }
 
+                // ── Top bar ───────────────────────────────────────────────
                 AnimatedVisibility(
                     visible = showUi,
                     enter = fadeIn(),
                     exit = fadeOut(),
                     modifier = Modifier.align(Alignment.TopCenter),
                 ) {
-                    Box(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xEB080808))
+                            .background(ReaderBarBg)
                             .statusBarsPadding()
-                            .height(56.dp),
+                            .height(56.dp)
+                            .padding(end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            IconButton(onClick = onBack) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
-                            }
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        }
+                        Column(Modifier.weight(1f)) {
                             Text(
-                                "${currentPage + 1} / ${pages.size}",
-                                color = Color(0xB3FFFFFF),
+                                mangaId,
+                                color = Color.White,
                                 fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.weight(1f),
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
                             )
-                            IconButton(onClick = {}) {
-                                Icon(Icons.Default.MoreVert, contentDescription = "Options", tint = Color.White)
-                            }
+                            Text(
+                                "Ch. ${currentPage + 1} of ${pages.size}",
+                                color = Color(0x80FFFFFF),
+                                fontSize = 11.sp,
+                            )
+                        }
+                        IconButton(onClick = { bookmarked = !bookmarked }) {
+                            Icon(
+                                if (bookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                contentDescription = "Bookmark",
+                                tint = if (bookmarked) MangaDlColors.Primary else Color.White,
+                            )
+                        }
+                        IconButton(onClick = {}) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Options", tint = Color.White)
                         }
                     }
                 }
 
+                // ── Bottom pill ───────────────────────────────────────────
                 AnimatedVisibility(
                     visible = showUi,
                     enter = fadeIn(),
                     exit = fadeOut(),
                     modifier = Modifier.align(Alignment.BottomCenter),
                 ) {
-                    Column(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xEB080808))
                             .navigationBarsPadding()
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                            .padding(horizontal = 20.dp, vertical = 20.dp),
                     ) {
-                        // Page number + progress
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(32.dp))
+                                .background(ReaderBarBg)
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
+                            IconButton(onClick = {}) {
+                                Icon(Icons.Default.SkipPrevious, contentDescription = "Prev Chapter", tint = Color.White)
+                            }
                             Text(
                                 "${currentPage + 1}",
                                 color = Color.White,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.width(32.dp),
                             )
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(4.dp)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(Color(0x33FFFFFF)),
-                            ) {
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth(progress)
-                                        .fillMaxHeight()
-                                        .background(MangaDlColors.Primary)
-                                )
-                            }
+                            Slider(
+                                value = (currentPage + 1).toFloat(),
+                                onValueChange = { v ->
+                                    scope.launch { pagerState.scrollToPage((v.toInt() - 1).coerceIn(0, pages.size - 1)) }
+                                },
+                                valueRange = 1f..pages.size.toFloat(),
+                                steps = (pages.size - 2).coerceAtLeast(0),
+                                modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+                                colors = SliderDefaults.colors(
+                                    thumbColor = MangaDlColors.Primary,
+                                    activeTrackColor = MangaDlColors.Primary,
+                                    inactiveTrackColor = Color(0x33FFFFFF),
+                                ),
+                            )
                             Text(
                                 "${pages.size}",
                                 color = Color(0x80FFFFFF),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.width(32.dp),
                             )
-                        }
-
-                        // Reading toolbar row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            ReaderToolButton(icon = Icons.Default.SkipPrevious, label = "Prev Ch", onClick = {})
-                            ReaderToolButton(icon = Icons.Default.FormatListNumbered, label = "Chapters", onClick = {})
-                            ReaderToolButton(icon = Icons.Default.Settings, label = "Settings", onClick = {})
-                            ReaderToolButton(icon = Icons.Default.SkipNext, label = "Next Ch", onClick = {})
+                            IconButton(onClick = {}) {
+                                Icon(Icons.Default.SkipNext, contentDescription = "Next Chapter", tint = Color.White)
+                            }
                         }
                     }
                 }
@@ -267,21 +278,75 @@ fun ReaderScreen(
     }
 }
 
+@Preview(showBackground = true, backgroundColor = 0xFF000000)
 @Composable
-private fun ReaderToolButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        Icon(icon, contentDescription = label, tint = Color(0xBFFFFFFF), modifier = Modifier.size(22.dp))
-        Text(label, color = Color(0x80FFFFFF), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+private fun ReaderScreenPreview() {
+    MangaDlTheme {
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            // Simulated page
+            Box(Modifier.fillMaxSize().background(Color(0xFF1A1A2E)), contentAlignment = Alignment.Center) {
+                Text("[Manga Page]", color = Color(0x40FFFFFF), fontSize = 18.sp)
+            }
+            // Top bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+                    .background(ReaderBarBg)
+                    .padding(top = 24.dp)
+                    .height(56.dp)
+                    .padding(end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color.White)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("hollow-crown", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text("Ch. 14 of 38", color = Color(0x80FFFFFF), fontSize = 11.sp)
+                }
+                Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.BookmarkBorder, contentDescription = null, tint = Color.White)
+                }
+                Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.White)
+                }
+            }
+            // Bottom pill
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 20.dp, vertical = 32.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(32.dp))
+                        .background(ReaderBarBg)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.SkipPrevious, contentDescription = null, tint = Color.White)
+                    }
+                    Text("14", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .padding(horizontal = 8.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color(0x33FFFFFF))
+                    ) {
+                        Box(Modifier.fillMaxWidth(0.37f).fillMaxHeight().background(MangaDlColors.Primary))
+                    }
+                    Text("38", color = Color(0x80FFFFFF), fontSize = 13.sp)
+                    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.SkipNext, contentDescription = null, tint = Color.White)
+                    }
+                }
+            }
+        }
     }
 }

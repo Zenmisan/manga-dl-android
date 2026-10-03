@@ -5,10 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -23,11 +22,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mangadl.android.data.auth.SupabaseManager
 import com.mangadl.android.ui.theme.AntonStyle
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email as EmailProvider
 import kotlinx.coroutines.launch
@@ -47,7 +48,7 @@ fun CreateAccountScreen(
     var agreedToTerms by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var successMessage by remember { mutableStateOf<String?>(null) }
+    var successSent by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -55,16 +56,16 @@ fun CreateAccountScreen(
             .background(MangaDlColors.Background)
             .verticalScroll(rememberScrollState()),
     ) {
-        // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 12.dp),
+                .statusBarsPadding()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
                 Icon(
-                    Icons.Default.ArrowBack,
+                    Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
                     tint = MangaDlColors.TextPrimary,
                 )
@@ -74,14 +75,23 @@ fun CreateAccountScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp),
+                .padding(horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("CREATE ACCOUNT", style = AntonStyle, color = MangaDlColors.TextPrimary)
+            Text(
+                "CREATE ACCOUNT",
+                style = AntonStyle.copy(fontSize = 34.sp),
+                color = MangaDlColors.TextPrimary,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Join to sync your library everywhere.",
+                color = MangaDlColors.TextSecondary,
+                fontSize = 14.sp,
+            )
             Spacer(Modifier.height(32.dp))
 
-            // Success state
-            if (successMessage != null) {
+            if (successSent) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -90,30 +100,47 @@ fun CreateAccountScreen(
                         Icons.Default.CheckCircle,
                         contentDescription = null,
                         tint = Color(0xFF22C55E),
-                        modifier = Modifier.size(56.dp),
+                        modifier = Modifier.size(60.dp),
                     )
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(18.dp))
                     Text(
-                        successMessage!!,
+                        "Check your email for a confirmation link.",
                         color = MangaDlColors.TextPrimary,
-                        fontSize = 15.sp,
+                        fontSize = 16.sp,
                         textAlign = TextAlign.Center,
                         fontWeight = FontWeight.SemiBold,
+                        lineHeight = 22.sp,
                     )
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(8.dp))
                     Text(
-                        "Back to Sign In",
-                        color = MangaDlColors.PrimaryLight,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clickable(onClick = onSignIn),
+                        "Click the link in your email to activate your account.",
+                        color = MangaDlColors.TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 18.sp,
                     )
+                    Spacer(Modifier.height(32.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(MangaDlColors.Primary)
+                            .clickable(onClick = onSignIn),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "Go to Sign In",
+                            color = Color.White,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 17.sp,
+                        )
+                    }
                 }
-                Spacer(Modifier.height(40.dp))
+                Spacer(Modifier.height(48.dp))
                 return@Column
             }
 
-            // Email field
             AuthTextField(
                 value = email,
                 onValueChange = { email = it; errorMessage = null },
@@ -122,7 +149,6 @@ fun CreateAccountScreen(
             )
             Spacer(Modifier.height(12.dp))
 
-            // Password field
             AuthTextField(
                 value = password,
                 onValueChange = { password = it; errorMessage = null },
@@ -133,15 +159,15 @@ fun CreateAccountScreen(
                     IconButton(onClick = { showPassword = !showPassword }) {
                         Icon(
                             if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (showPassword) "Hide password" else "Show password",
+                            contentDescription = null,
                             tint = MangaDlColors.TextSecondary,
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 },
             )
             Spacer(Modifier.height(12.dp))
 
-            // Confirm password field
             AuthTextField(
                 value = confirmPassword,
                 onValueChange = { confirmPassword = it; errorMessage = null },
@@ -152,19 +178,19 @@ fun CreateAccountScreen(
                     IconButton(onClick = { showConfirmPassword = !showConfirmPassword }) {
                         Icon(
                             if (showConfirmPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (showConfirmPassword) "Hide password" else "Show password",
+                            contentDescription = null,
                             tint = MangaDlColors.TextSecondary,
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 },
             )
             Spacer(Modifier.height(20.dp))
 
-            // Terms checkbox
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Checkbox(
                     checked = agreedToTerms,
@@ -179,16 +205,16 @@ fun CreateAccountScreen(
                     "I agree to the Terms of Service and Privacy Policy",
                     color = MangaDlColors.TextSecondary,
                     fontSize = 13.sp,
+                    lineHeight = 18.sp,
                 )
             }
 
             Spacer(Modifier.height(24.dp))
 
-            // Error message
             errorMessage?.let { msg ->
                 Text(
                     msg,
-                    color = MangaDlColors.Primary,
+                    color = Color(0xFFEF4444),
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
@@ -197,13 +223,12 @@ fun CreateAccountScreen(
                 )
             }
 
-            // Create Account button
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .height(54.dp)
                     .clip(RoundedCornerShape(999.dp))
-                    .background(MangaDlColors.Primary)
+                    .background(if (isLoading) MangaDlColors.Primary.copy(alpha = 0.7f) else MangaDlColors.Primary)
                     .clickable(enabled = !isLoading) {
                         when {
                             email.isBlank() || password.isBlank() || confirmPassword.isBlank() ->
@@ -223,9 +248,9 @@ fun CreateAccountScreen(
                                             this.email = email.trim()
                                             this.password = password
                                         }
-                                        successMessage = "Check your email for a confirmation link."
+                                        successSent = true
                                     } catch (e: Exception) {
-                                        errorMessage = e.message?.substringAfter(":")?.trim()
+                                        errorMessage = e.message?.substringAfterLast(":")?.trim()
                                             ?: "Registration failed. Please try again."
                                     } finally {
                                         isLoading = false
@@ -243,13 +268,17 @@ fun CreateAccountScreen(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Text("Create Account", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                    Text(
+                        "Create Account",
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 17.sp,
+                    )
                 }
             }
 
             Spacer(Modifier.height(32.dp))
 
-            // Sign in link
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -264,7 +293,33 @@ fun CreateAccountScreen(
                 )
             }
 
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(48.dp))
         }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun CreateAccountScreenPreview() {
+    MangaDlTheme {
+        CreateAccountScreen(
+            onBack = {},
+            onSuccess = {},
+            onSignIn = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505, name = "CreateAccount - Success")
+@Composable
+private fun CreateAccountSuccessPreview() {
+    MangaDlTheme {
+        // Show success state by rendering with successSent=true logic not possible in preview
+        // Use the normal screen, success state is triggered after signup
+        CreateAccountScreen(
+            onBack = {},
+            onSuccess = {},
+            onSignIn = {},
+        )
     }
 }

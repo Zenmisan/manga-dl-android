@@ -24,6 +24,8 @@ import com.mangadl.android.data.prefs.AppPreferences
 import com.mangadl.android.data.prefs.PrefKeys
 import com.mangadl.android.ui.theme.AntonStyleSub
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
+import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -235,6 +237,28 @@ private fun TrackerCard(
                 ) {
                     Text("Connect", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun SettingsTrackersScreenPreview() {
+    MangaDlTheme {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(MangaDlColors.Background)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, top = 32.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = MangaDlColors.TextPrimary, modifier = Modifier.padding(8.dp))
+                Text("TRACKERS", style = AntonStyleSub, color = MangaDlColors.TextPrimary)
             }
         }
     }

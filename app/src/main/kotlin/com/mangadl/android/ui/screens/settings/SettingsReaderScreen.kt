@@ -22,8 +22,10 @@ import com.mangadl.android.data.prefs.AppPreferences
 import com.mangadl.android.data.prefs.PrefKeys
 import com.mangadl.android.ui.components.MangaDlSwitch
 import com.mangadl.android.ui.components.SectionLabel
+import androidx.compose.ui.tooling.preview.Preview
 import com.mangadl.android.ui.theme.AntonStyleSub
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,7 +56,8 @@ fun SettingsReaderScreen(onBack: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 8.dp, top = 16.dp, bottom = 0.dp),
+                .statusBarsPadding()
+                .padding(start = 8.dp, top = 8.dp, bottom = 0.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
@@ -237,4 +240,21 @@ private fun ReaderSegmentedRow(
         }
     }
     Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x0FFFFFFF)))
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun SettingsReaderScreenPreview() {
+    MangaDlTheme {
+        Column(modifier = androidx.compose.ui.Modifier.fillMaxSize().background(MangaDlColors.Background)) {
+            Row(
+                modifier = androidx.compose.ui.Modifier.fillMaxWidth().padding(start = 8.dp, top = 32.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = MangaDlColors.TextPrimary, modifier = androidx.compose.ui.Modifier.padding(8.dp))
+                Text("READER", style = AntonStyleSub, color = MangaDlColors.TextPrimary)
+            }
+            SectionLabel("Reading mode", color = MangaDlColors.SectionRed, modifier = androidx.compose.ui.Modifier.padding(start = 20.dp, top = 20.dp, bottom = 4.dp))
+        }
+    }
 }

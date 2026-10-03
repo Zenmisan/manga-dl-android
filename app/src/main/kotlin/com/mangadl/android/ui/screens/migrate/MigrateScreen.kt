@@ -25,8 +25,10 @@ import com.mangadl.android.MangaDlApp
 import com.mangadl.android.data.model.LibraryManga
 import com.mangadl.android.data.model.MangaSearchResult
 import com.mangadl.android.data.extensions.ExtensionMeta
+import androidx.compose.ui.tooling.preview.Preview
 import com.mangadl.android.ui.theme.AntonStyle
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
 import kotlinx.coroutines.launch
 
 private enum class MigrateStep { SELECTING, SEARCHING, CONFIRMING, MIGRATING }
@@ -443,5 +445,30 @@ private fun LabelValue(label: String, value: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(label, color = MangaDlColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.width(96.dp))
         Text(value, color = MangaDlColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun MigrateScreenPreview() {
+    MangaDlTheme {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(MangaDlColors.Background)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(start = 4.dp, top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = {}) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = MangaDlColors.TextPrimary)
+                }
+                Text("MIGRATE", style = AntonStyle, color = MangaDlColors.TextPrimary)
+            }
+        }
     }
 }

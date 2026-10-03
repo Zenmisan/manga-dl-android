@@ -9,7 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -23,16 +23,18 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mangadl.android.data.auth.SupabaseManager
 import com.mangadl.android.ui.theme.AntonStyle
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email as EmailProvider
 import kotlinx.coroutines.launch
 
-private val FieldBg = Color(0x12FFFFFF)
+private val FieldBg = Color(0x14FFFFFF)
 private val FieldBorder = Color(0x1FFFFFFF)
 
 @Composable
@@ -41,6 +43,7 @@ fun SignInScreen(
     onSuccess: () -> Unit,
     onCreateAccount: () -> Unit,
     onForgotPassword: () -> Unit,
+    onGuest: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
@@ -55,16 +58,17 @@ fun SignInScreen(
             .background(MangaDlColors.Background)
             .verticalScroll(rememberScrollState()),
     ) {
-        // Header
+        // Back row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 12.dp),
+                .statusBarsPadding()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
                 Icon(
-                    Icons.Default.ArrowBack,
+                    Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back",
                     tint = MangaDlColors.TextPrimary,
                 )
@@ -74,13 +78,22 @@ fun SignInScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 32.dp),
+                .padding(horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("SIGN IN", style = AntonStyle, color = MangaDlColors.TextPrimary)
+            Text(
+                "SIGN IN",
+                style = AntonStyle.copy(fontSize = 34.sp),
+                color = MangaDlColors.TextPrimary,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Welcome back.",
+                color = MangaDlColors.TextSecondary,
+                fontSize = 14.sp,
+            )
             Spacer(Modifier.height(32.dp))
 
-            // Email field
             AuthTextField(
                 value = email,
                 onValueChange = { email = it; errorMessage = null },
@@ -89,7 +102,6 @@ fun SignInScreen(
             )
             Spacer(Modifier.height(12.dp))
 
-            // Password field
             AuthTextField(
                 value = password,
                 onValueChange = { password = it; errorMessage = null },
@@ -100,18 +112,18 @@ fun SignInScreen(
                     IconButton(onClick = { showPassword = !showPassword }) {
                         Icon(
                             if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (showPassword) "Hide password" else "Show password",
+                            contentDescription = null,
                             tint = MangaDlColors.TextSecondary,
+                            modifier = Modifier.size(20.dp),
                         )
                     }
                 },
             )
 
-            // Forgot password
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp),
+                    .padding(top = 10.dp),
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Text(
@@ -122,13 +134,12 @@ fun SignInScreen(
                 )
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(28.dp))
 
-            // Error message
             errorMessage?.let { msg ->
                 Text(
                     msg,
-                    color = MangaDlColors.Primary,
+                    color = Color(0xFFEF4444),
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
@@ -141,9 +152,9 @@ fun SignInScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .height(54.dp)
                     .clip(RoundedCornerShape(999.dp))
-                    .background(MangaDlColors.Primary)
+                    .background(if (isLoading) MangaDlColors.Primary.copy(alpha = 0.7f) else MangaDlColors.Primary)
                     .clickable(enabled = !isLoading) {
                         if (email.isBlank() || password.isBlank()) {
                             errorMessage = "Please enter your email and password."
@@ -159,7 +170,7 @@ fun SignInScreen(
                                 }
                                 onSuccess()
                             } catch (e: Exception) {
-                                errorMessage = e.message?.substringAfter(":")?.trim()
+                                errorMessage = e.message?.substringAfterLast(":")?.trim()
                                     ?: "Sign in failed. Please try again."
                             } finally {
                                 isLoading = false
@@ -175,13 +186,17 @@ fun SignInScreen(
                         strokeWidth = 2.dp,
                     )
                 } else {
-                    Text("Sign In", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                    Text(
+                        "Sign In",
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 17.sp,
+                    )
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
-            // Divider
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -192,42 +207,28 @@ fun SignInScreen(
                 HorizontalDivider(modifier = Modifier.weight(1f), color = MangaDlColors.CardBorder)
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
-            // Google OAuth button
+            // Continue without account
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .height(54.dp)
                     .clip(RoundedCornerShape(999.dp))
-                    .background(Color(0x12FFFFFF))
-                    .border(1.dp, MangaDlColors.CardBorder, RoundedCornerShape(999.dp))
-                    .clickable { /* Google OAuth — wire up when OAuth redirect is configured */ },
+                    .border(1.dp, Color(0x2BFFFFFF), RoundedCornerShape(999.dp))
+                    .clickable(onClick = onGuest ?: onBack),
                 contentAlignment = Alignment.Center,
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // Simple "G" letter as Google icon stand-in
-                    Text(
-                        "G",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                    )
-                    Text(
-                        "Continue with Google",
-                        color = MangaDlColors.TextPrimary,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                    )
-                }
+                Text(
+                    "Use Without Account",
+                    color = MangaDlColors.TextSecondary,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 15.sp,
+                )
             }
 
             Spacer(Modifier.height(32.dp))
 
-            // Create account link
             Row(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -242,7 +243,7 @@ fun SignInScreen(
                 )
             }
 
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(48.dp))
         }
     }
 }
@@ -278,4 +279,17 @@ internal fun AuthTextField(
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun SignInScreenPreview() {
+    MangaDlTheme {
+        SignInScreen(
+            onBack = {},
+            onSuccess = {},
+            onCreateAccount = {},
+            onForgotPassword = {},
+        )
+    }
 }

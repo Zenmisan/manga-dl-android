@@ -24,6 +24,8 @@ import com.mangadl.android.ui.components.MangaDlSwitch
 import com.mangadl.android.ui.components.SectionLabel
 import com.mangadl.android.ui.theme.AntonStyleSub
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
+import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -272,4 +274,27 @@ private fun LibrarySegmentedRow(
         }
     }
     Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x0FFFFFFF)))
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun SettingsLibraryScreenPreview() {
+    MangaDlTheme {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(MangaDlColors.Background)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, top = 32.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = MangaDlColors.TextPrimary, modifier = Modifier.padding(8.dp))
+                Text("LIBRARY", style = AntonStyleSub, color = MangaDlColors.TextPrimary)
+            }
+            SectionLabel("Display", color = MangaDlColors.SectionRed, modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 4.dp))
+        }
+    }
 }

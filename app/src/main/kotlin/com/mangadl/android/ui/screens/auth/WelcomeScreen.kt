@@ -5,21 +5,23 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mangadl.android.ui.theme.AntonFontFamily
 import com.mangadl.android.ui.theme.AntonStyle
-import com.mangadl.android.ui.theme.AntonStyleSub
 import com.mangadl.android.ui.theme.MangaDlColors
+import com.mangadl.android.ui.theme.MangaDlTheme
 
 @Composable
 fun WelcomeScreen(
@@ -27,78 +29,141 @@ fun WelcomeScreen(
     onCreateAccount: () -> Unit,
     onGuest: () -> Unit,
 ) {
-    Column(
+    val glowColor = MangaDlColors.Primary
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MangaDlColors.Background)
-            .padding(horizontal = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .background(MangaDlColors.Background),
     ) {
-        Spacer(Modifier.weight(1f))
-        Text("MANGA-DL", style = AntonStyle, color = MangaDlColors.TextPrimary)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Your manga, anywhere.",
-            color = MangaDlColors.Primary,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
+        // Red radial glow centered upper area
+        Box(
+            modifier = Modifier
+                .size(360.dp)
+                .align(Alignment.TopCenter)
+                .offset(y = 120.dp)
+                .drawBehind {
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                glowColor.copy(alpha = 0.35f),
+                                glowColor.copy(alpha = 0.12f),
+                                Color.Transparent,
+                            ),
+                            radius = size.minDimension / 2f,
+                        )
+                    )
+                }
         )
-        Spacer(Modifier.height(40.dp))
-        listOf(
-            "Your library synced across all devices",
-            "Read offline — chapters download automatically",
-            "100+ sources, no account required to browse",
-        ).forEach { feature ->
-            Row(
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(Modifier.weight(1f))
+
+            // App badge
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(MangaDlColors.Primary),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "M",
+                    fontFamily = AntonFontFamily,
+                    fontSize = 38.sp,
+                    color = Color.White,
+                )
+            }
+
+            Spacer(Modifier.height(28.dp))
+
+            Text(
+                "YOUR MANGA,\nEVERYWHERE.",
+                style = AntonStyle.copy(
+                    fontSize = 38.sp,
+                    lineHeight = 44.sp,
+                    textAlign = TextAlign.Center,
+                ),
+                color = MangaDlColors.TextPrimary,
+            )
+
+            Spacer(Modifier.height(14.dp))
+
+            Text(
+                "Your library, synced across every device.",
+                color = MangaDlColors.TextSecondary,
+                fontSize = 15.sp,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(Modifier.weight(1f))
+
+            // Start Reading — primary CTA
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .height(54.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(MangaDlColors.Primary)
+                    .clickable(onClick = onGuest),
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    Icons.Default.Check,
-                    contentDescription = null,
-                    tint = MangaDlColors.Primary,
-                    modifier = Modifier.size(18.dp),
+                Text(
+                    "Start Reading",
+                    color = Color.White,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 17.sp,
                 )
-                Text(feature, color = MangaDlColors.TextSecondary, fontSize = 14.sp)
             }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Sign In — secondary CTA
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(999.dp))
+                    .clickable(onClick = onSignIn),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "Sign In",
+                    color = MangaDlColors.TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                )
+            }
+
+            Spacer(Modifier.height(22.dp))
+
+            Text(
+                "Create an account",
+                color = MangaDlColors.PrimaryLight,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.clickable(onClick = onCreateAccount),
+            )
+
+            Spacer(Modifier.height(48.dp))
         }
-        Spacer(Modifier.weight(1f))
-        // Sign In button
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(MangaDlColors.Primary)
-                .clickable(onClick = onSignIn),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("Sign In", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-        }
-        Spacer(Modifier.height(12.dp))
-        // Create Account button
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(Color.Transparent)
-                .border(width = 1.dp, color = Color(0x29FFFFFF), shape = RoundedCornerShape(999.dp))
-                .clickable(onClick = onCreateAccount),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("Create Account", color = MangaDlColors.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        }
-        Spacer(Modifier.height(20.dp))
-        Text(
-            "Continue as guest",
-            color = MangaDlColors.TextSecondary,
-            fontSize = 14.sp,
-            modifier = Modifier.clickable(onClick = onGuest),
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF050505)
+@Composable
+private fun WelcomeScreenPreview() {
+    MangaDlTheme {
+        WelcomeScreen(
+            onSignIn = {},
+            onCreateAccount = {},
+            onGuest = {},
         )
-        Spacer(Modifier.height(40.dp))
     }
 }

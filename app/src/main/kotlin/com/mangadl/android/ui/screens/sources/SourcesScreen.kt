@@ -84,3 +84,5 @@ private fun SourceRow(src: ExtensionMeta) {
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 }
+
+// Preview not added: SourcesScreen requires live extension manager at runtime
