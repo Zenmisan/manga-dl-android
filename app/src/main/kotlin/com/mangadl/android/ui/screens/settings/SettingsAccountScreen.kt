@@ -1,5 +1,6 @@
 package com.mangadl.android.ui.screens.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -192,9 +193,7 @@ fun SettingsAccountScreen(onBack: () -> Unit, onSignOut: () -> Unit) {
                         onClick = { showDeleteDialog = true },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = RoundedCornerShape(12.dp),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(
-                            brush = androidx.compose.ui.graphics.SolidColor(MangaDlColors.Primary),
-                        ),
+                        border = BorderStroke(1.dp, MangaDlColors.Primary),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MangaDlColors.Primary),
                     ) {
                         Text("Delete Account", fontWeight = FontWeight.Bold, fontSize = 15.sp)

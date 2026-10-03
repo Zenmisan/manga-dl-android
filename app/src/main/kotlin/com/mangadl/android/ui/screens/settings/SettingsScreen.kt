@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,7 +47,7 @@ fun SettingsScreen(
     val items = listOf(
         SettingsItem(Icons.Default.Person, "Account", "Profile, cloud sync, sign out", onAccount),
         SettingsItem(Icons.Default.Tune, "General", "Theme, accent, backend, notifications", onGeneral),
-        SettingsItem(Icons.Default.MenuBook, "Reader", "Reading mode, tap zones, volume keys", onReader),
+        SettingsItem(Icons.AutoMirrored.Filled.MenuBook, "Reader", "Reading mode, tap zones, volume keys", onReader),
         SettingsItem(Icons.Default.LocalLibrary, "Library", "Grid, categories, auto-update", onLibrary),
         SettingsItem(Icons.Default.Refresh, "Trackers", "AniList, MAL, Kitsu and more", onTrackers),
         SettingsItem(Icons.Default.Storage, "System & backup", "Storage, sync, backup, servers", onSystem),
@@ -136,7 +137,7 @@ private fun SettingsScreenPreview() {
             listOf(
                 Icons.Default.Person to "Account",
                 Icons.Default.Tune to "General",
-                Icons.Default.MenuBook to "Reader",
+                Icons.AutoMirrored.Filled.MenuBook to "Reader",
                 Icons.Default.Settings to "System & backup",
             ).forEach { (icon, label) ->
                 Row(

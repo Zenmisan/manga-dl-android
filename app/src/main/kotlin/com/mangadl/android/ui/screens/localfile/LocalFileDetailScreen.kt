@@ -293,7 +293,7 @@ private fun LocalFileDetailScreenPreview() {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
+                    Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = null,
                     tint = MangaDlColors.TextPrimary,
                     modifier = Modifier.padding(8.dp).size(24.dp),

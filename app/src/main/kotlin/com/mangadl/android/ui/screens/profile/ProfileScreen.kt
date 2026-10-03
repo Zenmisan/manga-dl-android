@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -308,7 +309,7 @@ private fun ActivityRow(progress: ReadingProgress) {
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Default.MenuBook,
+                Icons.AutoMirrored.Filled.MenuBook,
                 contentDescription = null,
                 tint = MangaDlColors.TextSecondary,
                 modifier = Modifier.size(18.dp),

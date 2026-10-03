@@ -2,6 +2,7 @@ package com.mangadl.android.ui.screens.settings
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -218,9 +219,7 @@ private fun TrackerCard(
                 OutlinedButton(
                     onClick = onDisconnect,
                     shape = RoundedCornerShape(999.dp),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(
-                        brush = androidx.compose.ui.graphics.SolidColor(Color(0x44FFFFFF)),
-                    ),
+                    border = BorderStroke(1.dp, Color(0x44FFFFFF)),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
                     modifier = Modifier.height(34.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MangaDlColors.TextSecondary),
