@@ -28,6 +28,12 @@ interface LibraryDao {
 
     @Query("UPDATE library SET readCount = :count WHERE id = :mangaId")
     suspend fun updateReadCount(mangaId: String, count: Int)
+
+    @Query("UPDATE library SET totalChapters = :count WHERE id = :id")
+    suspend fun updateTotalChapters(id: String, count: Int)
+
+    @Query("SELECT * FROM library")
+    suspend fun getAllOnce(): List<LibraryManga>
 }
 
 @Dao

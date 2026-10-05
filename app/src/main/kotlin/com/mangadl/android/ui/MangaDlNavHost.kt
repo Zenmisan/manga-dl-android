@@ -39,6 +39,7 @@ import com.mangadl.android.ui.viewmodels.DownloadViewModel
 import com.mangadl.android.ui.viewmodels.NotificationsViewModel
 import com.mangadl.android.ui.viewmodels.HistoryViewModel
 import com.mangadl.android.ui.viewmodels.LibraryViewModel
+import com.mangadl.android.ui.viewmodels.SearchViewModel
 import com.mangadl.android.ui.viewmodels.UpdatesViewModel
 import com.mangadl.android.ui.components.MainTab
 import com.mangadl.android.ui.components.MdBottomNav
@@ -181,7 +182,16 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
             LocalFileDetailScreen(onBack = back, onRead = { nav.navigate(Routes.Reader) })
         }
 
-        composable(Routes.Search) { GlobalSearchScreen(onBack = back, onOpenManga = { nav.navigate(Routes.Detail) }) }
+        composable(Routes.Search) {
+            val searchVm: SearchViewModel = viewModel()
+            val searchResults by searchVm.results.collectAsState()
+            GlobalSearchScreen(
+                onBack = back,
+                onOpenManga = { nav.navigate(Routes.Detail) },
+                searchResults = searchResults,
+                onSearch = { searchVm.search(it) },
+            )
+        }
         composable(Routes.Source) {
             BrowseSourceScreen("MangaDex", emptyList(), onBack = back, onOpenManga = { nav.navigate(Routes.Detail) })
         }

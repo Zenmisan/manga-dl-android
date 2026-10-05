@@ -125,7 +125,6 @@ fun LibraryScreen(
                 TabHeader("Library") {
                     MdIconButton(MdIcons.Search, "Search library", { searchActive = !searchActive })
                     MdIconButton(MdIcons.Filter, "Sort and filter", { showFilter = true })
-                    MdIconButton(MdIcons.More, "More options", {})
                 }
             }
             if (searchActive) {

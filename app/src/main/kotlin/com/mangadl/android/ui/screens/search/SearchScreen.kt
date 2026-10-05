@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +44,7 @@ fun GlobalSearchScreen(
     onOpenManga: (Manga) -> Unit,
     initialQuery: String = "",
     searchResults: List<Pair<String, List<Manga>>> = emptyList(),
+    onSearch: (String) -> Unit = {},
 ) {
     val c = MdTheme.colors
     var query by rememberState(initialQuery)
@@ -50,23 +52,36 @@ fun GlobalSearchScreen(
     Screen {
         Row(Modifier.padding(start = 8.dp, end = 16.dp, top = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             MdIconButton(MdIcons.Back, "Back", onBack)
-            SearchField(query, { query = it }, "Search", Modifier.weight(1f), focused = true) {
+            SearchField(
+                query,
+                {
+                    query = it
+                    onSearch(it)
+                },
+                "Search",
+                Modifier.weight(1f),
+                focused = true,
+            ) {
                 MdIconButton(MdIcons.Filter, "Search filters", {}, size = 36.dp, iconSize = 18.dp)
             }
         }
         UnderlineTabs(listOf("Manga", "Web Novels", "Readers"), tab, { tab = it }, Modifier.padding(horizontal = 20.dp))
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
-            items(searchResults) { (source, results) ->
-                SearchSection(source, "${results.size} results") {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(results) { m -> SearchCover(m) { onOpenManga(m) } }
+            if (searchResults.isEmpty() && query.isNotBlank()) {
+                // skeleton while searching
+                item {
+                    SearchSection("Searching…", "") {
+                        Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            repeat(3) { Box(Modifier.size(104.dp, 156.dp).clip(RoundedCornerShape(10.dp)).background(c.surfaceRaised)) }
+                        }
                     }
                 }
-            }
-            item {
-                SearchSection("Asura Scans", "Searching…") {
-                    Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        repeat(3) { Box(Modifier.size(104.dp, 156.dp).clip(RoundedCornerShape(10.dp)).background(c.surfaceRaised)) }
+            } else {
+                items(searchResults) { (source, results) ->
+                    SearchSection(source, "${results.size} results") {
+                        LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(results) { m -> SearchCover(m) { onOpenManga(m) } }
+                        }
                     }
                 }
             }
@@ -79,7 +94,7 @@ private fun SearchSection(title: String, meta: String, content: @Composable () -
     Column(Modifier.padding(top = 12.dp, bottom = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             BodyText(title, Modifier.weight(1f), size = 15.sp, weight = FontWeight.ExtraBold)
-            BodyText(meta, size = 12.sp, weight = FontWeight.SemiBold, color = MdTheme.colors.fgSubtle)
+            if (meta.isNotEmpty()) BodyText(meta, size = 12.sp, weight = FontWeight.SemiBold, color = MdTheme.colors.fgSubtle)
         }
         content()
     }

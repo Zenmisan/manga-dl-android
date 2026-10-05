@@ -11,10 +11,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.mangadl.android.data.auth.SupabaseManager
 import com.mangadl.android.ui.MangaDlNavHost
+import com.mangadl.android.ui.Routes
 import com.mangadl.android.ui.theme.Accent
 import com.mangadl.android.ui.theme.MangaDlTheme
 import com.mangadl.android.ui.viewmodels.TrackerViewModel
+import io.github.jan.supabase.auth.auth
 
 class MainActivity : ComponentActivity() {
 
@@ -25,10 +28,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleOAuthIntent(intent)
+        val startDest = if (SupabaseManager.client.auth.currentUserOrNull() != null) Routes.Main else Routes.Welcome
         setContent {
             var accent by remember { mutableStateOf(Accent.Red) }
             MangaDlTheme(accent = accent) {
-                MangaDlNavHost(onAccentChange = { accent = it })
+                MangaDlNavHost(onAccentChange = { accent = it }, startDestination = startDest)
             }
         }
     }

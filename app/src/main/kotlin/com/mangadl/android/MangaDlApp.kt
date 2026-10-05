@@ -1,13 +1,16 @@
 package com.mangadl.android
 
 import android.app.Application
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import androidx.work.Constraints
 import com.mangadl.android.data.auth.GoogleAuthHelper
 import com.mangadl.android.data.download.DownloadWorker
+import com.mangadl.android.data.library.LibraryUpdateWorker
 import com.mangadl.android.data.extensions.ExtensionManager
 import com.mangadl.android.data.db.AppDatabase
 import com.mangadl.android.data.prefs.AppPreferences
@@ -58,12 +61,25 @@ class MangaDlApp : Application() {
         extensionManager.backendUrl = BuildConfig.BACKEND_URL
         extensionManager.loadAll()
 
+        LibraryUpdateWorker.createChannel(this)
+
+        val wm = WorkManager.getInstance(this)
+        val networkConstraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+
         // Re-run any pending downloads on app start
-        val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
-        WorkManager.getInstance(this).enqueueUniqueWork(
+        wm.enqueueUniqueWork(
             DownloadWorker.WORK_NAME,
             ExistingWorkPolicy.KEEP,
-            OneTimeWorkRequestBuilder<DownloadWorker>().setConstraints(constraints).build(),
+            OneTimeWorkRequestBuilder<DownloadWorker>().setConstraints(networkConstraints).build(),
+        )
+
+        // Check library for new chapters every 12 hours
+        wm.enqueueUniquePeriodicWork(
+            LibraryUpdateWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<LibraryUpdateWorker>(12, TimeUnit.HOURS)
+                .setConstraints(networkConstraints)
+                .build(),
         )
 
         // Keep backendUrl in sync with user setting
