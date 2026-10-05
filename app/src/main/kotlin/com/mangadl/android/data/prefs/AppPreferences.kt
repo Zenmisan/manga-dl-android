@@ -38,6 +38,11 @@ object PrefKeys {
     // Trackers
     val ANILIST_CONNECTED = booleanPreferencesKey("anilist_connected")
     val MAL_CONNECTED = booleanPreferencesKey("mal_connected")
+    val ANILIST_TOKEN = stringPreferencesKey("anilist_token")
+    val ANILIST_CLIENT_ID = stringPreferencesKey("anilist_client_id")
+    val MAL_TOKEN = stringPreferencesKey("mal_token")
+    val MAL_REFRESH_TOKEN = stringPreferencesKey("mal_refresh_token")
+    val MAL_CLIENT_ID = stringPreferencesKey("mal_client_id")
 
     // System
     val SYNC_WIFI_ONLY = booleanPreferencesKey("sync_wifi_only")
@@ -71,6 +76,11 @@ class AppPreferences(private val context: Context) {
     val libraryDisplay: Flow<String> = context.dataStore.data.map { it[PrefKeys.LIBRARY_DISPLAY] ?: "grid" }
     val anilistConnected: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.ANILIST_CONNECTED] ?: false }
     val malConnected: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.MAL_CONNECTED] ?: false }
+    val anilistToken: Flow<String> = context.dataStore.data.map { it[PrefKeys.ANILIST_TOKEN] ?: "" }
+    val anilistClientId: Flow<String> = context.dataStore.data.map { it[PrefKeys.ANILIST_CLIENT_ID] ?: "" }
+    val malToken: Flow<String> = context.dataStore.data.map { it[PrefKeys.MAL_TOKEN] ?: "" }
+    val malRefreshToken: Flow<String> = context.dataStore.data.map { it[PrefKeys.MAL_REFRESH_TOKEN] ?: "" }
+    val malClientId: Flow<String> = context.dataStore.data.map { it[PrefKeys.MAL_CLIENT_ID] ?: "" }
     val syncWifiOnly: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.SYNC_WIFI_ONLY] ?: true }
     val backendUrl: Flow<String> = context.dataStore.data.map { it[PrefKeys.BACKEND_URL] ?: "" }
     val apiKey: Flow<String> = context.dataStore.data.map { it[PrefKeys.API_KEY] ?: "" }

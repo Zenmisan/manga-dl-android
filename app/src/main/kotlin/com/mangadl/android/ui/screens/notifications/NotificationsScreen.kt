@@ -2,257 +2,83 @@ package com.mangadl.android.ui.screens.notifications
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mangadl.android.data.model.LibraryManga
-import com.mangadl.android.ui.theme.AntonStyleSub
-import com.mangadl.android.ui.theme.MangaDlColors
-import com.mangadl.android.ui.theme.MangaDlTheme
-import com.mangadl.android.ui.viewmodels.NotificationsViewModel
-import java.text.SimpleDateFormat
-import java.util.*
-import java.util.concurrent.TimeUnit
+import com.mangadl.android.data.ui.Notice
+import com.mangadl.android.data.ui.NoticeKind
+import com.mangadl.android.ui.components.BackHeader
+import com.mangadl.android.ui.components.BodyText
+import com.mangadl.android.ui.components.Divider
+import com.mangadl.android.ui.components.MdIcons
+import com.mangadl.android.ui.components.Screen
+import com.mangadl.android.ui.components.TextLink
+import com.mangadl.android.ui.components.rememberState
+import com.mangadl.android.ui.theme.MdTheme
 
 @Composable
-fun NotificationsScreen(
-    viewModel: NotificationsViewModel = viewModel(),
-    onBack: () -> Unit,
-    onMangaClick: (provider: String, mangaId: String) -> Unit,
-) {
-    val allLibrary by viewModel.library.collectAsStateWithLifecycle()
-
-    var cleared by remember { mutableStateOf(false) }
-    val notifications = remember(allLibrary, cleared) {
-        if (cleared) emptyList()
-        else allLibrary
-            .filter { it.totalChapters > it.readCount }
-            .sortedByDescending { it.lastReadAt ?: it.addedAt }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MangaDlColors.Background),
-    ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(start = 8.dp, top = 8.dp, bottom = 4.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = MangaDlColors.TextPrimary,
-                )
-            }
-            Text(
-                "Notifications".uppercase(),
-                style = AntonStyleSub,
-                color = MangaDlColors.TextPrimary,
-                modifier = Modifier.weight(1f),
-            )
-            if (notifications.isNotEmpty()) {
-                TextButton(onClick = { cleared = true }) {
-                    Text(
-                        "Mark All Read",
-                        color = MangaDlColors.Primary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
+fun NotificationsScreen(notices: List<Notice>, onBack: () -> Unit) {
+    val c = MdTheme.colors
+    var list by rememberState(notices)
+    Screen {
+        BackHeader("Notifications", onBack) {
+            TextLink("Mark All Read", { list = list.map { it.copy(unread = false) } }, size = 13.sp)
         }
-
-        if (notifications.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(MangaDlColors.CardBg),
-                        contentAlignment = Alignment.Center,
+        LazyColumn(Modifier.fillMaxSize()) {
+            items(list) { n ->
+                val (iconBg, iconFg) = when (n.kind) {
+                    NoticeKind.Error -> c.errorSoft to c.errorText
+                    NoticeKind.Success -> c.successSoft to c.successText
+                    NoticeKind.Info -> c.surfaceHigh to c.fg
+                }
+                val icon = when (n.icon) {
+                    "warn" -> MdIcons.Warning
+                    "download" -> MdIcons.Download
+                    "sync" -> MdIcons.Refresh
+                    "up" -> MdIcons.ArrowUp
+                    else -> MdIcons.Updates
+                }
+                Column {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(if (n.unread) c.accent.copy(alpha = 0.05f) else Color.Transparent)
+                            .clickable {}
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        Icon(
-                            Icons.Default.Notifications,
-                            contentDescription = null,
-                            tint = MangaDlColors.TextSecondary,
-                            modifier = Modifier.size(28.dp),
-                        )
+                        Box(Modifier.size(40.dp).clip(CircleShape).background(iconBg), contentAlignment = Alignment.Center) {
+                            Icon(icon, null, tint = iconFg, modifier = Modifier.size(20.dp))
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            BodyText(n.title, weight = FontWeight.Bold)
+                            BodyText(n.body, size = 13.sp, color = c.fg.copy(alpha = 0.7f), lineHeight = 18.sp)
+                            BodyText(n.whenText, size = 12.sp, color = c.fgFaint)
+                        }
+                        if (n.unread) Box(Modifier.padding(top = 6.dp).size(8.dp).clip(CircleShape).background(c.accent))
                     }
-                    Text(
-                        "All caught up",
-                        color = MangaDlColors.TextPrimary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        "No new notifications",
-                        color = MangaDlColors.TextSecondary,
-                        fontSize = 13.sp,
-                    )
+                    Divider()
                 }
             }
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(notifications.size) { i ->
-                    val manga = notifications[i]
-                    NotificationRow(
-                        manga = manga,
-                        onClick = {
-                            onMangaClick(manga.provider, manga.id.removePrefix("${manga.provider}:"))
-                        },
-                    )
-                }
-                item { Spacer(Modifier.height(24.dp)) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun NotificationRow(manga: LibraryManga, onClick: () -> Unit) {
-    val newChapters = (manga.totalChapters - manga.readCount).coerceAtLeast(0)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        // Circle icon
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(Color(0x29DC2626)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Default.Notifications,
-                contentDescription = null,
-                tint = MangaDlColors.PrimaryLight,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-
-        // Content
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                manga.title,
-                color = MangaDlColors.TextPrimary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-            )
-            Text(
-                "$newChapters new chapter${if (newChapters == 1) "" else "s"} available",
-                color = Color(0xBFFFFFFF),
-                fontSize = 13.sp,
-                lineHeight = 18.sp,
-            )
-            Text(
-                timeAgo(manga.lastReadAt ?: manga.addedAt),
-                color = Color(0x80FFFFFF),
-                fontSize = 12.sp,
-            )
-        }
-
-        // Unread dot
-        Box(
-            modifier = Modifier
-                .padding(top = 6.dp)
-                .size(8.dp)
-                .clip(CircleShape)
-                .background(MangaDlColors.Primary),
-        )
-    }
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(Color(0x0FFFFFFF)),
-    )
-}
-
-private fun timeAgo(ms: Long): String {
-    val diff = System.currentTimeMillis() - ms
-    return when {
-        diff < TimeUnit.MINUTES.toMillis(1) -> "just now"
-        diff < TimeUnit.HOURS.toMillis(1) -> "${TimeUnit.MILLISECONDS.toMinutes(diff)}m ago"
-        diff < TimeUnit.DAYS.toMillis(1) -> "${TimeUnit.MILLISECONDS.toHours(diff)}h ago"
-        diff < TimeUnit.DAYS.toMillis(7) -> "${TimeUnit.MILLISECONDS.toDays(diff)}d ago"
-        else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(ms))
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF050505)
-@Composable
-private fun NotificationsScreenPreview() {
-    MangaDlTheme {
-        Column(Modifier.fillMaxSize().background(MangaDlColors.Background)) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 8.dp, top = 36.dp, bottom = 4.dp, end = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MangaDlColors.TextPrimary, modifier = Modifier.padding(8.dp))
-                Text("NOTIFICATIONS", style = AntonStyleSub, color = MangaDlColors.TextPrimary, modifier = Modifier.weight(1f))
-                Text("Mark All Read", color = MangaDlColors.Primary, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 12.dp))
-            }
-            // Sample row
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                Box(Modifier.size(40.dp).clip(CircleShape).background(Color(0x29DC2626)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Notifications, null, tint = MangaDlColors.PrimaryLight, modifier = Modifier.size(20.dp))
-                }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("One Piece", color = MangaDlColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text("3 new chapters available", color = Color(0xBFFFFFFF), fontSize = 13.sp)
-                    Text("2h ago", color = Color(0x80FFFFFF), fontSize = 12.sp)
-                }
-                Box(Modifier.padding(top = 6.dp).size(8.dp).clip(CircleShape).background(MangaDlColors.Primary))
-            }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x0FFFFFFF)))
         }
     }
 }

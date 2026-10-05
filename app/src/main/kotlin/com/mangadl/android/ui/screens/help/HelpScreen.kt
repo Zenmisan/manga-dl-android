@@ -1,283 +1,93 @@
 package com.mangadl.android.ui.screens.help
 
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mangadl.android.ui.theme.AntonStyleSub
-import com.mangadl.android.ui.theme.MangaDlColors
-import com.mangadl.android.ui.theme.MangaDlTheme
-import androidx.compose.ui.tooling.preview.Preview
+import com.mangadl.android.ui.components.BackHeader
+import com.mangadl.android.ui.components.BodyText
+import com.mangadl.android.ui.components.Divider
+import com.mangadl.android.ui.components.Eyebrow
+import com.mangadl.android.ui.components.MdButton
+import com.mangadl.android.ui.components.MdIcons
+import com.mangadl.android.ui.components.MdTextField
+import com.mangadl.android.ui.components.PillChip
+import com.mangadl.android.ui.components.Screen
+import com.mangadl.android.ui.components.rememberState
+import com.mangadl.android.ui.theme.MdTheme
+import androidx.compose.foundation.clickable
 
-private data class FaqItem(val question: String, val answer: String)
-
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HelpScreen(onBack: () -> Unit) {
-    val context = LocalContext.current
-    var expandedItem by remember { mutableStateOf<String?>(null) }
-
+    val c = MdTheme.colors
     val faqs = listOf(
-        FaqItem(
-            "How do I add manga to my library?",
-            "Tap Browse, pick a source, search for manga, open it and tap the heart icon on the detail page.",
-        ),
-        FaqItem(
-            "How do I download chapters?",
-            "On the manga detail page, long-press a chapter and tap Download. You can also download all chapters from the chapter menu.",
-        ),
-        FaqItem(
-            "How do I sync across devices?",
-            "Sign in with your account — your library syncs automatically through the cloud.",
-        ),
-        FaqItem(
-            "Why are some images not loading?",
-            "Some sources require a browser user-agent. If images fail, try a different source for the same title.",
-        ),
-        FaqItem(
-            "What sources are available?",
-            "Tap Browse to see all available sources. Built-in sources need no setup. You can browse and read without signing in.",
-        ),
-        FaqItem(
-            "How does reading progress work?",
-            "Progress syncs automatically when you read. The continue card on your Library screen shows your last position.",
-        ),
+        "Where are downloads saved?" to "As CBZ files with ComicInfo.xml. Change the folder in Settings › System › Download location.",
+        "How do I add a source?" to "Open Browse › Extensions and install one, or connect Komga or Suwayomi in Settings › System.",
+        "How does cloud sync work?" to "Sign in and your library, history and progress sync through your backend automatically.",
+        "Why won't a chapter load?" to "The source may be down or rate-limiting. Retry, or open it in WebView to check.",
     )
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MangaDlColors.Background),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 4.dp, end = 12.dp, top = 20.dp, bottom = 8.dp)
-                .statusBarsPadding(),
-            verticalAlignment = Alignment.CenterVertically,
+    var open by rememberState(0)
+    var category by rememberState("Bug Report")
+    var message by rememberState("")
+    Screen {
+        BackHeader("Help center", onBack)
+        Column(
+            Modifier.verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = MangaDlColors.TextPrimary,
-                )
-            }
-            Text(
-                "HELP",
-                style = AntonStyleSub,
-                color = MangaDlColors.TextPrimary,
-                modifier = Modifier.weight(1f),
-            )
-        }
-
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            item {
-                Text(
-                    "FREQUENTLY ASKED",
-                    color = MangaDlColors.SectionRed,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp,
-                    modifier = Modifier.padding(bottom = 4.dp),
-                )
-            }
-
-            items(faqs.size) { i ->
-                val faq = faqs[i]
-                FaqCard(
-                    faq = faq,
-                    isExpanded = expandedItem == faq.question,
-                    onToggle = {
-                        expandedItem = if (expandedItem == faq.question) null else faq.question
-                    },
-                )
-            }
-
-            item { Spacer(Modifier.height(16.dp)) }
-
-            item {
-                // Contact support button
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MangaDlColors.Primary)
-                        .clickable {
-                            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                data = Uri.parse("mailto:support@manga-dl.app")
-                                putExtra(Intent.EXTRA_SUBJECT, "Support Request — manga-dl Android")
-                            }
-                            context.startActivity(Intent.createChooser(intent, "Contact Support"))
+            Column {
+                Eyebrow("Frequently asked", Modifier.padding(bottom = 6.dp))
+                faqs.forEachIndexed { i, (q, a) ->
+                    val expanded = open == i
+                    Column(Modifier.fillMaxWidth()) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 52.dp)
+                                .clickable(role = Role.Button) { open = if (expanded) -1 else i },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            BodyText(q, Modifier.weight(1f), size = 15.sp, weight = if (expanded) FontWeight.Bold else FontWeight.SemiBold)
+                            Icon(if (expanded) MdIcons.ChevronUp else MdIcons.ChevronDown, null, tint = c.fg, modifier = Modifier.size(18.dp))
                         }
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Icon(
-                        Icons.Default.Email,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Text(
-                        "Contact Support",
-                        color = Color.White,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MangaDlColors.CardBg)
-                        .border(1.dp, MangaDlColors.CardBorder, RoundedCornerShape(12.dp))
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Icon(
-                        Icons.Default.Info,
-                        contentDescription = null,
-                        tint = MangaDlColors.TextSecondary,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Column {
-                        Text(
-                            "Version",
-                            color = MangaDlColors.TextSecondary,
-                            fontSize = 12.sp,
-                        )
-                        Text(
-                            "manga-dl 1.0.0 (Android)",
-                            color = MangaDlColors.TextPrimary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
+                        if (expanded) BodyText(a, Modifier.padding(bottom = 14.dp), color = c.fgMuted, lineHeight = 21.sp)
+                        Divider(color = c.surfaceHigh)
                     }
                 }
             }
-
-            item { Spacer(Modifier.height(32.dp)) }
-        }
-    }
-}
-
-@Composable
-private fun FaqCard(faq: FaqItem, isExpanded: Boolean, onToggle: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MangaDlColors.CardBg)
-            .border(1.dp, MangaDlColors.CardBorder, RoundedCornerShape(12.dp))
-            .clickable(onClick = onToggle),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                faq.question,
-                color = MangaDlColors.TextPrimary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                contentDescription = null,
-                tint = MangaDlColors.TextSecondary,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-        AnimatedVisibility(
-            visible = isExpanded,
-            enter = expandVertically(),
-            exit = shrinkVertically(),
-        ) {
-            Column {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(MangaDlColors.CardBorder),
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Eyebrow("Contact support", color = c.fgSubtle)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Bug Report", "Feature Request", "Account", "Source / Extension").forEach {
+                        PillChip(it, it == category, { category = it }, fontSize = 12.sp)
+                    }
+                }
+                MdTextField(
+                    message, { message = it },
+                    label = "Message",
+                    placeholder = "What happened? Include the source and chapter if it's a loading issue.",
+                    multiline = true, height = 110.dp,
                 )
-                Text(
-                    faq.answer,
-                    color = MangaDlColors.TextSecondary,
-                    fontSize = 13.sp,
-                    lineHeight = 20.sp,
-                    modifier = Modifier.padding(16.dp),
-                )
+                MdButton("Send Message", {}, Modifier.fillMaxWidth(), height = 50.dp, fontSize = 14.sp)
             }
-        }
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF050505)
-@Composable
-private fun HelpScreenPreview() {
-    MangaDlTheme {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .background(MangaDlColors.Background)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, end = 12.dp, top = 32.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = MangaDlColors.TextPrimary, modifier = Modifier.padding(8.dp))
-                Text("HELP", style = AntonStyleSub, color = MangaDlColors.TextPrimary, modifier = Modifier.weight(1f))
-            }
-            Text(
-                "FREQUENTLY ASKED",
-                color = MangaDlColors.SectionRed,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 1.sp,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-            )
-            FaqCard(
-                faq = FaqItem("How do I add manga to my library?", "Tap Browse, pick a source, search for manga, open it and tap the heart icon on the detail page."),
-                isExpanded = true,
-                onToggle = {},
-            )
         }
     }
 }

@@ -2,263 +2,126 @@ package com.mangadl.android.ui.screens.settings
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mangadl.android.data.prefs.AppPreferences
-import com.mangadl.android.data.prefs.PrefKeys
-import com.mangadl.android.ui.theme.AntonStyleSub
-import com.mangadl.android.ui.theme.MangaDlColors
-import com.mangadl.android.ui.theme.MangaDlTheme
-import androidx.compose.ui.tooling.preview.Preview
-import kotlinx.coroutines.launch
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mangadl.android.ui.components.BodyText
+import com.mangadl.android.ui.components.ButtonTone
+import com.mangadl.android.ui.components.Divider
+import com.mangadl.android.ui.components.InputSetting
+import com.mangadl.android.ui.components.LogoTile
+import com.mangadl.android.ui.components.PillButton
+import com.mangadl.android.ui.components.SettingsSection
+import com.mangadl.android.ui.components.SwitchSetting
+import com.mangadl.android.ui.theme.MdTheme
+import com.mangadl.android.ui.viewmodels.TrackerViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsTrackersScreen(onBack: () -> Unit) {
+fun TrackerSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val prefs = remember { AppPreferences.getInstance(context) }
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val vm: TrackerViewModel = viewModel()
+    val anilistConnected by vm.anilistConnected.collectAsState()
+    val anilistClientId by vm.anilistClientId.collectAsState()
+    val malConnected by vm.malConnected.collectAsState()
+    val malClientId by vm.malClientId.collectAsState()
 
-    val anilistConnected by prefs.anilistConnected.collectAsState(initial = false)
-    val malConnected by prefs.malConnected.collectAsState(initial = false)
-
-    Scaffold(
-        containerColor = MangaDlColors.Background,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { innerPadding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MangaDlColors.Background)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 8.dp, top = 16.dp, bottom = 0.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MangaDlColors.TextPrimary)
-                }
-                Text("Trackers".uppercase(), style = AntonStyleSub, color = MangaDlColors.TextPrimary)
-            }
-
-            Text(
-                text = "Sync your reading progress with tracking services",
-                color = MangaDlColors.TextSecondary,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+    SettingsFrame("Trackers", onBack) {
+        SettingsSection("Services") {
+            TrackerRow(
+                short = "AL",
+                color = Color(0xFF0099CC),
+                name = "AniList",
+                connected = anilistConnected,
+                onConnect = {
+                    val url = vm.anilistAuthUrl()
+                    if (url.isNotEmpty()) context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                },
+                onDisconnect = { vm.disconnectAnilist() },
             )
-
-            LazyColumn(
-                Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                item { Spacer(Modifier.height(12.dp)) }
-
-                // AniList
-                item {
-                    TrackerCard(
-                        name = "AniList",
-                        subtitle = "Anime/Manga tracking",
-                        avatarColor = Color(0xFF00BCD4),
-                        avatarLetter = "A",
-                        connected = anilistConnected,
-                        onConnect = {
-                            scope.launch {
-                                snackbarHostState.showSnackbar("Connecting via browser...")
-                            }
-                            val intent = Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse("https://anilist.co/api/v2/oauth/authorize?client_id=51213&response_type=token"),
-                            )
-                            context.startActivity(intent)
-                        },
-                        onDisconnect = {
-                            scope.launch {
-                                prefs.set(PrefKeys.ANILIST_CONNECTED, false)
-                                snackbarHostState.showSnackbar("AniList disconnected")
-                            }
-                        },
-                    )
-                }
-
-                // MyAnimeList
-                item {
-                    TrackerCard(
-                        name = "MyAnimeList",
-                        subtitle = "Anime/Manga tracking",
-                        avatarColor = Color(0xFF2E51A2),
-                        avatarLetter = "M",
-                        connected = malConnected,
-                        onConnect = {
-                            scope.launch {
-                                snackbarHostState.showSnackbar("Connecting via browser...")
-                            }
-                            val intent = Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse("https://myanimelist.net/v1/oauth2/authorize"),
-                            )
-                            context.startActivity(intent)
-                        },
-                        onDisconnect = {
-                            scope.launch {
-                                prefs.set(PrefKeys.MAL_CONNECTED, false)
-                                snackbarHostState.showSnackbar("MyAnimeList disconnected")
-                            }
-                        },
-                    )
-                }
-
-                // Kitsu placeholder
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(MangaDlColors.CardBg)
-                            .border(1.dp, MangaDlColors.CardBorder, RoundedCornerShape(16.dp))
-                            .padding(16.dp),
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFFF6B35)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text("K", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Column(Modifier.weight(1f)) {
-                                Text("Kitsu", color = MangaDlColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                Text("Anime/Manga tracking", color = MangaDlColors.TextSecondary, fontSize = 12.sp)
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(999.dp))
-                                    .background(Color(0x22FFFFFF))
-                                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                            ) {
-                                Text("Coming soon", color = MangaDlColors.TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    }
-                }
-
-                item { Spacer(Modifier.height(24.dp)) }
+            if (!anilistConnected) {
+                InputSetting(
+                    label = "AniList Client ID",
+                    initial = anilistClientId,
+                    description = "Create at anilist.co/settings/developer · redirect: mangadl://anilist-callback",
+                    value = anilistClientId,
+                    onValueChange = { vm.setAnilistClientId(it) },
+                )
             }
+
+            Divider()
+
+            TrackerRow(
+                short = "MAL",
+                color = Color(0xFF2E51A2),
+                name = "MyAnimeList",
+                connected = malConnected,
+                onConnect = {
+                    val url = vm.malAuthUrl()
+                    if (url.isNotEmpty()) context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                },
+                onDisconnect = { vm.disconnectMal() },
+            )
+            if (!malConnected) {
+                InputSetting(
+                    label = "MAL Client ID",
+                    initial = malClientId,
+                    description = "Create at myanimelist.net/apiconfig · redirect: mangadl://mal-callback",
+                    value = malClientId,
+                    onValueChange = { vm.setMalClientId(it) },
+                )
+            }
+        }
+        SettingsSection("Sync") {
+            SwitchSetting("Auto-sync progress", true, "Update trackers after each chapter")
+            SwitchSetting("Mark completed", true, "Set status to Completed on last chapter")
+            SwitchSetting("Ask before changing scores", false, "Confirm before overwriting a score")
         }
     }
 }
 
 @Composable
-private fun TrackerCard(
+private fun TrackerRow(
+    short: String,
+    color: Color,
     name: String,
-    subtitle: String,
-    avatarColor: Color,
-    avatarLetter: String,
     connected: Boolean,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MangaDlColors.CardBg)
-            .border(1.dp, MangaDlColors.CardBorder, RoundedCornerShape(16.dp))
-            .padding(16.dp),
+    val c = MdTheme.colors
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(avatarColor),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(avatarLetter, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
-            Column(Modifier.weight(1f)) {
-                Text(name, color = MangaDlColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = MangaDlColors.TextSecondary, fontSize = 12.sp)
-                if (connected) {
-                    Spacer(Modifier.height(4.dp))
-                    Text("Connected", color = Color(0xFF4ade80), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-            if (connected) {
-                OutlinedButton(
-                    onClick = onDisconnect,
-                    shape = RoundedCornerShape(999.dp),
-                    border = BorderStroke(1.dp, Color(0x44FFFFFF)),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                    modifier = Modifier.height(34.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MangaDlColors.TextSecondary),
-                ) {
-                    Text("Disconnect", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
-            } else {
-                Button(
-                    onClick = onConnect,
-                    shape = RoundedCornerShape(999.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                    modifier = Modifier.height(34.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MangaDlColors.Primary),
-                ) {
-                    Text("Connect", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
+        LogoTile(short, color, anton = false)
+        Column(Modifier.weight(1f)) {
+            BodyText(name, size = 15.sp, weight = FontWeight.Bold)
+            BodyText(
+                if (connected) "Connected" else "Not connected",
+                size = 12.sp,
+                color = if (connected) c.successText else c.fgSubtle,
+            )
         }
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF050505)
-@Composable
-private fun SettingsTrackersScreenPreview() {
-    MangaDlTheme {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .background(MangaDlColors.Background)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 8.dp, top = 32.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = MangaDlColors.TextPrimary, modifier = Modifier.padding(8.dp))
-                Text("TRACKERS", style = AntonStyleSub, color = MangaDlColors.TextPrimary)
-            }
-        }
+        PillButton(
+            if (connected) "Log Out" else "Connect",
+            if (connected) onDisconnect else onConnect,
+            tone = if (connected) ButtonTone.Ghost else ButtonTone.Primary,
+            height = 38.dp,
+        )
     }
 }

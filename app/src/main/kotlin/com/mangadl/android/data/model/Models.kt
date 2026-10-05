@@ -35,6 +35,7 @@ data class Chapter(
     val publishedAt: String = "",
 )
 
+@Serializable
 @Entity(tableName = "library")
 data class LibraryManga(
     @PrimaryKey val id: String,

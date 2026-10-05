@@ -3,398 +3,156 @@ package com.mangadl.android.ui.screens.profile
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mangadl.android.data.model.ReadingProgress
-import com.mangadl.android.ui.components.SectionLabel
-import com.mangadl.android.ui.theme.AntonStyle
-import com.mangadl.android.ui.theme.MangaDlColors
-import com.mangadl.android.ui.theme.MangaDlTheme
+import com.mangadl.android.ui.components.BodyText
+import com.mangadl.android.ui.viewmodels.AuthViewModel
 import com.mangadl.android.ui.viewmodels.ProfileViewModel
-import java.text.SimpleDateFormat
-import java.util.*
-import java.util.concurrent.TimeUnit
+import com.mangadl.android.ui.components.ButtonTone
+import com.mangadl.android.ui.components.CoverArt
+import com.mangadl.android.ui.components.DisplayText
+import com.mangadl.android.ui.components.Divider
+import com.mangadl.android.ui.components.Eyebrow
+import com.mangadl.android.ui.components.MdButton
+import com.mangadl.android.ui.components.MdIconButton
+import com.mangadl.android.ui.components.MdIcons
+import com.mangadl.android.ui.theme.MdTheme
 
-private val AvatarDeepRed = Color(0xFF3A1518)
-
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ProfileScreen(
-    viewModel: ProfileViewModel = viewModel(),
-    onBack: () -> Unit,
-) {
-    val library by viewModel.library.collectAsStateWithLifecycle()
-    val recentActivity by viewModel.recentActivity.collectAsStateWithLifecycle()
-    val totalChaptersRead by viewModel.totalChaptersRead.collectAsStateWithLifecycle()
-    val mangaInLibrary = library.size
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MangaDlColors.Background),
-    ) {
-        // Banner + overlapping avatar
-        item {
+fun ProfileScreen(onBack: () -> Unit, onEditProfile: () -> Unit) {
+    val c = MdTheme.colors
+    val authVm: AuthViewModel = viewModel()
+    val profileVm: ProfileViewModel = viewModel()
+    val library by profileVm.library.collectAsState()
+    val chaptersRead by profileVm.totalChaptersRead.collectAsState()
+    val streak by profileVm.streak.collectAsState()
+    val user = authVm.currentUser
+    val username = try {
+        (user?.userMetadata?.get("username") as? kotlinx.serialization.json.JsonPrimitive)?.content
+    } catch (_: Exception) { null }
+        ?: user?.email?.substringBefore('@')
+        ?: "Guest"
+    val displayName = username
+    val initial = displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+    val email = user?.email ?: ""
+    Column(Modifier.fillMaxSize().background(c.bg).verticalScroll(rememberScrollState()).navigationBarsPadding()) {
+        Box(Modifier.fillMaxWidth()) {
+            Box(Modifier.fillMaxWidth().background(Color(0xFF2D1716)).statusBarsPadding().height(128.dp)) {
+                Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    MdIconButton(MdIcons.Back, "Back", onBack)
+                    MdIconButton(MdIcons.Share, "Share profile", {}, iconSize = 20.dp)
+                }
+            }
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(184.dp),
-            ) {
-                // Banner background
-                Spacer(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(140.dp)
-                        .background(MangaDlColors.AvatarBg),
-                )
-                // Buttons inside banner
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MangaDlColors.TextPrimary,
-                        )
-                    }
-                    IconButton(onClick = {}) {
-                        Icon(
-                            Icons.Default.Share,
-                            contentDescription = "Share profile",
-                            tint = MangaDlColors.TextPrimary,
-                        )
-                    }
-                }
-                // Avatar overlapping bottom of banner by 44dp
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(start = 20.dp)
-                        .size(88.dp)
-                        .clip(CircleShape)
-                        .background(AvatarDeepRed)
-                        .border(4.dp, MangaDlColors.Background, CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "U",
-                        color = MangaDlColors.TextPrimary,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                    )
-                }
-            }
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .offset(x = 20.dp, y = 40.dp)
+                    .size(88.dp)
+                    .clip(CircleShape)
+                    .background(c.bg)
+                    .padding(4.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF3A1518)),
+                contentAlignment = Alignment.Center,
+            ) { BodyText(initial, size = 32.sp, weight = FontWeight.ExtraBold) }
         }
-
-        // Name + username + edit button + bio
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            "Display Name",
-                            color = MangaDlColors.TextPrimary,
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Black,
-                        )
-                        Text(
-                            "@username",
-                            color = Color(0x99FFFFFF),
-                            fontSize = 14.sp,
-                        )
+        Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 52.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    BodyText(displayName, size = 24.sp, weight = FontWeight.Black)
+                    BodyText(if (email.isNotEmpty()) email else "@$username", Modifier.padding(top = 2.dp), color = c.fgSubtle)
+                }
+                MdButton("Edit Profile", onEditProfile, tone = ButtonTone.Ghost, height = 40.dp, shape = CircleShape, fontSize = 13.sp, horizontalPadding = 16.dp)
+            }
+            BodyText("[Bio — a short line about what this reader likes.]", color = c.fg.copy(alpha = 0.75f), lineHeight = 21.sp)
+            Column {
+                Divider(color = c.surfaceHigh)
+                Row(Modifier.padding(vertical = 14.dp)) {
+                    listOf(
+                        "Chapters" to chaptersRead.toString(),
+                        "Library" to library.size.toString(),
+                        "Day streak" to streak.toString(),
+                    ).forEach { (label, value) ->
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            DisplayText(value, 24.sp, uppercase = false)
+                            BodyText(label, size = 12.sp, color = c.fgSubtle)
+                        }
+                    }
+                }
+                Divider(color = c.surfaceHigh)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Eyebrow("Pinned")
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    listOf(Color(0xFF1A2433), Color(0xFF3A1518), Color(0xFF2B1A2E)).forEach { cover ->
+                        CoverArt(cover, Modifier.weight(1f).aspectRatio(2f / 3f), RoundedCornerShape(8.dp))
                     }
                     Box(
-                        modifier = Modifier
-                            .height(40.dp)
-                            .clip(RoundedCornerShape(999.dp))
-                            .border(1.dp, Color(0x2EFFFFFF), RoundedCornerShape(999.dp))
-                            .clickable { }
-                            .padding(horizontal = 16.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            "Edit Profile",
-                            color = MangaDlColors.TextPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
-                Text(
-                    "Your reading notes go here.",
-                    color = Color(0xBFFFFFFF),
-                    fontSize = 14.sp,
-                    lineHeight = 21.sp,
-                )
-            }
-        }
-
-        // 3-column stats row with dividers
-        item {
-            Spacer(Modifier.height(16.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x14FFFFFF)))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 14.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-            ) {
-                listOf(
-                    totalChaptersRead.toString() to "Chapters",
-                    mangaInLibrary.toString() to "Library",
-                    "1" to "Day streak",
-                ).forEach { (value, label) ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Text(value, style = AntonStyle, color = MangaDlColors.TextPrimary)
-                        Text(label, color = Color(0x99FFFFFF), fontSize = 12.sp)
-                    }
-                }
-            }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x14FFFFFF)))
-        }
-
-        // Pinned section
-        item {
-            Spacer(Modifier.height(20.dp))
-            SectionLabel("Pinned", color = MangaDlColors.SectionRed, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
-            Spacer(Modifier.height(10.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                // 3 placeholder covers + 1 "add" slot
-                listOf(
-                    MangaDlColors.AvatarBg,
-                    MangaDlColors.DetailHeaderBg,
-                    Color(0xFF2E2412),
-                ).forEach { bg ->
-                    Box(
-                        modifier = Modifier
+                        Modifier
                             .weight(1f)
                             .aspectRatio(2f / 3f)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(bg),
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .aspectRatio(2f / 3f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("+", color = Color(0x99FFFFFF), fontSize = 22.sp)
-                }
-            }
-        }
-
-        // Milestones section
-        item {
-            Spacer(Modifier.height(20.dp))
-            SectionLabel("Milestones", color = Color(0x99FFFFFF), modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
-            Spacer(Modifier.height(10.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                listOf("First Read", "10 Chapters").forEach { milestone ->
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(Color(0x29DC2626))
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                    ) {
-                        Text(milestone, color = Color(0xFFFCA5A5), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(999.dp))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                ) {
-                    Text("100 Chapters", color = Color(0x99FFFFFF), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-
-        // Recent activity
-        item {
-            Spacer(Modifier.height(20.dp))
-            SectionLabel("Recent activity", color = MangaDlColors.SectionRed, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
-        }
-
-        if (recentActivity.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 24.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "No reading activity yet",
-                        color = MangaDlColors.TextSecondary,
-                        fontSize = 14.sp,
-                    )
-                }
-            }
-        } else {
-            items(recentActivity.size) { i ->
-                ActivityRow(progress = recentActivity[i])
-            }
-        }
-
-        item { Spacer(Modifier.height(32.dp)) }
-    }
-}
-
-@Composable
-private fun ActivityRow(progress: ReadingProgress) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(width = 36.dp, height = 48.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(MangaDlColors.CardBg),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.AutoMirrored.Filled.MenuBook,
-                contentDescription = null,
-                tint = MangaDlColors.TextSecondary,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-        Column(Modifier.weight(1f)) {
-            Text(
-                progress.mangaId.split(":").lastOrNull() ?: progress.mangaId,
-                color = MangaDlColors.TextPrimary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-            )
-            Text(
-                "Ch. ${progress.chapterId.split(":").lastOrNull() ?: progress.chapterId}",
-                color = MangaDlColors.TextSecondary,
-                fontSize = 12.sp,
-                maxLines = 1,
-            )
-        }
-        Text(timeAgo(progress.readAt), color = MangaDlColors.TextSecondary, fontSize = 12.sp)
-    }
-    Box(Modifier.fillMaxWidth().height(1.dp).background(MangaDlColors.CardBorder))
-}
-
-private fun timeAgo(ms: Long): String {
-    val diff = System.currentTimeMillis() - ms
-    return when {
-        diff < TimeUnit.MINUTES.toMillis(1) -> "just now"
-        diff < TimeUnit.HOURS.toMillis(1) -> "${TimeUnit.MILLISECONDS.toMinutes(diff)}m ago"
-        diff < TimeUnit.DAYS.toMillis(1) -> "${TimeUnit.MILLISECONDS.toHours(diff)}h ago"
-        diff < TimeUnit.DAYS.toMillis(7) -> "${TimeUnit.MILLISECONDS.toDays(diff)}d ago"
-        else -> SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(ms))
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF050505)
-@Composable
-private fun ProfileScreenPreview() {
-    MangaDlTheme {
-        Column(Modifier.fillMaxSize().background(MangaDlColors.Background)) {
-            Box(Modifier.fillMaxWidth().height(184.dp)) {
-                Spacer(Modifier.fillMaxWidth().height(140.dp).background(MangaDlColors.AvatarBg))
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(8.dp, 36.dp, 8.dp, 0.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MangaDlColors.TextPrimary, modifier = Modifier.size(24.dp))
-                    Icon(Icons.Default.Share, null, tint = MangaDlColors.TextPrimary, modifier = Modifier.size(24.dp))
-                }
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(start = 20.dp)
-                        .size(88.dp)
-                        .clip(CircleShape)
-                        .background(AvatarDeepRed)
-                        .border(4.dp, MangaDlColors.Background, CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("U", color = MangaDlColors.TextPrimary, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
-                }
-            }
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                    Column {
-                        Text("Display Name", color = MangaDlColors.TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                        Text("@username", color = Color(0x99FFFFFF), fontSize = 14.sp)
-                    }
-                    Box(
-                        modifier = Modifier.height(40.dp).clip(RoundedCornerShape(999.dp)).border(1.dp, Color(0x2EFFFFFF), RoundedCornerShape(999.dp)).padding(horizontal = 16.dp),
+                            .border(1.dp, c.fg.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                            .clickable(role = Role.Button) {},
                         contentAlignment = Alignment.Center,
-                    ) { Text("Edit Profile", color = MangaDlColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                    ) { Icon(MdIcons.Plus, "Pin a manga", tint = c.fgSubtle, modifier = Modifier.size(22.dp)) }
                 }
             }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x14FFFFFF)))
-            Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                listOf("381" to "Chapters", "42" to "Library", "7" to "Day streak").forEach { (v, l) ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(v, style = AntonStyle, color = MangaDlColors.TextPrimary)
-                        Text(l, color = Color(0x99FFFFFF), fontSize = 12.sp)
-                    }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Eyebrow("Milestones", color = c.fgSubtle)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ProfileMilestone("[Milestone]", true)
+                    ProfileMilestone("[Milestone]", true)
+                    ProfileMilestone("[Locked milestone]", false)
                 }
             }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0x14FFFFFF)))
         }
     }
+}
+
+@Composable
+private fun ProfileMilestone(label: String, unlocked: Boolean) {
+    val c = MdTheme.colors
+    BodyText(
+        label,
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(if (unlocked) c.accentMuted else Color.Transparent)
+            .border(1.dp, if (unlocked) Color.Transparent else c.fg.copy(alpha = 0.2f), CircleShape)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        size = 12.sp,
+        weight = if (unlocked) FontWeight.Bold else FontWeight.SemiBold,
+        color = if (unlocked) c.accentSoft else c.fgSubtle,
+    )
 }

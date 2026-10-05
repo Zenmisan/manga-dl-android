@@ -1,302 +1,122 @@
 package com.mangadl.android.ui.screens.statistics
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mangadl.android.ui.viewmodels.StatisticsViewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mangadl.android.data.model.LibraryManga
-import com.mangadl.android.data.model.ReadingProgress
-import com.mangadl.android.ui.theme.AntonStyleSub
-import com.mangadl.android.ui.theme.MangaDlColors
-import com.mangadl.android.ui.theme.MangaDlTheme
-import androidx.compose.ui.tooling.preview.Preview
-import com.mangadl.android.ui.viewmodels.StatisticsViewModel
-import java.util.*
+import com.mangadl.android.ui.components.BackHeader
+import com.mangadl.android.ui.components.BodyText
+import com.mangadl.android.ui.components.DisplayText
+import com.mangadl.android.ui.components.Eyebrow
+import com.mangadl.android.ui.components.ProgressBar
+import com.mangadl.android.ui.components.Screen
+import com.mangadl.android.ui.components.SurfaceCard
+import com.mangadl.android.ui.theme.MdTheme
 
 @Composable
-fun StatisticsScreen(
-    viewModel: StatisticsViewModel = viewModel(),
-    onBack: () -> Unit,
-) {
-    val library by viewModel.library.collectAsStateWithLifecycle()
-    val allProgress by viewModel.allProgress.collectAsStateWithLifecycle()
-
-    val chaptersRead = allProgress.count { it.completed }
-    val pagesRead = allProgress.sumOf { it.page }
-    val sourcesUsed = library.map { it.provider }.distinct().size
-    val topManga = library.sortedByDescending { it.readCount }.take(5)
-
-    // Build last-7-days activity
-    val calendar = Calendar.getInstance()
-    val dayLabels = List(7) { i ->
-        calendar.apply { timeInMillis = System.currentTimeMillis(); add(Calendar.DAY_OF_YEAR, -(6 - i)) }
-        val dayAbbrevs = arrayOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
-        dayAbbrevs[calendar.get(Calendar.DAY_OF_WEEK) - 1]
-    }
-    val dayCounts = List(7) { i ->
-        val dayStart = Calendar.getInstance().apply {
-            timeInMillis = System.currentTimeMillis()
-            add(Calendar.DAY_OF_YEAR, -(6 - i))
-            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-        val dayEnd = dayStart + 86_400_000L
-        allProgress.count { it.readAt in dayStart until dayEnd }
-    }
-    val maxCount = dayCounts.maxOrNull()?.coerceAtLeast(1) ?: 1
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MangaDlColors.Background),
-    ) {
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, end = 12.dp, top = 20.dp, bottom = 8.dp)
-                    .statusBarsPadding(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MangaDlColors.TextPrimary,
-                    )
-                }
-                Text(
-                    "STATISTICS",
-                    style = AntonStyleSub,
-                    color = MangaDlColors.TextPrimary,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-
-        // 2x2 stat tiles
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StatTile("Manga in Library", library.size.toString(), Modifier.weight(1f))
-                    StatTile("Chapters Read", chaptersRead.toString(), Modifier.weight(1f))
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StatTile("Pages Read", pagesRead.toString(), Modifier.weight(1f))
-                    StatTile("Sources Used", sourcesUsed.toString(), Modifier.weight(1f))
-                }
-            }
-        }
-
-        item { Spacer(Modifier.height(16.dp)) }
-
-        // Reading activity
-        item {
-            SectionHeader("READING ACTIVITY")
-        }
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                dayLabels.forEachIndexed { i, label ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        val fraction = dayCounts[i].toFloat() / maxCount.toFloat()
-                        val barHeight = (fraction * 48f).coerceAtLeast(4f).dp
-                        val barColor = if (dayCounts[i] > 0) MangaDlColors.Primary else Color(0x33FFFFFF)
-                        Box(
-                            modifier = Modifier
-                                .width(28.dp)
-                                .height(barHeight)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(barColor),
-                        )
-                        Text(
-                            label,
-                            color = MangaDlColors.TextSecondary,
-                            fontSize = 10.sp,
-                        )
-                    }
-                }
-            }
-        }
-
-        item { Spacer(Modifier.height(8.dp)) }
-
-        // Top manga
-        item { SectionHeader("TOP MANGA") }
-
-        if (topManga.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 16.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("No manga in library", color = MangaDlColors.TextSecondary, fontSize = 14.sp)
-                }
-            }
-        } else {
-            items(topManga.size) { i ->
-                val manga = topManga[i]
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(
-                        "${i + 1}",
-                        color = MangaDlColors.Primary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.width(24.dp),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(width = 36.dp, height = 48.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(MangaDlColors.CardBg),
-                    )
-                    Column(Modifier.weight(1f)) {
-                        Text(manga.title, color = MangaDlColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                        Text("${manga.readCount} chapters read", color = MangaDlColors.TextSecondary, fontSize = 12.sp)
-                    }
-                }
-                Box(Modifier.fillMaxWidth().height(1.dp).background(MangaDlColors.CardBorder))
-            }
-        }
-
-        item { Spacer(Modifier.height(16.dp)) }
-
-        // Library breakdown
-        item { SectionHeader("LIBRARY BREAKDOWN") }
-
-        item {
-            val statuses = listOf("All" to library.size, "Reading" to 0, "Plan to read" to 0, "Done" to 0)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                statuses.forEach { (label, count) ->
-                    StatusPill(label = label, count = count)
-                }
-            }
-        }
-
-        item { Spacer(Modifier.height(32.dp)) }
-    }
-}
-
-@Composable
-private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(MangaDlColors.CardBg)
-            .border(1.dp, MangaDlColors.CardBorder, RoundedCornerShape(16.dp))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(value, color = MangaDlColors.TextPrimary, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-        Text(label, color = MangaDlColors.TextSecondary, fontSize = 12.sp)
-    }
-}
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        title,
-        color = MangaDlColors.SectionRed,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Black,
-        letterSpacing = 1.sp,
-        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-    )
-}
-
-@Composable
-private fun StatusPill(label: String, count: Int) {
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(MangaDlColors.CardBg)
-            .border(1.dp, MangaDlColors.CardBorder, RoundedCornerShape(20.dp))
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, color = MangaDlColors.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        Text(count.toString(), color = MangaDlColors.TextSecondary, fontSize = 12.sp)
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF050505)
-@Composable
-private fun StatisticsScreenPreview() {
-    MangaDlTheme {
+fun StatsScreen(onBack: () -> Unit) {
+    val c = MdTheme.colors
+    val vm: StatisticsViewModel = viewModel()
+    val library by vm.library.collectAsState()
+    val chapters by vm.totalChaptersRead.collectAsState()
+    val streak by vm.streak.collectAsState()
+    Screen {
+        BackHeader("Statistics", onBack, Modifier.padding(bottom = 0.dp))
+        BodyText("Your reading habits, at a glance", Modifier.padding(start = 60.dp, bottom = 14.dp), size = 13.sp, color = c.fgSubtle)
         Column(
-            Modifier
-                .fillMaxSize()
-                .background(MangaDlColors.Background)
+            Modifier.verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, end = 12.dp, top = 32.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = MangaDlColors.TextPrimary, modifier = Modifier.padding(8.dp))
-                Text("STATISTICS", style = AntonStyleSub, color = MangaDlColors.TextPrimary, modifier = Modifier.weight(1f))
+            val tiles = listOf("Chapters read" to chapters.toString(), "Time reading" to "—", "Current streak" to "${streak}d", "In library" to library.size.toString())
+            tiles.chunked(2).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 0.dp)) {
+                    row.forEach { (label, value) ->
+                        SurfaceCard(Modifier.weight(1f), radius = 14.dp, background = c.surface, borderColor = c.surfaceHigh) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                BodyText(label, size = 12.sp, weight = FontWeight.SemiBold, color = c.fg.copy(alpha = 0.65f))
+                                DisplayText(value, 30.sp, uppercase = false)
+                            }
+                        }
+                    }
+                }
             }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                StatTile("Manga in Library", "42", Modifier.weight(1f))
-                StatTile("Chapters Read", "381", Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Eyebrow("Reading goals")
+                Goal("Monthly chapters", 0.62f)
+                Goal("Yearly manga", 0.35f)
             }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 0.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                StatTile("Pages Read", "5,120", Modifier.weight(1f))
-                StatTile("Sources Used", "3", Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Eyebrow("Activity · last 18 weeks", color = c.fgSubtle)
+                Heatmap(weeks = 18)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                    BodyText("Less", size = 11.sp, color = c.fgSubtle)
+                    heatShades().forEach { Box(Modifier.width(10.dp).aspectRatio(1f).clip(RoundedCornerShape(2.dp)).background(it)) }
+                    BodyText("More", size = 11.sp, color = c.fgSubtle)
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Eyebrow("By source", color = c.fgSubtle)
+                listOf("MangaDex" to 0.64f, "MangaKatana" to 0.24f, "Local files" to 0.12f).forEach { (name, f) ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        BodyText(name, Modifier.width(96.dp), size = 13.sp, weight = FontWeight.SemiBold)
+                        ProgressBar(f, Modifier.weight(1f), color = c.fg, track = c.surfaceHigh, height = 8.dp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Goal(label: String, fraction: Float) {
+    val c = MdTheme.colors
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row {
+            BodyText(label, Modifier.weight(1f), size = 13.sp, weight = FontWeight.SemiBold)
+            BodyText("[x] / [goal]", size = 13.sp, color = c.fg.copy(alpha = 0.65f))
+        }
+        ProgressBar(fraction, height = 6.dp)
+    }
+}
+
+@Composable
+private fun heatShades(): List<Color> {
+    val c = MdTheme.colors
+    return listOf(c.surfaceHigh.copy(alpha = 0.07f), c.accent.copy(alpha = 0.35f), c.accent.copy(alpha = 0.65f), c.accent)
+}
+
+@Composable
+fun Heatmap(weeks: Int, modifier: Modifier = Modifier, gap: Int = 3) {
+    val shades = heatShades()
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap.dp)) {
+        repeat(weeks) { w ->
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(gap.dp)) {
+                repeat(7) { d ->
+                    val i = w * 7 + d
+                    val v = (i * 37 + w * 11) % 13
+                    val shade = shades[if (v < 5) 0 else if (v < 9) 1 else if (v < 12) 2 else 3]
+                    Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(3.dp)).background(shade))
+                }
             }
         }
     }

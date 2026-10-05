@@ -5,6 +5,7 @@ import android.util.Log
 import com.dokar.quickjs.QuickJs
 import com.dokar.quickjs.binding.asyncFunction
 import com.dokar.quickjs.binding.define
+import com.dokar.quickjs.binding.function
 import com.mangadl.android.data.model.Chapter
 import com.mangadl.android.data.model.MangaDetail
 import com.mangadl.android.data.model.MangaSearchResult
@@ -18,15 +19,72 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Element
 import java.util.concurrent.ConcurrentHashMap
+
+private val DOM_SHIM = """
+(function() {
+  function mkElement(d) {
+    if (!d) return null;
+    var el = {
+      tagName: (d.tag || '').toUpperCase(),
+      nodeName: (d.tag || '').toUpperCase(),
+      textContent: d.text || '',
+      innerHTML: d.innerHtml || '',
+      outerHTML: d.outerHtml || '',
+      _html: d.innerHtml || '',
+      _attrs: d.attrs || {},
+      getAttribute: function(n) {
+        var v = el._attrs[n];
+        return v !== undefined ? v : null;
+      },
+      hasAttribute: function(n) { return el._attrs[n] !== undefined; },
+      querySelectorAll: function(sel) {
+        var json = __jsoupSelectAll(el._html, sel);
+        var arr = JSON.parse(json || '[]');
+        var result = arr.map(mkElement);
+        result.forEach = Array.prototype.forEach.bind(result);
+        return result;
+      },
+      querySelector: function(sel) {
+        var json = __jsoupSelectOne(el._html, sel);
+        if (!json) return null;
+        try { return mkElement(JSON.parse(json)); } catch(e) { return null; }
+      },
+    };
+    return el;
+  }
+
+  function Document(html) { this._html = html; }
+  Document.prototype.querySelectorAll = function(sel) {
+    var json = __jsoupSelectAll(this._html, sel);
+    var arr = JSON.parse(json || '[]');
+    var result = arr.map(mkElement);
+    result.forEach = Array.prototype.forEach.bind(result);
+    return result;
+  };
+  Document.prototype.querySelector = function(sel) {
+    var json = __jsoupSelectOne(this._html, sel);
+    if (!json) return null;
+    try { return mkElement(JSON.parse(json)); } catch(e) { return null; }
+  };
+
+  globalThis.DOMParser = function() {};
+  globalThis.DOMParser.prototype.parseFromString = function(html) {
+    return new Document(html);
+  };
+})();
+""".trimIndent()
 
 class ExtensionManager(
     private val context: Context,
     private val httpClient: OkHttpClient,
 ) {
+    var backendUrl: String = ""
+
     private val extensions = mutableMapOf<String, ExtensionMeta>()
 
-    // Persistent JS contexts — created once per extension, reused across calls
     private data class JsContext(val js: QuickJs, val mutex: Mutex)
     private val jsContexts = ConcurrentHashMap<String, JsContext>()
 
@@ -78,8 +136,21 @@ class ExtensionManager(
         return parsePages(result)
     }
 
-    // Get or create a persistent JS context for this extension.
-    // The context is initialized once: bindings set + script evaluated + __ext captured.
+    suspend fun getChapterText(extensionId: String, chapterId: String): String {
+        val result = evalWithContext(extensionId) { js ->
+            js.evaluate<String>(
+                "(async () => { " +
+                "  if (typeof __ext.getChapterText !== 'function') return JSON.stringify({content:'',format:'plain'});" +
+                "  const r = await __ext.getChapterText(${jsString(chapterId)}); return JSON.stringify(r); " +
+                "})()"
+            )
+        }
+        return try {
+            val obj = org.json.JSONObject(result ?: "{}")
+            obj.optString("content", "")
+        } catch (_: Exception) { result ?: "" }
+    }
+
     private suspend fun <T> evalWithContext(id: String, block: suspend (QuickJs) -> T): T {
         val ctx = jsContexts.getOrPut(id) {
             val script = extensions[id]?.script ?: error("Unknown extension: $id")
@@ -94,7 +165,35 @@ class ExtensionManager(
                     val url = args.getOrNull(0) as? String ?: return@asyncFunction null
                     apiFetch(url, args.getOrNull(1))
                 }
-                // Evaluate the extension script once and bind it to __ext
+                // Synchronous Jsoup bindings for DOM operations
+                js.function("__jsoupSelectAll") { args: Array<Any?> ->
+                    val html = args.getOrNull(0) as? String ?: return@function "[]"
+                    val selector = args.getOrNull(1) as? String ?: return@function "[]"
+                    try {
+                        val doc = Jsoup.parse(html)
+                        val elements = doc.select(selector)
+                        val arr = JSONArray()
+                        for (el in elements) arr.put(serializeElement(el))
+                        arr.toString()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "jsoupSelectAll error: selector=$selector", e)
+                        "[]"
+                    }
+                }
+                js.function("__jsoupSelectOne") { args: Array<Any?> ->
+                    val html = args.getOrNull(0) as? String ?: return@function null
+                    val selector = args.getOrNull(1) as? String ?: return@function null
+                    try {
+                        val doc = Jsoup.parse(html)
+                        val el = doc.selectFirst(selector) ?: return@function null
+                        serializeElement(el).toString()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "jsoupSelectOne error: selector=$selector", e)
+                        null
+                    }
+                }
+                // Inject DOM shim, then extension script
+                js.evaluate<Any?>(DOM_SHIM)
                 js.evaluate<Any?>("const __ext = (() => { $script; return extension; })();")
             }
             JsContext(js, Mutex())
@@ -111,15 +210,30 @@ class ExtensionManager(
         jsContexts.clear()
     }
 
-    private suspend fun apiFetch(url: String, options: Any?): Map<String, Any?> {
+    // Direct HTTP — no Render backend. Proxy patterns are resolved locally:
+    //   /manga/proxy/html?url=X → fetch X, return {html, url}
+    //   /manga/proxy/json?url=X → fetch X, return parsed JSON
+    private suspend fun apiFetch(url: String, options: Any?): Any? {
         return withContext(Dispatchers.IO) {
+            val proxyHtml = url.startsWith("/manga/proxy/html")
+            val proxyJson = url.startsWith("/manga/proxy/json")
+            val resolvedUrl = when {
+                proxyHtml || proxyJson -> {
+                    val paramIdx = url.indexOf("?url=")
+                    if (paramIdx >= 0) java.net.URLDecoder.decode(url.substring(paramIdx + 5), "UTF-8")
+                    else url
+                }
+                url.startsWith("/") -> backendUrl.trimEnd('/') + url
+                else -> url
+            }
+
             val optsMap = options as? Map<*, *>
             val method = optsMap?.get("method") as? String ?: "GET"
             @Suppress("UNCHECKED_CAST")
             val headers = optsMap?.get("headers") as? Map<String, String> ?: emptyMap()
             val body = optsMap?.get("body") as? String
 
-            val requestBuilder = Request.Builder().url(url)
+            val requestBuilder = Request.Builder().url(resolvedUrl)
             headers.forEach { (k, v) -> requestBuilder.header(k, v) }
 
             if (method.uppercase() == "POST" && body != null) {
@@ -130,23 +244,53 @@ class ExtensionManager(
             try {
                 val response = httpClient.newCall(requestBuilder.build()).execute()
                 val responseBody = response.body?.string() ?: ""
-                val status = response.code
-                mapOf(
-                    "status" to status,
-                    "text" to responseBody,
-                    "json" to tryParseJson(responseBody),
-                    "ok" to (status in 200..299),
-                )
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "apiFetch HTTP ${response.code}: $resolvedUrl")
+                    return@withContext null
+                }
+                if (proxyHtml) mapOf("html" to responseBody, "url" to resolvedUrl)
+                else jsonToKotlin(responseBody)
             } catch (e: Exception) {
-                Log.e(TAG, "apiFetch error: $url", e)
-                mapOf("status" to 0, "text" to "", "json" to null, "ok" to false)
+                Log.e(TAG, "apiFetch error: $resolvedUrl", e)
+                null
             }
         }
     }
 
-    private fun tryParseJson(text: String): Any? {
-        return try { JSONObject(text) } catch (_: Exception) {
-            try { JSONArray(text) } catch (_: Exception) { null }
+    // Recursively convert JSON string / JSONObject / JSONArray to Kotlin Map/List
+    // so QuickJS can receive it without "Cannot convert java type" errors.
+    private fun jsonToKotlin(raw: Any?): Any? = when (raw) {
+        is String -> {
+            val trimmed = raw.trim()
+            when {
+                trimmed.startsWith("{") -> try { jsonToKotlin(JSONObject(trimmed)) } catch (_: Exception) { raw }
+                trimmed.startsWith("[") -> try { jsonToKotlin(JSONArray(trimmed)) } catch (_: Exception) { raw }
+                else -> raw
+            }
+        }
+        is JSONObject -> {
+            val map = mutableMapOf<String, Any?>()
+            raw.keys().forEach { k -> map[k] = jsonToKotlin(raw.get(k)) }
+            map
+        }
+        is JSONArray -> {
+            (0 until raw.length()).map { jsonToKotlin(raw.get(it)) }
+        }
+        JSONObject.NULL -> null
+        else -> raw
+    }
+
+    private fun serializeElement(el: Element): JSONObject {
+        val attrsObj = JSONObject()
+        for (attr in el.attributes()) {
+            attrsObj.put(attr.key, attr.value)
+        }
+        return JSONObject().apply {
+            put("tag", el.tagName())
+            put("text", el.text())
+            put("innerHtml", el.html())
+            put("outerHtml", el.outerHtml())
+            put("attrs", attrsObj)
         }
     }
 

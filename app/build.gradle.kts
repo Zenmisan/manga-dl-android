@@ -33,6 +33,8 @@ android {
 
         buildConfigField("String", "SUPABASE_URL", "\"${localProps["SUPABASE_URL"] ?: ""}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProps["SUPABASE_ANON_KEY"] ?: ""}\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${localProps["GOOGLE_WEB_CLIENT_ID"] ?: ""}\"")
+        buildConfigField("String", "BACKEND_URL", "\"${localProps["BACKEND_URL"] ?: "https://manga-dl-vwyz.onrender.com"}\"")
     }
 
     buildTypes {
@@ -54,10 +56,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
@@ -67,6 +65,12 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 
@@ -95,6 +99,10 @@ dependencies {
 
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
+    implementation(libs.jsoup)
+    implementation("androidx.credentials:credentials:1.5.0-rc01")
+    implementation("androidx.credentials:credentials-play-services-auth:1.5.0-rc01")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     implementation(libs.coil.compose)
     implementation(libs.androidx.ui.text.google.fonts)
@@ -117,5 +125,14 @@ dependencies {
     implementation(libs.supabase.postgrest)
     implementation(libs.ktor.client.okhttp)
 
+    debugImplementation(platform(libs.androidx.compose.bom))
     debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("io.mockk:mockk:1.13.13")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testImplementation("org.jsoup:jsoup:1.18.3")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("org.json:json:20240303")
 }

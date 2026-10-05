@@ -1,536 +1,364 @@
 package com.mangadl.android.ui.screens.library
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.LocalLibrary
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
-import com.mangadl.android.data.model.LibraryManga
-import com.mangadl.android.ui.components.ConfirmDialog
-import com.mangadl.android.ui.components.PillButton
-import com.mangadl.android.ui.components.rememberHapticClick
-import com.mangadl.android.ui.components.rememberHapticLongPress
-import com.mangadl.android.ui.theme.AntonStyle
-import com.mangadl.android.ui.theme.MangaDlColors
-import com.mangadl.android.ui.theme.MangaDlTheme
-import com.mangadl.android.ui.viewmodels.LibraryViewModel
+import com.mangadl.android.data.ui.ContinueItem
+import com.mangadl.android.data.ui.Manga
+import com.mangadl.android.ui.components.Bloom
+import com.mangadl.android.ui.components.BodyText
+import com.mangadl.android.ui.components.ButtonTone
+import com.mangadl.android.ui.components.CountBadge
+import com.mangadl.android.ui.components.CoverArt
+import com.mangadl.android.ui.components.DisplayText
+import com.mangadl.android.ui.components.Eyebrow
+import com.mangadl.android.ui.components.InLibraryTag
+import com.mangadl.android.ui.components.MdButton
+import com.mangadl.android.ui.components.MdIconButton
+import com.mangadl.android.ui.components.MdIcons
+import com.mangadl.android.ui.components.PillChip
+import com.mangadl.android.ui.components.ProgressBar
+import com.mangadl.android.ui.components.SurfaceCard
+import com.mangadl.android.ui.components.Divider
+import com.mangadl.android.ui.components.SearchField
+import com.mangadl.android.ui.components.TabHeader
+import com.mangadl.android.ui.components.rememberState
+import com.mangadl.android.ui.theme.MdTheme
 
-private enum class LibraryTab(val label: String) {
-    All("All"), Reading("Reading"), PlanToRead("Plan to read"), Done("Done")
-}
-
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibraryScreen(
-    viewModel: LibraryViewModel = viewModel(),
-    onMangaClick: (provider: String, mangaId: String) -> Unit,
-    onResumeReading: (provider: String, mangaId: String, chapterId: String) -> Unit = { p, m, _ -> onMangaClick(p, m) },
+    items: List<Manga>,
+    continueItem: ContinueItem?,
+    onOpenManga: (Manga) -> Unit,
+    onResume: (Manga) -> Unit,
+    onBrowse: () -> Unit,
+    onImport: () -> Unit,
+    modifier: Modifier = Modifier,
+    categories: List<String> = listOf("All"),
 ) {
-    val library by viewModel.library.collectAsStateWithLifecycle()
+    var category by rememberState(0)
+    var searchActive by rememberState(false)
+    var searchQuery by rememberState("")
+    var showFilter by rememberState(false)
+    var sortBy by rememberSaveable { androidx.compose.runtime.mutableStateOf("title_asc") }
+    var filterBy by rememberSaveable { androidx.compose.runtime.mutableStateOf("all") }
 
-    var selectedTab by remember { mutableStateOf(LibraryTab.All) }
-    var contextManga by remember { mutableStateOf<LibraryManga?>(null) }
-    var confirmRemoveManga by remember { mutableStateOf<LibraryManga?>(null) }
-
-    val lastRead = library.filter { it.lastReadAt != null }
-        .maxByOrNull { it.lastReadAt ?: 0L }
-
-    val filteredLibrary = when (selectedTab) {
-        LibraryTab.All -> library
-        LibraryTab.Reading -> library.filter { it.lastReadAt != null && it.readCount < it.totalChapters }
-        LibraryTab.PlanToRead -> library.filter { it.lastReadAt == null }
-        LibraryTab.Done -> library.filter { it.totalChapters > 0 && it.readCount >= it.totalChapters }
+    val displayItems = remember(items, sortBy, filterBy, searchQuery) {
+        items
+            .let { list ->
+                if (searchQuery.isNotEmpty()) list.filter { it.title.contains(searchQuery, ignoreCase = true) }
+                else list
+            }
+            .let { list ->
+                when (filterBy) {
+                    "unread" -> list.filter { it.unread > 0 }
+                    "completed" -> list.filter { it.unread == 0 }
+                    else -> list
+                }
+            }
+            .let { list ->
+                when (sortBy) {
+                    "title_desc" -> list.sortedByDescending { it.title.lowercase() }
+                    "unread_desc" -> list.sortedByDescending { it.unread }
+                    else -> list.sortedBy { it.title.lowercase() }
+                }
+            }
     }
 
-    Box(Modifier.fillMaxSize()) {
-        Column(
+    Box(modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wide = maxWidth >= 600.dp
+        val columns = when {
+            maxWidth >= 840.dp -> 6
+            wide -> 4
+            else -> 3
+        }
+        val side = if (wide) 36.dp else 20.dp
+        Column(Modifier.fillMaxSize()) {
+            if (wide) {
+                Row(Modifier.fillMaxWidth().padding(start = side, end = side, top = 28.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    DisplayText("Library", 40.sp, Modifier.weight(1f))
+                    MdIconButton(MdIcons.Search, "Search library", { searchActive = !searchActive }, size = 48.dp, iconSize = 20.dp, background = Color.Transparent)
+                    MdIconButton(MdIcons.Filter, "Sort and filter", { showFilter = true }, size = 48.dp, iconSize = 20.dp)
+                }
+            } else {
+                TabHeader("Library") {
+                    MdIconButton(MdIcons.Search, "Search library", { searchActive = !searchActive })
+                    MdIconButton(MdIcons.Filter, "Sort and filter", { showFilter = true })
+                    MdIconButton(MdIcons.More, "More options", {})
+                }
+            }
+            if (searchActive) {
+                SearchField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = "Search library…",
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = side, vertical = 4.dp),
+                )
+            }
+            if (items.isEmpty()) {
+                EmptyLibrary(onBrowse, onImport)
+                return@Column
+            }
+            Row(
+                Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(start = side, end = side, top = 4.dp, bottom = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                categories.forEachIndexed { i, label -> PillChip(label, i == category, { category = i }) }
+            }
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columns),
+                contentPadding = PaddingValues(start = side, end = side, bottom = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (wide) 20.dp else 12.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                if (continueItem != null && !wide) {
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        ContinueCard(continueItem, { onResume(continueItem.manga) }, Modifier.padding(bottom = 4.dp))
+                    }
+                }
+                items(displayItems, key = { it.id }) { manga ->
+                    CoverCell(manga, { onOpenManga(manga) })
+                }
+            }
+        }
+    }
+    FilterSortSheet(
+        visible = showFilter,
+        sortBy = sortBy,
+        onSortChange = { sortBy = it },
+        filterBy = filterBy,
+        onFilterChange = { filterBy = it },
+        onDismiss = { showFilter = false },
+    )
+    } // Box
+}
+
+@Composable
+private fun FilterSortSheet(
+    visible: Boolean,
+    sortBy: String,
+    onSortChange: (String) -> Unit,
+    filterBy: String,
+    onFilterChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val c = MdTheme.colors
+    val interactionSource = remember { MutableInteractionSource() }
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(),
+        exit = fadeOut(),
+    ) {
+        Box(
             Modifier
                 .fillMaxSize()
-                .background(MangaDlColors.Background)
-        ) {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(start = 20.dp, end = 4.dp, top = 12.dp, bottom = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "LIBRARY",
-                    style = AntonStyle,
-                    color = MangaDlColors.TextPrimary,
-                )
-                Row {
-                    IconButton(onClick = {}) {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = "Search",
-                            tint = MangaDlColors.TextPrimary,
-                            modifier = Modifier.size(22.dp),
-                        )
-                    }
-                    IconButton(onClick = {}) {
-                        Icon(
-                            Icons.Default.Tune,
-                            contentDescription = "Filter",
-                            tint = MangaDlColors.TextPrimary,
-                            modifier = Modifier.size(22.dp),
-                        )
-                    }
-                }
-            }
-
-            // Filter chips
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(bottom = 16.dp),
-            ) {
-                items(LibraryTab.entries.size) { i ->
-                    val tab = LibraryTab.entries[i]
-                    val label = if (tab == LibraryTab.All) "All · ${library.size}" else tab.label
-                    PillButton(
-                        text = label,
-                        active = selectedTab == tab,
-                        onClick = { selectedTab = tab },
-                    )
-                }
-            }
-
-            // Continue reading card
-            if (lastRead != null && selectedTab == LibraryTab.All) {
-                ContinueCard(
-                    manga = lastRead,
-                    modifier = Modifier
-                        .padding(horizontal = 20.dp)
-                        .padding(bottom = 20.dp),
-                    onClick = { onMangaClick(lastRead.provider, lastRead.id) },
-                    onResume = {
-                        val chId = lastRead.lastReadChapterId
-                        if (chId != null) onResumeReading(lastRead.provider, lastRead.id, chId)
-                        else onMangaClick(lastRead.provider, lastRead.id)
-                    },
-                )
-            }
-
-            if (filteredLibrary.isEmpty()) {
-                LibraryEmptyState(
-                    tab = selectedTab,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    items(filteredLibrary, key = { it.id }) { manga ->
-                        MangaGridCard(
-                            manga = manga,
-                            onClick = { onMangaClick(manga.provider, manga.id) },
-                            onLongPress = { contextManga = manga },
-                        )
-                    }
-                    // Bottom padding item
-                    item { Spacer(Modifier.height(16.dp)) }
-                    item { Spacer(Modifier.height(16.dp)) }
-                    item { Spacer(Modifier.height(16.dp)) }
-                }
-            }
-        }
-
-        // Long-press action sheet
-        if (contextManga != null) {
-            val manga = contextManga!!
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0x99000000))
-                    .clickable { contextManga = null },
-                contentAlignment = Alignment.BottomCenter,
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                        .background(Color(0xFF141414))
-                        .navigationBarsPadding()
-                        .clickable(enabled = false) {}
-                ) {
-                    Box(
-                        Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .padding(top = 14.dp, bottom = 18.dp)
-                            .size(40.dp, 4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(Color(0x33FFFFFF))
-                    )
-                    Text(
-                        manga.title,
-                        color = MangaDlColors.TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 8.dp),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    ActionSheetRow(
-                        icon = Icons.Default.CheckCircle,
-                        label = "Mark all read",
-                        tint = Color(0xFF22C55E),
-                    ) {
-                        viewModel.markAllRead(manga.id, manga.totalChapters)
-                        contextManga = null
-                    }
-                    ActionSheetRow(
-                        icon = Icons.Default.Download,
-                        label = "Download all",
-                        tint = MangaDlColors.TextPrimary,
-                    ) { contextManga = null }
-                    ActionSheetRow(
-                        icon = Icons.Default.Delete,
-                        label = "Remove from library",
-                        tint = Color(0xFFEF4444),
-                    ) {
-                        confirmRemoveManga = manga
-                        contextManga = null
-                    }
-                    Spacer(Modifier.height(8.dp))
-                }
-            }
-        }
-
-        confirmRemoveManga?.let { manga ->
-            ConfirmDialog(
-                title = "Remove from library",
-                body = "\"${manga.title}\" will be removed from your library.",
-                confirmLabel = "Remove",
-                onConfirm = {
-                    viewModel.delete(manga.id)
-                    confirmRemoveManga = null
-                },
-                onDismiss = { confirmRemoveManga = null },
-            )
-        }
-    }
-}
-
-@Composable
-private fun LibraryEmptyState(tab: LibraryTab, modifier: Modifier = Modifier) {
-    Box(modifier, contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(40.dp))
-                    .background(Color(0x14FFFFFF)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Default.LocalLibrary,
-                    contentDescription = null,
-                    tint = MangaDlColors.TextSecondary,
-                    modifier = Modifier.size(38.dp),
-                )
-            }
-            Spacer(Modifier.height(16.dp))
-            Text(
-                when (tab) {
-                    LibraryTab.All -> "Your library is empty"
-                    LibraryTab.Reading -> "Nothing in progress"
-                    LibraryTab.PlanToRead -> "Nothing planned"
-                    LibraryTab.Done -> "Nothing finished yet"
-                },
-                color = MangaDlColors.TextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                when (tab) {
-                    LibraryTab.All -> "Browse sources to find manga to read"
-                    else -> "Add manga to your library first"
-                },
-                color = MangaDlColors.TextSecondary,
-                fontSize = 13.sp,
-            )
-        }
-    }
-}
-
-@Composable
-private fun ActionSheetRow(icon: ImageVector, label: String, tint: Color, onClick: () -> Unit) {
-    val haptic = rememberHapticClick()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { haptic(); onClick() }
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
-        Text(label, color = tint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-private fun ContinueCard(
-    manga: LibraryManga,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-    onResume: () -> Unit = onClick,
-) {
-    val cardShape = RoundedCornerShape(16.dp)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(cardShape)
-            .background(Color(0xFF0F0F0F))
-            .border(1.dp, MangaDlColors.CardBorder, cardShape)
-            .clickable(onClick = onClick)
-            .padding(14.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(width = 60.dp, height = 90.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MangaDlColors.CoverPlaceholder),
-        ) {
-            if (manga.coverUrl.isNotBlank()) {
-                AsyncImage(
-                    model = manga.coverUrl,
-                    contentDescription = manga.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
-
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(
-                "CONTINUE",
-                color = MangaDlColors.SectionRed,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 1.sp,
-            )
-            Text(
-                manga.title,
-                color = MangaDlColors.TextPrimary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (manga.lastReadChapterId != null) {
-                Text(
-                    "Ch. ${manga.lastReadChapterId}",
-                    color = MangaDlColors.TextSecondary,
-                    fontSize = 12.sp,
-                )
-            }
-            val readFraction = if (manga.totalChapters > 0)
-                manga.readCount.toFloat() / manga.totalChapters else 0f
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color(0x20FFFFFF))
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxWidth(readFraction.coerceIn(0f, 1f))
-                        .fillMaxHeight()
-                        .background(MangaDlColors.Primary)
-                )
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(22.dp))
-                .background(MangaDlColors.Primary)
-                .clickable(onClick = onResume),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Default.PlayArrow,
-                contentDescription = "Resume",
-                tint = Color.White,
-                modifier = Modifier.size(22.dp),
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun MangaGridCard(manga: LibraryManga, onClick: () -> Unit, onLongPress: () -> Unit) {
-    val unreadCount = (manga.totalChapters - manga.readCount).coerceAtLeast(0)
-    val hapticLong = rememberHapticLongPress()
-
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = { hapticLong(); onLongPress() },
-            ),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(2f / 3f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MangaDlColors.CoverPlaceholder),
-        ) {
-            if (manga.coverUrl.isNotBlank()) {
-                AsyncImage(
-                    model = manga.coverUrl,
-                    contentDescription = manga.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-
-            // Bottom gradient overlay for readability
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.4f)
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color(0xCC000000)),
-                        )
-                    )
-            )
-
-            // Unread count badge (top-left)
-            if (unreadCount > 0) {
-                Box(
-                    modifier = Modifier
-                        .padding(5.dp)
-                        .sizeIn(minWidth = 22.dp, minHeight = 22.dp)
-                        .clip(RoundedCornerShape(11.dp))
-                        .background(MangaDlColors.Primary)
-                        .align(Alignment.TopStart),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = if (unreadCount > 99) "99+" else unreadCount.toString(),
-                        color = Color.White,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 4.dp),
-                    )
-                }
-            }
-
-            // Download indicator (top-right)
-            Box(
-                modifier = Modifier
-                    .padding(5.dp)
-                    .size(22.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(Color(0x80000000))
-                    .align(Alignment.TopEnd),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Default.Download,
-                    contentDescription = "Download",
-                    tint = Color.White,
-                    modifier = Modifier.size(12.dp),
-                )
-            }
-        }
-
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = manga.title,
-            color = MangaDlColors.TextPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            lineHeight = 15.sp,
-            modifier = Modifier.padding(horizontal = 2.dp),
+                .background(Color.Black.copy(alpha = 0.5f))
+                .clickable(interactionSource = interactionSource, indication = null, onClick = onDismiss),
         )
     }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF050505)
-@Composable
-private fun LibraryEmptyPreview() {
-    MangaDlTheme {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .background(MangaDlColors.Background)
-        ) {
-            Row(
-                modifier = Modifier
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically { it },
+        exit = slideOutVertically { it },
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            Column(
+                Modifier
                     .fillMaxWidth()
-                    .padding(start = 20.dp, end = 4.dp, top = 24.dp, bottom = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .background(c.sheet)
+                    .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                Text("LIBRARY", style = AntonStyle, color = MangaDlColors.TextPrimary)
-            }
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(bottom = 16.dp),
-            ) {
-                items(LibraryTab.entries.size) { i ->
-                    val tab = LibraryTab.entries[i]
-                    PillButton(text = tab.label, active = i == 0, onClick = {})
+                BodyText("Sort & Filter", size = 16.sp, weight = FontWeight.Bold)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Eyebrow("Sort by", Modifier.padding(bottom = 4.dp))
+                    listOf(
+                        "title_asc" to "Title A–Z",
+                        "title_desc" to "Title Z–A",
+                        "unread_desc" to "Most unread",
+                    ).forEach { (key, label) ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (sortBy == key) c.accentFaint else Color.Transparent)
+                                .clickable { onSortChange(key) }
+                                .padding(horizontal = 12.dp, vertical = 11.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            BodyText(label, Modifier.weight(1f), size = 14.sp,
+                                weight = if (sortBy == key) FontWeight.Bold else FontWeight.Normal,
+                                color = if (sortBy == key) c.accentSoft else c.fg)
+                            if (sortBy == key) Icon(MdIcons.Check, null, tint = c.accentSoft, modifier = Modifier.size(16.dp))
+                        }
+                        Divider(color = c.surfaceHigh)
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Eyebrow("Filter", Modifier.padding(bottom = 4.dp))
+                    listOf(
+                        "all" to "All",
+                        "unread" to "Has unread",
+                        "completed" to "Completed",
+                    ).forEach { (key, label) ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (filterBy == key) c.accentFaint else Color.Transparent)
+                                .clickable { onFilterChange(key) }
+                                .padding(horizontal = 12.dp, vertical = 11.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            BodyText(label, Modifier.weight(1f), size = 14.sp,
+                                weight = if (filterBy == key) FontWeight.Bold else FontWeight.Normal,
+                                color = if (filterBy == key) c.accentSoft else c.fg)
+                            if (filterBy == key) Icon(MdIcons.Check, null, tint = c.accentSoft, modifier = Modifier.size(16.dp))
+                        }
+                        Divider(color = c.surfaceHigh)
+                    }
                 }
             }
-            LibraryEmptyState(LibraryTab.All, Modifier.fillMaxSize())
+        }
+    }
+}
+
+@Composable
+fun CoverCell(
+    manga: Manga,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    showInLibraryTag: Boolean = false,
+    dimInLibrary: Boolean = false,
+) {
+    val c = MdTheme.colors
+    Column(
+        modifier.clickable(role = Role.Button, onClick = onClick),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
+            CoverArt(
+                if (dimInLibrary && manga.inLibrary) manga.cover.copy(alpha = 0.55f) else manga.cover,
+                Modifier.fillMaxSize(),
+            )
+            if (showInLibraryTag && manga.inLibrary) {
+                InLibraryTag(Modifier.padding(6.dp))
+            } else if (manga.unread > 0) {
+                CountBadge(manga.unread, Modifier.padding(6.dp))
+            }
+            if (manga.downloaded && !showInLibraryTag) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(MdIcons.Download, "Downloaded", tint = c.fg, modifier = Modifier.size(13.dp))
+                }
+            }
+        }
+        BodyText(manga.title, size = 12.sp, weight = FontWeight.SemiBold, lineHeight = 16.sp, maxLines = 2)
+    }
+}
+
+@Composable
+private fun ContinueCard(item: ContinueItem, onResume: () -> Unit, modifier: Modifier = Modifier) {
+    val c = MdTheme.colors
+    SurfaceCard(modifier.fillMaxWidth()) {
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            CoverArt(item.manga.cover, Modifier.size(64.dp, 96.dp), RoundedCornerShape(8.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Eyebrow("Continue")
+                BodyText(item.manga.title, size = 16.sp, weight = FontWeight.Bold)
+                BodyText(item.chapter, size = 13.sp, color = c.fgSubtle)
+                ProgressBar(item.progress, Modifier.padding(top = 4.dp))
+            }
+            MdIconButton(MdIcons.Play, "Resume ${item.manga.title}", onResume, size = 48.dp, iconSize = 20.dp, background = c.accent, tint = Color.White)
+        }
+    }
+}
+
+@Composable
+private fun EmptyLibrary(onBrowse: () -> Unit, onImport: () -> Unit) {
+    val c = MdTheme.colors
+    Box(Modifier.fillMaxSize()) {
+        Bloom(Modifier.offset((-100).dp, (-40).dp).size(460.dp), alpha = 0.18f)
+        Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 48.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Box(
+                Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(c.accentMuted),
+                contentAlignment = Alignment.Center,
+            ) { Icon(MdIcons.Library, null, tint = c.accentLight, modifier = Modifier.size(28.dp)) }
+            BodyText("Nothing here yet", size = 26.sp, weight = FontWeight.Black)
+            BodyText(
+                "Add manga from a source, or import CBZ, ZIP and EPUB files you already have.",
+                size = 15.sp, color = c.fgMuted, lineHeight = 22.sp,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
+                MdButton("Browse Sources", onBrowse, height = 48.dp, shape = RoundedCornerShape(12.dp), fontSize = 14.sp)
+                MdButton("Import Files", onImport, tone = ButtonTone.Ghost, height = 48.dp, shape = RoundedCornerShape(12.dp), fontSize = 14.sp)
+            }
+            Column(Modifier.padding(top = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                repeat(2) { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        repeat(3) {
+                            Box(
+                                Modifier
+                                    .weight(1f)
+                                    .aspectRatio(2f / 3f)
+                                    .border(1.dp, c.fg.copy(alpha = if (row == 0) 0.09f else 0.05f), RoundedCornerShape(10.dp)),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

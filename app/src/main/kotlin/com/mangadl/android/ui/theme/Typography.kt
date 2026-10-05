@@ -2,104 +2,58 @@ package com.mangadl.android.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.googlefonts.Font
-import androidx.compose.ui.text.googlefonts.GoogleFont
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.mangadl.android.R
 
-private val provider = GoogleFont.Provider(
-    providerAuthority = "com.google.android.gms.fonts",
-    providerPackage = "com.google.android.gms",
-    certificates = R.array.com_google_android_gms_fonts_certs,
+val Anton = FontFamily(Font(R.font.anton_regular))
+
+val Inter = FontFamily(
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_medium, FontWeight.Medium),
+    Font(R.font.inter_semibold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold),
+    Font(R.font.inter_extrabold, FontWeight.ExtraBold),
+    Font(R.font.inter_black, FontWeight.Black),
 )
 
-private val AntonFont = GoogleFont("Anton")
-
-val AntonFontFamily = FontFamily(
-    Font(googleFont = AntonFont, fontProvider = provider, weight = FontWeight.Normal),
+val PtSerif = FontFamily(
+    Font(R.font.ptserif_regular, FontWeight.Normal),
+    Font(R.font.ptserif_bold, FontWeight.Bold),
 )
 
-val AntonStyle = TextStyle(
-    fontFamily = AntonFontFamily,
-    fontWeight = FontWeight.Normal,
-    fontSize = 30.sp,
-    letterSpacing = 0.02.em,
-    lineHeight = 36.sp,
-)
+object MdType {
+    fun display(size: TextUnit, lineHeight: TextUnit = size) =
+        TextStyle(fontFamily = Anton, fontSize = size, lineHeight = lineHeight)
 
-val AntonStyleSub = TextStyle(
-    fontFamily = AntonFontFamily,
-    fontWeight = FontWeight.Normal,
-    fontSize = 26.sp,
-    letterSpacing = 0.02.em,
-    lineHeight = 32.sp,
-)
+    fun body(
+        size: TextUnit,
+        weight: FontWeight = FontWeight.Normal,
+        lineHeight: TextUnit = TextUnit.Unspecified,
+    ) = TextStyle(fontFamily = Inter, fontSize = size, fontWeight = weight, lineHeight = lineHeight)
 
-val SectionLabelStyle = TextStyle(
-    fontFamily = FontFamily.Default,
-    fontWeight = FontWeight.Black,
-    fontSize = 10.sp,
-    letterSpacing = 0.2.em,
-    lineHeight = 14.sp,
-)
+    val eyebrow = TextStyle(
+        fontFamily = Inter,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Black,
+        letterSpacing = 0.2.em,
+    )
+}
+
+val AntonStyle = TextStyle(fontFamily = Anton, fontSize = 28.sp)
+val AntonStyleSub = TextStyle(fontFamily = Anton, fontSize = 24.sp)
+val SectionLabelStyle = TextStyle(fontFamily = Inter, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 0.2.em)
 
 val Typography = Typography(
-    headlineLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.ExtraBold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-    ),
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
-    ),
-    titleMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
-    ),
-    bodySmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-    ),
-    labelMedium = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 14.sp,
-        letterSpacing = 0.5.sp,
-    ),
-    labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Medium,
-        fontSize = 10.sp,
-        lineHeight = 13.sp,
-    ),
+    bodyLarge = MdType.body(16.sp),
+    bodyMedium = MdType.body(14.sp),
+    bodySmall = MdType.body(12.sp),
+    labelLarge = MdType.body(14.sp),
+    titleLarge = MdType.body(22.sp, FontWeight.Bold),
+    titleMedium = MdType.body(16.sp, FontWeight.SemiBold),
+    titleSmall = MdType.body(14.sp, FontWeight.SemiBold),
 )

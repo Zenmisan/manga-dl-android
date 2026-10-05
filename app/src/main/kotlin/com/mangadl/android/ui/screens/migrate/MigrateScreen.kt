@@ -3,472 +3,180 @@ package com.mangadl.android.ui.screens.migrate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mangadl.android.MangaDlApp
-import com.mangadl.android.data.model.LibraryManga
-import com.mangadl.android.data.model.MangaSearchResult
-import com.mangadl.android.data.extensions.ExtensionMeta
-import androidx.compose.ui.tooling.preview.Preview
-import com.mangadl.android.ui.theme.AntonStyle
-import com.mangadl.android.ui.theme.MangaDlColors
-import com.mangadl.android.ui.theme.MangaDlTheme
-import kotlinx.coroutines.launch
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mangadl.android.data.ui.toUiManga
+import com.mangadl.android.ui.components.BackHeader
+import com.mangadl.android.ui.components.BodyText
+import com.mangadl.android.ui.components.ButtonTone
+import com.mangadl.android.ui.components.CoverArt
+import com.mangadl.android.ui.components.Eyebrow
+import com.mangadl.android.ui.components.MdButton
+import com.mangadl.android.ui.components.MdCheckbox
+import com.mangadl.android.ui.components.Screen
+import com.mangadl.android.ui.components.SelectableCard
+import com.mangadl.android.ui.components.SurfaceCard
+import com.mangadl.android.ui.components.rememberState
+import com.mangadl.android.ui.theme.MdTheme
+import com.mangadl.android.ui.viewmodels.MigrateMatch
+import com.mangadl.android.ui.viewmodels.MigrateViewModel
 
-private enum class MigrateStep { SELECTING, SEARCHING, CONFIRMING, MIGRATING }
+private val COVER_PALETTE = listOf(
+    Color(0xFF1A2433), Color(0xFF3A1518), Color(0xFF2E2412), Color(0xFF2D1716),
+    Color(0xFF13282A), Color(0xFF311A1F), Color(0xFF1D2A1A), Color(0xFF1B2030),
+    Color(0xFF2B1A2E), Color(0xFF22222A), Color(0xFF1E3A5F), Color(0xFF1F2C4F),
+)
+private fun coverColor(id: String): Color {
+    val idx = id.hashCode().let { if (it < 0) -it else it } % COVER_PALETTE.size
+    return COVER_PALETTE[idx]
+}
 
 @Composable
-fun MigrateScreen(
-    onBack: () -> Unit,
-    onComplete: () -> Unit,
-) {
-    val db = MangaDlApp.instance.database
-    val extensionManager = MangaDlApp.instance.extensionManager
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+fun MigrateScreen(onBack: () -> Unit, onMigrate: () -> Unit) {
+    val c = MdTheme.colors
+    val vm: MigrateViewModel = viewModel()
+    val library by vm.library.collectAsState()
+    val sourceManga by vm.sourceManga.collectAsState()
+    val matches by vm.matches.collectAsState()
+    val searching by vm.searching.collectAsState()
 
-    var step by remember { mutableStateOf(MigrateStep.SELECTING) }
-    var library by remember { mutableStateOf<List<LibraryManga>>(emptyList()) }
-    var selectedManga by remember { mutableStateOf<LibraryManga?>(null) }
-    var extensions by remember { mutableStateOf<List<ExtensionMeta>>(emptyList()) }
-    var searchQuery by remember { mutableStateOf("") }
-    var searchResults by remember { mutableStateOf<List<MangaSearchResult>>(emptyList()) }
-    var selectedSource by remember { mutableStateOf<ExtensionMeta?>(null) }
-    var targetResult by remember { mutableStateOf<MangaSearchResult?>(null) }
-    var searching by remember { mutableStateOf(false) }
-    var librarySearch by remember { mutableStateOf("") }
+    var pickIdx by rememberState(-1)
+    var keepRead by rememberState(true)
+    var keepCats by rememberState(true)
+    var deleteOld by rememberState(false)
 
-    LaunchedEffect(Unit) {
-        db.libraryDao().getAll().collect { library = it }
-    }
-    LaunchedEffect(Unit) {
-        extensions = extensionManager.listExtensions()
-    }
-
-    Scaffold(
-        containerColor = MangaDlColors.Background,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { padding ->
+    Screen {
+        BackHeader("Migrate", onBack)
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, end = 12.dp, top = 20.dp, bottom = 8.dp)
-                    .statusBarsPadding(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = {
-                    when (step) {
-                        MigrateStep.SELECTING -> onBack()
-                        MigrateStep.SEARCHING -> { step = MigrateStep.SELECTING; selectedManga = null }
-                        MigrateStep.CONFIRMING -> step = MigrateStep.SEARCHING
-                        MigrateStep.MIGRATING -> {}
+            // Source manga picker
+            if (sourceManga == null) {
+                Eyebrow("Choose manga to migrate", Modifier.padding(bottom = 4.dp))
+                if (library.isEmpty()) {
+                    BodyText("Library is empty.", size = 13.sp, color = c.fgSubtle)
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        library.forEach { m ->
+                            SurfaceCard(Modifier.fillMaxWidth().clickable { vm.selectSource(m) }, radius = 12.dp, background = c.surface) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    CoverArt(coverColor(m.id), Modifier.size(40.dp, 60.dp), RoundedCornerShape(6.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        BodyText(m.title, size = 14.sp, weight = FontWeight.Bold, maxLines = 1)
+                                        BodyText(m.provider, size = 12.sp, color = c.fgSubtle)
+                                    }
+                                }
+                            }
+                        }
                     }
-                }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MangaDlColors.TextPrimary)
                 }
-                Text(
-                    when (step) {
-                        MigrateStep.SELECTING -> "MIGRATE"
-                        MigrateStep.SEARCHING -> "FIND ON SOURCE"
-                        MigrateStep.CONFIRMING -> "CONFIRM"
-                        MigrateStep.MIGRATING -> "MIGRATING"
+            } else {
+                // Source manga card
+                SurfaceCard(Modifier.fillMaxWidth(), radius = 14.dp, background = c.surface) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        CoverArt(coverColor(sourceManga!!.id), Modifier.size(44.dp, 66.dp), RoundedCornerShape(6.dp))
+                        Column(Modifier.weight(1f)) {
+                            Eyebrow("Moving from", color = c.fgSubtle)
+                            BodyText(sourceManga!!.title, Modifier.padding(top = 4.dp), size = 15.sp, weight = FontWeight.Bold, maxLines = 1)
+                            BodyText("${sourceManga!!.provider} · ${sourceManga!!.readCount} of ${sourceManga!!.totalChapters} read", size = 12.sp, color = c.fgSubtle)
+                        }
+                        BodyText("Change", size = 12.sp, color = c.accentSoft,
+                            modifier = Modifier.clickable { vm.selectSource(library.first()) })
+                    }
+                }
+
+                Eyebrow(if (searching) "Searching…" else "Pick a match")
+                if (searching) {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = c.accentSoft, modifier = Modifier.size(32.dp))
+                    }
+                } else if (matches.isEmpty()) {
+                    BodyText("No matches found on other sources.", size = 13.sp, color = c.fgSubtle)
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        matches.forEachIndexed { i, match ->
+                            SelectableCard(i == pickIdx, { pickIdx = i }, Modifier.fillMaxWidth()) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    RadioDot(i == pickIdx)
+                                    CoverArt(coverColor(match.result.id), Modifier.size(40.dp, 60.dp), RoundedCornerShape(6.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        BodyText(match.extensionName, weight = FontWeight.Bold)
+                                        BodyText(match.result.title, size = 12.sp, color = c.fg.copy(alpha = 0.65f), maxLines = 1)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Column {
+                    Eyebrow("Bring along", Modifier.padding(bottom = 6.dp), color = c.fgSubtle)
+                    MdCheckbox(keepRead, { keepRead = it }, "Read chapters")
+                    MdCheckbox(keepCats, { keepCats = it }, "Categories")
+                    MdCheckbox(deleteOld, { deleteOld = it }, "Delete old entry")
+                }
+            }
+        }
+
+        if (sourceManga != null) {
+            Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MdButton(
+                    "Copy",
+                    {
+                        val m = matches.getOrNull(pickIdx) ?: return@MdButton
+                        vm.copy(m, onDone = onMigrate)
                     },
-                    style = AntonStyle,
-                    color = MangaDlColors.TextPrimary,
-                    modifier = Modifier.weight(1f),
+                    Modifier.weight(1f),
+                    tone = ButtonTone.Ghost,
+                    height = 52.dp,
+                    fontSize = 14.sp,
+                )
+                MdButton(
+                    "Migrate",
+                    {
+                        val m = matches.getOrNull(pickIdx) ?: return@MdButton
+                        vm.migrate(m, keepRead, keepCats, deleteOld, onDone = onMigrate)
+                    },
+                    Modifier.weight(2f),
+                    height = 52.dp,
+                    fontSize = 14.sp,
                 )
             }
-
-            // Step indicator
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                MigrateStep.values().forEachIndexed { i, s ->
-                    val active = step == s || step.ordinal > s.ordinal
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(3.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(if (active) MangaDlColors.Primary else Color(0x33FFFFFF)),
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            when (step) {
-                MigrateStep.SELECTING -> {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Text(
-                            "Select manga to migrate",
-                            color = MangaDlColors.TextSecondary,
-                            fontSize = 13.sp,
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                        )
-                        OutlinedTextField(
-                            value = librarySearch,
-                            onValueChange = { librarySearch = it },
-                            placeholder = { Text("Search library", color = MangaDlColors.TextSecondary) },
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = MangaDlColors.Primary,
-                                unfocusedBorderColor = MangaDlColors.CardBorder,
-                                focusedTextColor = MangaDlColors.TextPrimary,
-                                unfocusedTextColor = MangaDlColors.TextPrimary,
-                                cursorColor = MangaDlColors.Primary,
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            singleLine = true,
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MangaDlColors.TextSecondary) },
-                        )
-                        val filtered = library.filter { it.title.contains(librarySearch, ignoreCase = true) }
-                        LazyColumn {
-                            items(filtered.size) { i ->
-                                val manga = filtered[i]
-                                LibraryMangaRow(manga = manga, onClick = {
-                                    selectedManga = manga
-                                    searchQuery = manga.title
-                                    step = MigrateStep.SEARCHING
-                                })
-                            }
-                            item { Spacer(Modifier.height(24.dp)) }
-                        }
-                    }
-                }
-
-                MigrateStep.SEARCHING -> {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        // Source selector
-                        selectedManga?.let { manga ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp, vertical = 4.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(MangaDlColors.CardBg)
-                                    .border(1.dp, MangaDlColors.CardBorder, RoundedCornerShape(10.dp))
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MangaDlColors.TextSecondary, modifier = Modifier.size(18.dp))
-                                Column {
-                                    Text("From: ${manga.provider}", color = MangaDlColors.TextSecondary, fontSize = 11.sp)
-                                    Text(manga.title, color = MangaDlColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-
-                        if (selectedSource == null) {
-                            Text(
-                                "SELECT A SOURCE",
-                                color = MangaDlColors.SectionRed,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp,
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                            )
-                            LazyColumn {
-                                items(extensions.size) { i ->
-                                    val ext = extensions[i]
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { selectedSource = ext }
-                                            .padding(horizontal = 20.dp, vertical = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(36.dp)
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(MangaDlColors.CardBg),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Text(ext.name.take(1), color = MangaDlColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                        Text(ext.name, color = MangaDlColors.TextPrimary, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                                        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MangaDlColors.TextSecondary, modifier = Modifier.size(18.dp))
-                                    }
-                                    Box(Modifier.fillMaxWidth().height(1.dp).background(MangaDlColors.CardBorder))
-                                }
-                                item { Spacer(Modifier.height(24.dp)) }
-                            }
-                        } else {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text("Source: ${selectedSource!!.name}", color = MangaDlColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                                TextButton(onClick = { selectedSource = null; searchResults = emptyList() }) {
-                                    Text("Change", color = MangaDlColors.Primary, fontSize = 12.sp)
-                                }
-                            }
-                            Row(
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                OutlinedTextField(
-                                    value = searchQuery,
-                                    onValueChange = { searchQuery = it },
-                                    modifier = Modifier.weight(1f),
-                                    placeholder = { Text("Search manga", color = MangaDlColors.TextSecondary) },
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = MangaDlColors.Primary,
-                                        unfocusedBorderColor = MangaDlColors.CardBorder,
-                                        focusedTextColor = MangaDlColors.TextPrimary,
-                                        unfocusedTextColor = MangaDlColors.TextPrimary,
-                                        cursorColor = MangaDlColors.Primary,
-                                    ),
-                                    shape = RoundedCornerShape(12.dp),
-                                    singleLine = true,
-                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                    keyboardActions = KeyboardActions(onSearch = {
-                                        if (searchQuery.isNotBlank()) {
-                                            scope.launch {
-                                                searching = true
-                                                try {
-                                                    searchResults = extensionManager.search(selectedSource!!.id, searchQuery)
-                                                } catch (e: Exception) {
-                                                    searchResults = emptyList()
-                                                } finally {
-                                                    searching = false
-                                                }
-                                            }
-                                        }
-                                    }),
-                                )
-                                IconButton(
-                                    onClick = {
-                                        if (searchQuery.isNotBlank()) {
-                                            scope.launch {
-                                                searching = true
-                                                try {
-                                                    searchResults = extensionManager.search(selectedSource!!.id, searchQuery)
-                                                } catch (e: Exception) {
-                                                    searchResults = emptyList()
-                                                } finally {
-                                                    searching = false
-                                                }
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(MangaDlColors.Primary),
-                                ) {
-                                    Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
-                                }
-                            }
-
-                            if (searching) {
-                                Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                                    CircularProgressIndicator(color = MangaDlColors.Primary)
-                                }
-                            } else {
-                                LazyColumn {
-                                    items(searchResults.size) { i ->
-                                        val result = searchResults[i]
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable {
-                                                    targetResult = result
-                                                    step = MigrateStep.CONFIRMING
-                                                }
-                                                .padding(horizontal = 20.dp, vertical = 12.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(width = 40.dp, height = 56.dp)
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .background(MangaDlColors.CardBg),
-                                            )
-                                            Text(result.title, color = MangaDlColors.TextPrimary, fontSize = 14.sp, modifier = Modifier.weight(1f), maxLines = 2)
-                                        }
-                                        Box(Modifier.fillMaxWidth().height(1.dp).background(MangaDlColors.CardBorder))
-                                    }
-                                    item { Spacer(Modifier.height(24.dp)) }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                MigrateStep.CONFIRMING -> {
-                    val from = selectedManga
-                    val to = targetResult
-                    val toSource = selectedSource
-                    if (from != null && to != null && toSource != null) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 20.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                        ) {
-                            Text("Review migration", color = MangaDlColors.TextSecondary, fontSize = 13.sp)
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(MangaDlColors.CardBg)
-                                    .border(1.dp, MangaDlColors.CardBorder, RoundedCornerShape(16.dp))
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                LabelValue("Title", from.title)
-                                LabelValue("From source", from.provider)
-                                LabelValue("To source", toSource.name)
-                                LabelValue("New title match", to.title)
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(MangaDlColors.Primary)
-                                    .clickable {
-                                        step = MigrateStep.MIGRATING
-                                        scope.launch {
-                                            try {
-                                                val newId = "${toSource.id}:${to.id}"
-                                                val updated = from.copy(
-                                                    id = newId,
-                                                    provider = toSource.id,
-                                                    url = to.url,
-                                                )
-                                                db.libraryDao().delete(from.id)
-                                                db.libraryDao().upsert(updated)
-                                                snackbarHostState.showSnackbar("Migration complete")
-                                                onComplete()
-                                            } catch (e: Exception) {
-                                                snackbarHostState.showSnackbar("Migration failed: ${e.message}")
-                                                step = MigrateStep.CONFIRMING
-                                            }
-                                        }
-                                    }
-                                    .padding(16.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text("Confirm Migration", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .border(1.dp, MangaDlColors.CardBorder, RoundedCornerShape(12.dp))
-                                    .clickable { step = MigrateStep.SEARCHING }
-                                    .padding(16.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text("Cancel", color = MangaDlColors.TextSecondary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                            }
-                        }
-                    }
-                }
-
-                MigrateStep.MIGRATING -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                        ) {
-                            CircularProgressIndicator(color = MangaDlColors.Primary)
-                            Text("Migrating...", color = MangaDlColors.TextSecondary, fontSize = 14.sp)
-                        }
-                    }
-                }
-            }
         }
     }
 }
 
 @Composable
-private fun LibraryMangaRow(manga: LibraryManga, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+private fun RadioDot(selected: Boolean) {
+    val c = MdTheme.colors
+    Box(
+        Modifier.size(20.dp).clip(CircleShape).border(2.dp, if (selected) c.accent else c.borderStrong.copy(alpha = 0.5f), CircleShape),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier = Modifier
-                .size(width = 40.dp, height = 56.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(MangaDlColors.CardBg),
-        )
-        Column(Modifier.weight(1f)) {
-            Text(manga.title, color = MangaDlColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-            Text(manga.provider, color = MangaDlColors.TextSecondary, fontSize = 12.sp)
-        }
-        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MangaDlColors.TextSecondary, modifier = Modifier.size(18.dp))
-    }
-    Box(Modifier.fillMaxWidth().height(1.dp).background(MangaDlColors.CardBorder))
-}
-
-@Composable
-private fun LabelValue(label: String, value: String) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, color = MangaDlColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.width(96.dp))
-        Text(value, color = MangaDlColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-    }
-}
-
-@Preview(showBackground = true, backgroundColor = 0xFF050505)
-@Composable
-private fun MigrateScreenPreview() {
-    MangaDlTheme {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .background(MangaDlColors.Background)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(start = 4.dp, top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = {}) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = MangaDlColors.TextPrimary)
-                }
-                Text("MIGRATE", style = AntonStyle, color = MangaDlColors.TextPrimary)
-            }
-        }
+        if (selected) Box(Modifier.size(10.dp).clip(CircleShape).background(c.accent))
     }
 }
