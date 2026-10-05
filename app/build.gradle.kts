@@ -35,6 +35,8 @@ android {
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProps["SUPABASE_ANON_KEY"] ?: ""}\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"${localProps["GOOGLE_WEB_CLIENT_ID"] ?: ""}\"")
         buildConfigField("String", "BACKEND_URL", "\"${localProps["BACKEND_URL"] ?: "https://manga-dl-vwyz.onrender.com"}\"")
+        buildConfigField("String", "ANILIST_CLIENT_ID", "\"${localProps["ANILIST_CLIENT_ID"] ?: "50135"}\"")
+        buildConfigField("String", "MAL_CLIENT_ID", "\"${localProps["MAL_CLIENT_ID"] ?: "f00d5e6690b08489b0b5e2e25d1fdb28"}\"")
     }
 
     buildTypes {

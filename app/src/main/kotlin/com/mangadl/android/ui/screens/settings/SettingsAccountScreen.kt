@@ -43,15 +43,17 @@ import com.mangadl.android.ui.theme.MdTheme
 import com.mangadl.android.ui.viewmodels.AccountSettingsViewModel
 
 @Composable
-fun AccountSettingsScreen(onBack: () -> Unit, onSignOut: () -> Unit) {
+fun AccountSettingsScreen(onBack: () -> Unit, onSignOut: () -> Unit, onDeleteAccount: () -> Unit = {}) {
     val c = MdTheme.colors
     val vm: AccountSettingsViewModel = viewModel()
     val exportStatus by vm.exportStatus.collectAsState()
     val importStatus by vm.importStatus.collectAsState()
+    val deleteStatus by vm.deleteStatus.collectAsState()
     var name by rememberState("[Display name]")
     var bio by rememberState("[Bio]")
     var public by rememberState(true)
     var confirmSignOut by rememberState(true)
+    var confirmDelete by rememberState(false)
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let { vm.exportLibrary(it) }
@@ -156,6 +158,39 @@ fun AccountSettingsScreen(onBack: () -> Unit, onSignOut: () -> Unit) {
                 }
             } else {
                 MdButton("Sign Out", { confirmSignOut = true }, Modifier.fillMaxWidth(), tone = ButtonTone.Danger, height = 50.dp, fontSize = 14.sp)
+            }
+            // Delete account danger zone
+            if (confirmDelete) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(c.errorBorder.copy(alpha = 0.08f))
+                        .border(1.dp, c.errorBorder.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    BodyText("Permanently delete account?", weight = FontWeight.Bold, color = c.errorText)
+                    BodyText(
+                        "This removes your account and wipes all local data (library, history, downloads). Cannot be undone.",
+                        size = 13.sp, color = c.fg.copy(alpha = 0.7f), lineHeight = 19.sp,
+                    )
+                    if (deleteStatus != null) BodyText(deleteStatus!!, size = 12.sp, color = c.fgSubtle)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MdButton("Cancel", { confirmDelete = false }, Modifier.weight(1f), tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 13.sp)
+                        MdButton(
+                            "Delete Forever",
+                            { vm.deleteAccount(onDeleteAccount) },
+                            Modifier.weight(1f),
+                            tone = ButtonTone.DangerFill,
+                            height = 44.dp,
+                            shape = RoundedCornerShape(12.dp),
+                            fontSize = 13.sp,
+                        )
+                    }
+                }
+            } else {
+                MdButton("Delete Account", { confirmDelete = true }, Modifier.fillMaxWidth(), tone = ButtonTone.Ghost, height = 44.dp, fontSize = 13.sp)
             }
         }
     }

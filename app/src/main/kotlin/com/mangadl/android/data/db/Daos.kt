@@ -34,7 +34,11 @@ interface LibraryDao {
 
     @Query("SELECT * FROM library")
     suspend fun getAllOnce(): List<LibraryManga>
+
+    @Query("DELETE FROM library")
+    suspend fun deleteAll()
 }
+
 
 @Dao
 interface ProgressDao {
@@ -76,4 +80,7 @@ interface DownloadDao {
 
     @Query("DELETE FROM download_queue WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("DELETE FROM download_queue")
+    suspend fun deleteAll()
 }

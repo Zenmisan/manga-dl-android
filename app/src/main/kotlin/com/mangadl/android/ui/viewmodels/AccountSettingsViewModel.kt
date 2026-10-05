@@ -4,15 +4,20 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.mangadl.android.BuildConfig
 import com.mangadl.android.MangaDlApp
+import com.mangadl.android.data.auth.SupabaseManager
 import com.mangadl.android.data.model.LibraryManga
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import okhttp3.Request
 
 class AccountSettingsViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -49,5 +54,32 @@ class AccountSettingsViewModel(app: Application) : AndroidViewModel(app) {
         } catch (e: Exception) {
             _importStatus.value = "Import failed: ${e.message}"
         }
+    }
+
+    private val _deleteStatus = MutableStateFlow<String?>(null)
+    val deleteStatus: StateFlow<String?> = _deleteStatus
+
+    fun deleteAccount(onDone: () -> Unit) = viewModelScope.launch(Dispatchers.IO) {
+        _deleteStatus.value = "Deleting…"
+        runCatching {
+            // Call Supabase self-delete endpoint with the user's own JWT
+            val token = SupabaseManager.client.auth.currentAccessTokenOrNull()
+            if (token != null) {
+                val req = Request.Builder()
+                    .url("${BuildConfig.SUPABASE_URL}/auth/v1/user")
+                    .header("Authorization", "Bearer $token")
+                    .header("apikey", BuildConfig.SUPABASE_ANON_KEY)
+                    .delete()
+                    .build()
+                MangaDlApp.instance.httpClient.newCall(req).execute().close()
+            }
+        }
+        // Wipe all local data regardless of server response
+        runCatching { db.libraryDao().deleteAll() }
+        runCatching { db.progressDao().deleteAll() }
+        runCatching { db.downloadDao().deleteAll() }
+        runCatching { SupabaseManager.client.auth.signOut() }
+        runCatching { MangaDlApp.instance.googleAuthHelper.signOut() }
+        withContext(Dispatchers.Main) { onDone() }
     }
 }

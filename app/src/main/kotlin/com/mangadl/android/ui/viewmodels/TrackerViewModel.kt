@@ -1,19 +1,24 @@
 package com.mangadl.android.ui.viewmodels
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.mangadl.android.BuildConfig
 import com.mangadl.android.MangaDlApp
 import com.mangadl.android.data.prefs.AppPreferences
 import com.mangadl.android.data.prefs.PrefKeys
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import okhttp3.FormBody
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
 class TrackerViewModel(app: Application) : AndroidViewModel(app) {
@@ -32,9 +37,12 @@ class TrackerViewModel(app: Application) : AndroidViewModel(app) {
     fun setAnilistClientId(id: String) = viewModelScope.launch { prefs.set(PrefKeys.ANILIST_CLIENT_ID, id) }
     fun setMalClientId(id: String) = viewModelScope.launch { prefs.set(PrefKeys.MAL_CLIENT_ID, id) }
 
+    private fun effectiveAnilistClientId() = anilistClientId.value.ifEmpty { BuildConfig.ANILIST_CLIENT_ID }
+    private fun effectiveMalClientId() = malClientId.value.ifEmpty { BuildConfig.MAL_CLIENT_ID }
+
     /** Build the AniList OAuth URL for implicit flow. Call from UI to open in Custom Tab. */
     fun anilistAuthUrl(): String {
-        val clientId = anilistClientId.value.ifEmpty { return "" }
+        val clientId = effectiveAnilistClientId().ifEmpty { return "" }
         return "https://anilist.co/api/v2/oauth/authorize" +
             "?client_id=$clientId" +
             "&response_type=token" +
@@ -66,7 +74,7 @@ class TrackerViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Build MAL OAuth URL using PKCE (plain). */
     fun malAuthUrl(): String {
-        val clientId = malClientId.value.ifEmpty { return "" }
+        val clientId = effectiveMalClientId().ifEmpty { return "" }
         malCodeVerifier = generatePkceVerifier()
         return "https://myanimelist.net/v1/oauth2/authorize" +
             "?response_type=code" +
@@ -79,24 +87,23 @@ class TrackerViewModel(app: Application) : AndroidViewModel(app) {
     /** Called from MainActivity when mangadl://mal-callback?code=... is received. */
     fun handleMalCallback(uri: Uri) {
         val code = uri.getQueryParameter("code") ?: return
-        val clientId = malClientId.value.ifEmpty { return }
-        viewModelScope.launch {
+        val clientId = effectiveMalClientId().ifEmpty { return }
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                val body = FormBody.Builder()
-                    .add("client_id", clientId)
-                    .add("code", code)
-                    .add("code_verifier", malCodeVerifier)
-                    .add("grant_type", "authorization_code")
-                    .add("redirect_uri", MAL_REDIRECT)
-                    .build()
+                val json = JSONObject()
+                    .put("client_id", clientId)
+                    .put("code", code)
+                    .put("code_verifier", malCodeVerifier)
+                    .put("redirect_uri", MAL_REDIRECT)
+                val body = json.toString().toRequestBody("application/json".toMediaType())
                 val request = Request.Builder()
-                    .url("https://myanimelist.net/v1/oauth2/token")
+                    .url("${BuildConfig.BACKEND_URL}/auth/mal/token")
                     .post(body)
                     .build()
                 val resp = httpClient.newCall(request).execute()
-                val json = JSONObject(resp.body?.string() ?: return@launch)
-                val token = json.optString("access_token", "")
-                val refresh = json.optString("refresh_token", "")
+                val respJson = JSONObject(resp.body?.string() ?: return@launch)
+                val token = respJson.optString("access_token", "")
+                val refresh = respJson.optString("refresh_token", "")
                 if (token.isNotEmpty()) {
                     prefs.set(PrefKeys.MAL_TOKEN, token)
                     prefs.set(PrefKeys.MAL_REFRESH_TOKEN, refresh)
@@ -113,6 +120,58 @@ class TrackerViewModel(app: Application) : AndroidViewModel(app) {
         prefs.set(PrefKeys.MAL_TOKEN, "")
         prefs.set(PrefKeys.MAL_REFRESH_TOKEN, "")
         prefs.set(PrefKeys.MAL_CONNECTED, false)
+    }
+
+    // --- Per-manga link storage (SharedPreferences, dynamic keys) ---
+
+    private val trackLinks = app.getSharedPreferences("manga_dl_tracker_links", Context.MODE_PRIVATE)
+
+    fun isAnilistLinked(mangaId: String) = trackLinks.contains("anilist_$mangaId")
+    fun isMalLinked(mangaId: String) = trackLinks.contains("mal_$mangaId")
+
+    fun unlinkAnilist(mangaId: String) {
+        trackLinks.edit().remove("anilist_$mangaId").apply()
+    }
+
+    fun unlinkMal(mangaId: String) {
+        trackLinks.edit().remove("mal_$mangaId").apply()
+    }
+
+    /** Search AniList via backend, take top result, store mediaId keyed by mangaId. */
+    fun linkAnilist(mangaId: String, mangaTitle: String, onResult: (success: Boolean) -> Unit) {
+        val token = anilistToken.value.ifEmpty { onResult(false); return }
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = runCatching {
+                val req = Request.Builder()
+                    .url("${BuildConfig.BACKEND_URL}/auth/anilist/search?q=${Uri.encode(mangaTitle)}")
+                    .header("Authorization", "Bearer $token")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                val arr = org.json.JSONArray(resp.body?.string() ?: error("empty"))
+                val mediaId = arr.getJSONObject(0).getInt("id")
+                trackLinks.edit().putInt("anilist_$mangaId", mediaId).apply()
+                true
+            }.getOrDefault(false)
+            withContext(Dispatchers.Main) { onResult(ok) }
+        }
+    }
+
+    /** Search MAL via backend, take top result, store mediaId keyed by mangaId. */
+    fun linkMal(mangaId: String, mangaTitle: String, onResult: (success: Boolean) -> Unit) {
+        val token = malToken.value.ifEmpty { onResult(false); return }
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = runCatching {
+                val req = Request.Builder()
+                    .url("${BuildConfig.BACKEND_URL}/auth/mal/search?q=${Uri.encode(mangaTitle)}&access_token=${Uri.encode(token)}")
+                    .build()
+                val resp = httpClient.newCall(req).execute()
+                val arr = org.json.JSONArray(resp.body?.string() ?: error("empty"))
+                val malId = arr.getJSONObject(0).getInt("id")
+                trackLinks.edit().putInt("mal_$mangaId", malId).apply()
+                true
+            }.getOrDefault(false)
+            withContext(Dispatchers.Main) { onResult(ok) }
+        }
     }
 
     private fun generatePkceVerifier(): String {

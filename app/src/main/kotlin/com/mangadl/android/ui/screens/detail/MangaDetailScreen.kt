@@ -149,7 +149,7 @@ fun MangaDetailScreen(
             items(chapters, key = { it.number }) { ch -> ChapterRow(ch, { onOpenChapter(ch) }) }
         }
 
-        TrackingSheet(visible = showTracking, onDismiss = { showTracking = false }, trackers = trackers)
+        TrackingSheet(visible = showTracking, onDismiss = { showTracking = false }, mangaId = manga.id, mangaTitle = manga.title)
     }
 }
 

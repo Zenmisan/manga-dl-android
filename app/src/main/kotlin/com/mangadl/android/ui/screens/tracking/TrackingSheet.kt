@@ -23,7 +23,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,7 +36,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mangadl.android.data.ui.UiTracker
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mangadl.android.ui.components.BodyText
 import com.mangadl.android.ui.components.ButtonTone
 import com.mangadl.android.ui.components.DisplayText
@@ -41,11 +45,39 @@ import com.mangadl.android.ui.components.MdButton
 import com.mangadl.android.ui.components.MdIconButton
 import com.mangadl.android.ui.components.MdIcons
 import com.mangadl.android.ui.components.PillButton
+import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.theme.MdTheme
+import com.mangadl.android.ui.viewmodels.TrackerViewModel
+
+private data class TrackerDef(val name: String, val short: String, val color: Color)
+
+private val TRACKER_DEFS = listOf(
+    TrackerDef("AniList", "AL", Color(0xFF0099CC)),
+    TrackerDef("MyAnimeList", "MAL", Color(0xFF2E51A2)),
+)
 
 @Composable
-fun TrackingSheet(visible: Boolean, onDismiss: () -> Unit, trackers: List<UiTracker>) {
+fun TrackingSheet(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    mangaId: String,
+    mangaTitle: String,
+) {
     val c = MdTheme.colors
+    val vm: TrackerViewModel = viewModel()
+    val anilistConnected by vm.anilistConnected.collectAsState()
+    val malConnected by vm.malConnected.collectAsState()
+
+    // track linking state in-memory so UI reflects immediately after call
+    val linked = remember { mutableStateMapOf<String, Boolean>() }
+    // initialize from prefs when sheet opens
+    if (visible) {
+        linked.getOrPut("AL") { vm.isAnilistLinked(mangaId) }
+        linked.getOrPut("MAL") { vm.isMalLinked(mangaId) }
+    }
+
+    val working = remember { mutableStateMapOf<String, Boolean>() }
+
     Box(Modifier.fillMaxSize()) {
         AnimatedVisibility(visible, enter = fadeIn(), exit = fadeOut()) {
             Box(
@@ -73,13 +105,57 @@ fun TrackingSheet(visible: Boolean, onDismiss: () -> Unit, trackers: List<UiTrac
             ) {
                 Box(Modifier.align(Alignment.CenterHorizontally).size(40.dp, 4.dp).clip(CircleShape).background(c.fg.copy(alpha = 0.25f)))
                 DisplayText("Tracking", 26.sp)
-                val (linked, others) = trackers.partition { it.connected }
-                linked.take(1).forEach { TrackedCard(it) }
-                (linked.drop(1) + others).forEach { t ->
-                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        LogoTile(t.short, t.color, size = 36.dp, anton = false)
-                        BodyText(t.name, Modifier.weight(1f), size = 15.sp, weight = FontWeight.SemiBold)
-                        PillButton("Add Tracking", {})
+
+                TRACKER_DEFS.forEach { tracker ->
+                    val globalConnected = when (tracker.short) {
+                        "AL" -> anilistConnected
+                        "MAL" -> malConnected
+                        else -> false
+                    }
+                    val isLinked = linked[tracker.short] == true
+                    val isWorking = working[tracker.short] == true
+
+                    if (isLinked) {
+                        TrackedCard(
+                            tracker = tracker,
+                            onRemove = {
+                                when (tracker.short) {
+                                    "AL" -> vm.unlinkAnilist(mangaId)
+                                    "MAL" -> vm.unlinkMal(mangaId)
+                                }
+                                linked[tracker.short] = false
+                            },
+                        )
+                    } else {
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            LogoTile(tracker.short, tracker.color, size = 36.dp, anton = false)
+                            BodyText(tracker.name, Modifier.weight(1f), size = 15.sp, weight = FontWeight.SemiBold)
+                            if (!globalConnected) {
+                                BodyText("Not connected", size = 12.sp, color = c.fgSubtle)
+                            } else {
+                                PillButton(
+                                    if (isWorking) "Linking…" else "Add Tracking",
+                                    onClick = {
+                                        if (isWorking) return@PillButton
+                                        working[tracker.short] = true
+                                        when (tracker.short) {
+                                            "AL" -> vm.linkAnilist(mangaId, mangaTitle) { ok ->
+                                                working["AL"] = false
+                                                if (ok) linked["AL"] = true
+                                            }
+                                            "MAL" -> vm.linkMal(mangaId, mangaTitle) { ok ->
+                                                working["MAL"] = false
+                                                if (ok) linked["MAL"] = true
+                                            }
+                                        }
+                                    },
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -88,7 +164,7 @@ fun TrackingSheet(visible: Boolean, onDismiss: () -> Unit, trackers: List<UiTrac
 }
 
 @Composable
-private fun TrackedCard(t: UiTracker) {
+private fun TrackedCard(tracker: TrackerDef, onRemove: () -> Unit) {
     val c = MdTheme.colors
     Column(
         Modifier
@@ -100,17 +176,17 @@ private fun TrackedCard(t: UiTracker) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            LogoTile(t.short, t.color, size = 36.dp, anton = false)
-            BodyText(t.name, Modifier.weight(1f), size = 15.sp, weight = FontWeight.Bold)
-            MdIconButton(MdIcons.Close, "Remove tracking", {}, tint = c.fg.copy(alpha = 0.7f), iconSize = 18.dp)
+            LogoTile(tracker.short, tracker.color, size = 36.dp, anton = false)
+            BodyText(tracker.name, Modifier.weight(1f), size = 15.sp, weight = FontWeight.Bold)
+            MdIconButton(MdIcons.Close, "Remove tracking", onRemove, tint = c.fg.copy(alpha = 0.7f), iconSize = 18.dp)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TrackField("Status", "Reading", Modifier.weight(1f))
-            TrackField("Chapters", "48 / —", Modifier.weight(1f))
+            TrackField("Chapters", "— / —", Modifier.weight(1f))
             TrackField("Score", "—", Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MdButton("Started [date]", {}, Modifier.weight(1f), tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 12.sp, horizontalPadding = 8.dp)
+            MdButton("Started —", {}, Modifier.weight(1f), tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 12.sp, horizontalPadding = 8.dp)
             MdButton("Finished —", {}, Modifier.weight(1f), tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 12.sp, horizontalPadding = 8.dp)
         }
     }

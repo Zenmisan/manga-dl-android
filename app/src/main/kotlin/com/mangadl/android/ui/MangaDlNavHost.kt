@@ -227,7 +227,8 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
             })
         }
         composable(Routes.Account) {
-            AccountSettingsScreen(onBack = back, onSignOut = { nav.navigate(Routes.Welcome) { popUpTo(0) { inclusive = true } } })
+            val goWelcome: () -> Unit = { nav.navigate(Routes.Welcome) { popUpTo(0) { inclusive = true } } }
+            AccountSettingsScreen(onBack = back, onSignOut = goWelcome, onDeleteAccount = goWelcome)
         }
         composable(Routes.General) { GeneralSettingsScreen(onBack = back, accent = accent, onAccentChange = onAccentChange) }
         composable(Routes.ReaderSettings) { ReaderSettingsScreen(onBack = back) }
