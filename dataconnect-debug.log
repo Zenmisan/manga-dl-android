@@ -3096,3 +3096,10 @@ E1006 05:46:08.796979   11427 watch.go:40] Failed to load config from "/home/zen
 E1006 05:46:18.787951   11427 watch.go:116] watchAllDir unable to walk dir `/home/zenmi/Projects/manga-dl/dataconnect`: lstat /home/zenmi/Projects/manga-dl/dataconnect: no such file or directory
 E1006 05:46:18.788065   11427 watch.go:40] Failed to load config from "/home/zenmi/Projects/manga-dl/dataconnect": could not find dataconnect.yaml in `/home/zenmi/Projects/manga-dl/dataconnect`
 E1006 05:46:28.797947   11427 watch.go:40] Failed to load config from "/home/zenmi/Projects/manga-dl/dataconnect": could not find dataconnect.yaml in `/home/zenmi/Projects/manga-dl/dataconnect`
+E1006 05:46:38.796933   11427 watch.go:40] Failed to load config from "/home/zenmi/Projects/manga-dl/dataconnect": could not find dataconnect.yaml in `/home/zenmi/Projects/manga-dl/dataconnect`
+E1006 05:46:48.787816   11427 watch.go:40] Failed to load config from "/home/zenmi/Projects/manga-dl/dataconnect": could not find dataconnect.yaml in `/home/zenmi/Projects/manga-dl/dataconnect`
+E1006 05:46:58.787742   11427 watch.go:40] Failed to load config from "/home/zenmi/Projects/manga-dl/dataconnect": could not find dataconnect.yaml in `/home/zenmi/Projects/manga-dl/dataconnect`
+E1006 05:47:08.798508   11427 watch.go:40] Failed to load config from "/home/zenmi/Projects/manga-dl/dataconnect": could not find dataconnect.yaml in `/home/zenmi/Projects/manga-dl/dataconnect`
+E1006 05:47:18.787553   11427 watch.go:116] watchAllDir unable to walk dir `/home/zenmi/Projects/manga-dl/dataconnect`: lstat /home/zenmi/Projects/manga-dl/dataconnect: no such file or directory
+E1006 05:47:18.787745   11427 watch.go:40] Failed to load config from "/home/zenmi/Projects/manga-dl/dataconnect": could not find dataconnect.yaml in `/home/zenmi/Projects/manga-dl/dataconnect`
+E1006 05:47:28.795873   11427 watch.go:40] Failed to load config from "/home/zenmi/Projects/manga-dl/dataconnect": could not find dataconnect.yaml in `/home/zenmi/Projects/manga-dl/dataconnect`

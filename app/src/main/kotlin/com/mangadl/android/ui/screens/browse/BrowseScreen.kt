@@ -18,8 +18,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
@@ -128,6 +131,12 @@ private fun SourceRow(source: UiSource, onOpen: (UiSource) -> Unit, pin: Boolean
 
 @Composable
 private fun ExtensionsTab(extensions: List<UiExtension>) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("manga_dl_sources", android.content.Context.MODE_PRIVATE) }
+    var disabledSources by remember {
+        mutableStateOf(prefs.getStringSet("disabled_sources", emptySet()) ?: emptySet())
+    }
+
     val c = MdTheme.colors
     var lang by rememberState("English")
     var adult by rememberState(false)
@@ -150,10 +159,14 @@ private fun ExtensionsTab(extensions: List<UiExtension>) {
         }
         items(updates) { ExtensionRow(it) { PillButton("Update", {}, tone = ButtonTone.Soft) } }
         item { Eyebrow("Installed", Modifier.padding(start = 20.dp, top = 16.dp, bottom = 6.dp), color = c.fgSubtle) }
-        items(installed) {
-            ExtensionRow(it) {
-                var on by rememberState(true)
-                MdSwitch(on, { v -> on = v })
+        items(installed) { ext ->
+            ExtensionRow(ext) {
+                val isEnabled = ext.id !in disabledSources
+                MdSwitch(isEnabled, { v ->
+                    val updated = if (v) disabledSources - ext.id else disabledSources + ext.id
+                    disabledSources = updated
+                    prefs.edit().putStringSet("disabled_sources", updated).apply()
+                })
             }
         }
         item { Eyebrow("Available · Keiyoushi index", Modifier.padding(start = 20.dp, top = 16.dp, bottom = 6.dp), color = c.fgSubtle) }
