@@ -37,7 +37,10 @@ class UpdatesViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refresh() {
         val request = OneTimeWorkRequestBuilder<LibraryUpdateWorker>().build()
-        workManager.enqueueUniqueWork(LibraryUpdateWorker.WORK_NAME, ExistingWorkPolicy.REPLACE, request)
+        // Distinct name from LibraryUpdateWorker.WORK_NAME: enqueueUniqueWork and
+        // enqueueUniquePeriodicWork share the same unique-name table, so reusing the periodic
+        // schedule's name here would cancel/replace it instead of just running once.
+        workManager.enqueueUniqueWork("library_update_manual", ExistingWorkPolicy.REPLACE, request)
         viewModelScope.launch { prefs.set(PrefKeys.LAST_UPDATE_CHECK, System.currentTimeMillis()) }
     }
 

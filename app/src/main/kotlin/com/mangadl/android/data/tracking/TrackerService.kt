@@ -354,13 +354,14 @@ object TrackerService {
         val chInt = chapterNumber.toInt()
         val anilistMediaId = trackLinks.getInt("anilist_$mangaId", -1)
         val malMangaId = trackLinks.getInt("mal_$mangaId", -1)
+        val markCompleted = isCompleted && prefs.markTrackerCompletedOnFinish.first()
 
         // 1. AniList sync
         if (anilistMediaId > 0) {
             val alToken = prefs.anilistToken.first()
             val alConnected = prefs.anilistConnected.first()
             if (alConnected && alToken.isNotEmpty()) {
-                updateAniListProgress(alToken, anilistMediaId, chInt, isCompleted)
+                updateAniListProgress(alToken, anilistMediaId, chInt, markCompleted)
                     .onFailure { Log.w(TAG, "AniList auto-sync error: ${it.message}") }
             }
         }
@@ -370,7 +371,7 @@ object TrackerService {
             val malTok = prefs.malToken.first()
             val malConnected = prefs.malConnected.first()
             if (malConnected && malTok.isNotEmpty()) {
-                updateMalProgress(malTok, malMangaId, chInt, isCompleted)
+                updateMalProgress(malTok, malMangaId, chInt, markCompleted)
                     .onFailure { Log.w(TAG, "MAL auto-sync error: ${it.message}") }
             }
         }

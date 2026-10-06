@@ -75,6 +75,9 @@ fun LibraryScreen(
     onImport: () -> Unit,
     modifier: Modifier = Modifier,
     categories: List<String> = listOf("All"),
+    gridColumns: String = "Auto",
+    showUnreadBadges: Boolean = true,
+    showDownloadedBadges: Boolean = true,
 ) {
     var category by rememberState(0)
     var searchActive by rememberState(false)
@@ -108,11 +111,12 @@ fun LibraryScreen(
     Box(modifier.fillMaxSize()) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 600.dp
-        val columns = when {
+        val autoColumns = when {
             maxWidth >= 840.dp -> 6
             wide -> 4
             else -> 3
         }
+        val columns = gridColumns.toIntOrNull() ?: autoColumns
         val side = if (wide) 36.dp else 20.dp
         Column(Modifier.fillMaxSize()) {
             if (wide) {
@@ -160,7 +164,11 @@ fun LibraryScreen(
                     }
                 }
                 items(displayItems, key = { it.id }) { manga ->
-                    CoverCell(manga, { onOpenManga(manga) })
+                    CoverCell(
+                        manga, { onOpenManga(manga) },
+                        showUnreadBadge = showUnreadBadges,
+                        showDownloadedBadge = showDownloadedBadges,
+                    )
                 }
             }
         }
@@ -274,6 +282,8 @@ fun CoverCell(
     modifier: Modifier = Modifier,
     showInLibraryTag: Boolean = false,
     dimInLibrary: Boolean = false,
+    showUnreadBadge: Boolean = true,
+    showDownloadedBadge: Boolean = true,
 ) {
     val c = MdTheme.colors
     Column(
@@ -288,10 +298,10 @@ fun CoverCell(
             )
             if (showInLibraryTag && manga.inLibrary) {
                 InLibraryTag(Modifier.padding(6.dp))
-            } else if (manga.unread > 0) {
+            } else if (showUnreadBadge && manga.unread > 0) {
                 CountBadge(manga.unread, Modifier.padding(6.dp))
             }
-            if (manga.downloaded && !showInLibraryTag) {
+            if (showDownloadedBadge && manga.downloaded && !showInLibraryTag) {
                 Box(
                     Modifier
                         .align(Alignment.TopEnd)

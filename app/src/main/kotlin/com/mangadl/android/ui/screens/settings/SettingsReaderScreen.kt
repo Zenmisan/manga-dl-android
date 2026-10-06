@@ -4,10 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mangadl.android.ui.components.InputSetting
 import com.mangadl.android.ui.components.SegmentedSetting
 import com.mangadl.android.ui.components.SettingsSection
 import com.mangadl.android.ui.components.SwitchSetting
-import com.mangadl.android.ui.components.ValueSetting
 import com.mangadl.android.ui.viewmodels.SettingsViewModel
 
 @Composable
@@ -20,6 +20,9 @@ fun ReaderSettingsScreen(onBack: () -> Unit) {
     val keepScreenOn by vm.keepScreenOn.collectAsState()
     val showPageNumber by vm.showPageNumber.collectAsState()
     val fullScreen by vm.fullScreen.collectAsState()
+    val sidePadding by vm.sidePadding.collectAsState()
+    val volumeKeysTurnPages by vm.volumeKeysTurnPages.collectAsState()
+    val readerBackground by vm.readerBackground.collectAsState()
 
     SettingsFrame("Reader", onBack) {
         SettingsSection("Reading") {
@@ -42,10 +45,17 @@ fun ReaderSettingsScreen(onBack: () -> Unit) {
                 value = tapZones != "disabled",
                 onValueChange = { vm.setTapZones(if (it) "default" else "disabled") },
             )
-            ValueSetting("Webtoon side padding", "5%")
+            InputSetting(
+                "Webtoon side padding (%)", "0",
+                "0 to 80",
+                value = sidePadding, onValueChange = { v -> vm.setSidePadding(v.filter { it.isDigit() }.take(2)) },
+            )
         }
         SettingsSection("Controls") {
-            SwitchSetting("Volume keys turn pages", true)
+            SwitchSetting(
+                "Volume keys turn pages", true,
+                value = volumeKeysTurnPages, onValueChange = { vm.setVolumeKeysTurnPages(it) },
+            )
             SwitchSetting(
                 "Keep screen on", true,
                 value = keepScreenOn, onValueChange = { vm.setKeepScreenOn(it) },
@@ -60,8 +70,11 @@ fun ReaderSettingsScreen(onBack: () -> Unit) {
             )
         }
         SettingsSection("Display") {
-            SegmentedSetting("Background", listOf("Black", "Gray", "White"), "Black")
-            ValueSetting("Image filters", "Off", "Brightness, contrast, grayscale, invert, sepia")
+            SegmentedSetting(
+                "Background", listOf("Black", "Gray", "White"), "Black",
+                value = when (readerBackground) { "gray" -> "Gray"; "white" -> "White"; else -> "Black" },
+                onValueChange = { vm.setReaderBackground(it.lowercase()) },
+            )
         }
     }
 }

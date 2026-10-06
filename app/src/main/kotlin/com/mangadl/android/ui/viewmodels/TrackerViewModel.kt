@@ -32,10 +32,14 @@ class TrackerViewModel(app: Application) : AndroidViewModel(app) {
     val malUsername: StateFlow<String> = prefs.malUsername.stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     val autoSyncTrackers: StateFlow<Boolean> = prefs.autoSyncTrackers.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val markCompletedOnFinish: StateFlow<Boolean> = prefs.markTrackerCompletedOnFinish.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val askBeforeScoreChange: StateFlow<Boolean> = prefs.askBeforeScoreChange.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     fun setAnilistClientId(id: String) = viewModelScope.launch { prefs.set(PrefKeys.ANILIST_CLIENT_ID, id) }
     fun setMalClientId(id: String) = viewModelScope.launch { prefs.set(PrefKeys.MAL_CLIENT_ID, id) }
     fun setAutoSync(enabled: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.AUTO_SYNC_TRACKERS, enabled) }
+    fun setMarkCompletedOnFinish(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.MARK_TRACKER_COMPLETED_ON_FINISH, v) }
+    fun setAskBeforeScoreChange(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.ASK_BEFORE_SCORE_CHANGE, v) }
 
     private fun effectiveAnilistClientId() = anilistClientId.value.ifEmpty { BuildConfig.ANILIST_CLIENT_ID }
     private fun effectiveMalClientId() = malClientId.value.ifEmpty { BuildConfig.MAL_CLIENT_ID }

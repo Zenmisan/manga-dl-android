@@ -41,6 +41,8 @@ fun TrackerSettingsScreen(onBack: () -> Unit) {
     val malClientId by vm.malClientId.collectAsState()
     val malUsername by vm.malUsername.collectAsState()
     val autoSync by vm.autoSyncTrackers.collectAsState()
+    val markCompleted by vm.markCompletedOnFinish.collectAsState()
+    val askBeforeScore by vm.askBeforeScoreChange.collectAsState()
 
     SettingsFrame("Trackers", onBack) {
         SettingsSection("Services") {
@@ -98,8 +100,14 @@ fun TrackerSettingsScreen(onBack: () -> Unit) {
                 value = autoSync,
                 onValueChange = { vm.setAutoSync(it) },
             )
-            SwitchSetting("Mark completed", true, "Set status to Completed on last chapter")
-            SwitchSetting("Ask before changing scores", false, "Confirm before overwriting a score")
+            SwitchSetting(
+                "Mark completed", true, "Set status to Completed on last chapter",
+                value = markCompleted, onValueChange = { vm.setMarkCompletedOnFinish(it) },
+            )
+            SwitchSetting(
+                "Ask before changing scores", false, "Confirm before overwriting a score",
+                value = askBeforeScore, onValueChange = { vm.setAskBeforeScoreChange(it) },
+            )
         }
     }
 }

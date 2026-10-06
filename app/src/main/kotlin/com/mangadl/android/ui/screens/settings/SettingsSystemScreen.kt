@@ -6,12 +6,15 @@ import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.Coil
 import com.mangadl.android.BuildConfig
 import com.mangadl.android.data.backup.BackupManager
@@ -20,6 +23,8 @@ import com.mangadl.android.ui.components.ButtonTone
 import com.mangadl.android.ui.components.SettingsSection
 import com.mangadl.android.ui.components.SwitchSetting
 import com.mangadl.android.ui.components.ValueSetting
+import com.mangadl.android.ui.viewmodels.DownloadQueueViewModel
+import com.mangadl.android.ui.viewmodels.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -29,6 +34,22 @@ fun SystemSettingsScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val backupManager = remember { BackupManager() }
     var cacheLabel by remember { mutableStateOf("Tap to clear") }
+
+    val vm: SettingsViewModel = viewModel()
+    val saveChaptersPublic by vm.saveChaptersPublic.collectAsState()
+    val backgroundSyncEnabled by vm.backgroundSyncEnabled.collectAsState()
+    val syncWifiOnly by vm.syncWifiOnly.collectAsState()
+    val autoBackupWeekly by vm.autoBackupWeekly.collectAsState()
+
+    val downloadQueueVm: DownloadQueueViewModel = viewModel()
+    val storageUsedBytes by downloadQueueVm.storageUsedBytes.collectAsState()
+    LaunchedEffect(Unit) { downloadQueueVm.refreshStorageUsage() }
+    val storageLabel = remember(storageUsedBytes) {
+        if (storageUsedBytes <= 0L) "0 MB" else {
+            val mb = storageUsedBytes.toDouble() / (1024 * 1024)
+            if (mb < 1024) String.format("%.1f MB", mb) else String.format("%.2f GB", mb / 1024)
+        }
+    }
 
     var backupStatus by remember { mutableStateOf("Library, categories, history, settings (JSON)") }
     var restoreStatus by remember { mutableStateOf("Restore from JSON or .tachibk") }
@@ -110,9 +131,17 @@ fun SystemSettingsScreen(onBack: () -> Unit) {
 
     SettingsFrame("System", onBack) {
         SettingsSection("Storage") {
-            ValueSetting("Download location", "Change", "Internal storage / manga-dl")
-            SwitchSetting("Save chapters to device", false, "Keep CBZ files visible to other apps")
-            ValueSetting("Storage limit", "Unlimited", "Oldest read chapters are removed first")
+            ValueSetting(
+                "Download location",
+                if (saveChaptersPublic) "Downloads/manga-dl" else "App storage / manga-dl",
+                "Internal storage used unless \"Save to public Downloads\" is on",
+            )
+            SwitchSetting(
+                "Save to public Downloads", false,
+                "Visible to other apps and file managers",
+                value = saveChaptersPublic, onValueChange = { vm.setSaveChaptersPublic(it) },
+            )
+            ValueSetting("Storage used", storageLabel, "Total size of downloaded chapters")
             ButtonSetting("Image cache", "Clear", cacheLabel, tone = ButtonTone.Danger, onClick = {
                 scope.launch(Dispatchers.IO) {
                     Coil.imageLoader(context).memoryCache?.clear()
@@ -132,15 +161,27 @@ fun SystemSettingsScreen(onBack: () -> Unit) {
             })
         }
         SettingsSection("Sync") {
-            SwitchSetting("Background sync", true, "Check subscribed manga every 30 minutes")
-            SwitchSetting("Wi-Fi only", true)
-            var syncLabel by remember { mutableStateOf("Runs automatically every 30 min") }
+            SwitchSetting(
+                "Background sync", true, "Check subscribed manga every 12 hours",
+                value = backgroundSyncEnabled, onValueChange = { vm.setBackgroundSyncEnabled(it) },
+            )
+            SwitchSetting(
+                "Wi-Fi only", true,
+                value = syncWifiOnly, onValueChange = { vm.setSyncWifiOnly(it) },
+            )
+            var syncLabel by remember { mutableStateOf("Runs automatically every 12 hours") }
             ButtonSetting("Background sync", "Sync Now", syncLabel, onClick = {
-                scope.launch(Dispatchers.IO) {
-                    syncLabel = "Syncing…"
-                    kotlinx.coroutines.delay(1000)
-                    syncLabel = "Synced just now"
-                }
+                // Distinct work name from LibraryUpdateWorker.WORK_NAME: enqueueUniqueWork and
+                // enqueueUniquePeriodicWork share the same unique-name table, so reusing the
+                // periodic schedule's name here would cancel/replace it instead of just running
+                // once.
+                val wm = androidx.work.WorkManager.getInstance(context)
+                wm.enqueueUniqueWork(
+                    "library_update_manual",
+                    androidx.work.ExistingWorkPolicy.REPLACE,
+                    androidx.work.OneTimeWorkRequestBuilder<com.mangadl.android.data.library.LibraryUpdateWorker>().build(),
+                )
+                syncLabel = "Sync started"
             })
         }
         SettingsSection("Backup & restore") {
@@ -179,12 +220,10 @@ fun SystemSettingsScreen(onBack: () -> Unit) {
                 tachiyomiStatus,
                 onClick = { tachiyomiPicker.launch("*/*") }
             )
-            ValueSetting("Automatic backups", "Weekly")
-            SwitchSetting("Cloud backup", true, "Store backups in your account")
-        }
-        SettingsSection("Servers") {
-            ValueSetting("Komga", "Set Up", "Not connected")
-            ValueSetting("Suwayomi", "Set Up", "Not connected")
+            SwitchSetting(
+                "Automatic backups", false, "Create a JSON backup every 7 days",
+                value = autoBackupWeekly, onValueChange = { vm.setAutoBackupWeekly(it) },
+            )
         }
         SettingsSection("About") {
             var updateStatus by remember { mutableStateOf("Up to date") }

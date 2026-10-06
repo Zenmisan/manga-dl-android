@@ -525,6 +525,11 @@ private fun MainTabs(nav: NavHostController, emptyLibrary: Boolean = false, onSo
     val libraryVm: LibraryViewModel = viewModel()
     val updatesVm: UpdatesViewModel = viewModel()
     val historyVm: HistoryViewModel = viewModel()
+    val settingsVm: com.mangadl.android.ui.viewmodels.SettingsViewModel = viewModel()
+
+    val gridColumns by settingsVm.gridColumns.collectAsState()
+    val showUnreadBadges by settingsVm.showUnreadBadges.collectAsState()
+    val showDownloadedBadges by settingsVm.showDownloadedBadges.collectAsState()
 
     val libraryItems by libraryVm.library.collectAsState()
     val newChapters by updatesVm.newChapters.collectAsState()
@@ -554,6 +559,9 @@ private fun MainTabs(nav: NavHostController, emptyLibrary: Boolean = false, onSo
                 MainTab.Library -> LibraryScreen(
                     items = uiLibrary,
                     continueItem = continueItem,
+                    gridColumns = gridColumns,
+                    showUnreadBadges = showUnreadBadges,
+                    showDownloadedBadges = showDownloadedBadges,
                     onOpenManga = { m ->
                         navState.mangaId = m.id
                         navState.sourceId = m.source

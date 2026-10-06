@@ -15,16 +15,24 @@ fun LibrarySettingsScreen(onBack: () -> Unit, onMigrate: () -> Unit) {
     val vm: SettingsViewModel = viewModel()
     val wifiOnly by vm.downloadWifiOnly.collectAsState()
     val autoDownload by vm.autoDownloadNew.collectAsState()
+    val gridColumns by vm.gridColumns.collectAsState()
+    val showUnreadBadges by vm.showUnreadBadges.collectAsState()
+    val showDownloadedBadges by vm.showDownloadedBadges.collectAsState()
 
     SettingsFrame("Library", onBack) {
         SettingsSection("Display") {
-            SegmentedSetting("Grid columns", listOf("Auto", "2", "3", "4"), "3")
-            SwitchSetting("Unread badges", true)
-            SwitchSetting("Downloaded badges", true)
-        }
-        SettingsSection("Categories") {
-            ValueSetting("Default category", "Reading")
-            ValueSetting("Edit categories", "4", "Rename, reorder or delete")
+            SegmentedSetting(
+                "Grid columns", listOf("Auto", "2", "3", "4"), "3",
+                value = gridColumns, onValueChange = { vm.setGridColumns(it) },
+            )
+            SwitchSetting(
+                "Unread badges", true,
+                value = showUnreadBadges, onValueChange = { vm.setShowUnreadBadges(it) },
+            )
+            SwitchSetting(
+                "Downloaded badges", true,
+                value = showDownloadedBadges, onValueChange = { vm.setShowDownloadedBadges(it) },
+            )
         }
         SettingsSection("Updates") {
             SwitchSetting("Check on app launch", true)

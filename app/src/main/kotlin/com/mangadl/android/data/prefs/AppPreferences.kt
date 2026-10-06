@@ -28,12 +28,17 @@ object PrefKeys {
     val DUAL_PAGE_SPREAD = stringPreferencesKey("dual_page_spread") // "auto" | "always" | "off"
     val TAP_ZONES = stringPreferencesKey("tap_zones") // "default" | "lnav" | "edge" | "disabled"
     val SIDE_PADDING = stringPreferencesKey("side_padding") // "0".."80"
+    val VOLUME_KEYS_TURN_PAGES = booleanPreferencesKey("volume_keys_turn_pages")
+    val READER_BACKGROUND = stringPreferencesKey("reader_background") // "black" | "gray" | "white"
 
     // Library
     val UPDATE_INTERVAL = stringPreferencesKey("update_interval") // "manual" | "12h" | "24h" | "48h"
     val AUTO_DOWNLOAD_NEW = booleanPreferencesKey("auto_download_new")
     val LIBRARY_DISPLAY = stringPreferencesKey("library_display") // "grid" | "list"
     val LAST_UPDATE_CHECK = longPreferencesKey("last_update_check")
+    val GRID_COLUMNS = stringPreferencesKey("grid_columns") // "Auto" | "2" | "3" | "4"
+    val SHOW_UNREAD_BADGES = booleanPreferencesKey("show_unread_badges")
+    val SHOW_DOWNLOADED_BADGES = booleanPreferencesKey("show_downloaded_badges")
 
     // Trackers
     val ANILIST_CONNECTED = booleanPreferencesKey("anilist_connected")
@@ -46,9 +51,14 @@ object PrefKeys {
     val MAL_CLIENT_ID = stringPreferencesKey("mal_client_id")
     val MAL_USERNAME = stringPreferencesKey("mal_username")
     val AUTO_SYNC_TRACKERS = booleanPreferencesKey("auto_sync_trackers")
+    val MARK_TRACKER_COMPLETED_ON_FINISH = booleanPreferencesKey("mark_tracker_completed_on_finish")
+    val ASK_BEFORE_SCORE_CHANGE = booleanPreferencesKey("ask_before_score_change")
 
     // System
     val SYNC_WIFI_ONLY = booleanPreferencesKey("sync_wifi_only")
+    val BACKGROUND_SYNC_ENABLED = booleanPreferencesKey("background_sync_enabled")
+    val SAVE_CHAPTERS_PUBLIC = booleanPreferencesKey("save_chapters_public")
+    val AUTO_BACKUP_WEEKLY = booleanPreferencesKey("auto_backup_weekly")
 
     // Connection
     val BACKEND_URL = stringPreferencesKey("backend_url")
@@ -83,10 +93,15 @@ class AppPreferences(private val context: Context) {
     val dualPageSpread: Flow<String> = context.dataStore.data.map { it[PrefKeys.DUAL_PAGE_SPREAD] ?: "off" }
     val tapZones: Flow<String> = context.dataStore.data.map { it[PrefKeys.TAP_ZONES] ?: "default" }
     val sidePadding: Flow<String> = context.dataStore.data.map { it[PrefKeys.SIDE_PADDING] ?: "0" }
+    val volumeKeysTurnPages: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.VOLUME_KEYS_TURN_PAGES] ?: true }
+    val readerBackground: Flow<String> = context.dataStore.data.map { it[PrefKeys.READER_BACKGROUND] ?: "black" }
     val updateInterval: Flow<String> = context.dataStore.data.map { it[PrefKeys.UPDATE_INTERVAL] ?: "manual" }
     val autoDownloadNew: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.AUTO_DOWNLOAD_NEW] ?: false }
     val libraryDisplay: Flow<String> = context.dataStore.data.map { it[PrefKeys.LIBRARY_DISPLAY] ?: "grid" }
     val lastUpdateCheck: Flow<Long> = context.dataStore.data.map { it[PrefKeys.LAST_UPDATE_CHECK] ?: 0L }
+    val gridColumns: Flow<String> = context.dataStore.data.map { it[PrefKeys.GRID_COLUMNS] ?: "Auto" }
+    val showUnreadBadges: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.SHOW_UNREAD_BADGES] ?: true }
+    val showDownloadedBadges: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.SHOW_DOWNLOADED_BADGES] ?: true }
     val anilistConnected: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.ANILIST_CONNECTED] ?: false }
     val malConnected: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.MAL_CONNECTED] ?: false }
     val anilistToken: Flow<String> = context.dataStore.data.map { it[PrefKeys.ANILIST_TOKEN] ?: "" }
@@ -97,7 +112,12 @@ class AppPreferences(private val context: Context) {
     val malClientId: Flow<String> = context.dataStore.data.map { it[PrefKeys.MAL_CLIENT_ID] ?: "" }
     val malUsername: Flow<String> = context.dataStore.data.map { it[PrefKeys.MAL_USERNAME] ?: "" }
     val autoSyncTrackers: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.AUTO_SYNC_TRACKERS] ?: true }
+    val markTrackerCompletedOnFinish: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.MARK_TRACKER_COMPLETED_ON_FINISH] ?: true }
+    val askBeforeScoreChange: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.ASK_BEFORE_SCORE_CHANGE] ?: false }
     val syncWifiOnly: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.SYNC_WIFI_ONLY] ?: true }
+    val backgroundSyncEnabled: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.BACKGROUND_SYNC_ENABLED] ?: true }
+    val saveChaptersPublic: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.SAVE_CHAPTERS_PUBLIC] ?: false }
+    val autoBackupWeekly: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.AUTO_BACKUP_WEEKLY] ?: false }
     val backendUrl: Flow<String> = context.dataStore.data.map { it[PrefKeys.BACKEND_URL] ?: "" }
     val apiKey: Flow<String> = context.dataStore.data.map { it[PrefKeys.API_KEY] ?: "" }
     val ambilight: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.AMBILIGHT] ?: false }
