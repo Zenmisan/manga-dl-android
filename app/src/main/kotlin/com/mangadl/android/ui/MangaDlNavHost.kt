@@ -317,8 +317,29 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
             )
         }
         composable(Routes.Reader) {
+            val chapters = navState.chapters
+            val currentIndex = chapters.indexOfFirst { it.id == navState.chapterId }
+            val hasPrev = currentIndex > 0
+            val hasNext = currentIndex in 0 until (chapters.size - 1)
+
             ReaderScreen(
                 onClose = back,
+                hasPrev = hasPrev,
+                hasNext = hasNext,
+                onPrevChapter = {
+                    if (hasPrev) {
+                        val prevCh = chapters[currentIndex - 1]
+                        navState.chapterId = prevCh.id
+                        navState.chapterLabel = if (prevCh.number > 0) "Ch. ${prevCh.number.toString().trimEnd('0').trimEnd('.')} · ${prevCh.title}" else prevCh.title
+                    }
+                },
+                onNextChapter = {
+                    if (hasNext) {
+                        val nextCh = chapters[currentIndex + 1]
+                        navState.chapterId = nextCh.id
+                        navState.chapterLabel = if (nextCh.number > 0) "Ch. ${nextCh.number.toString().trimEnd('0').trimEnd('.')} · ${nextCh.title}" else nextCh.title
+                    }
+                },
                 onOpenSettings = { nav.navigate(Routes.ReaderSettings) },
             )
         }
