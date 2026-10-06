@@ -58,6 +58,10 @@ object PrefKeys {
     val NOVEL_THEME = stringPreferencesKey("novel_theme")
     val NOVEL_FONT_SIZE = floatPreferencesKey("novel_font_size")
     val NOVEL_SERIF = booleanPreferencesKey("novel_serif")
+
+    // Behaviour
+    val HAPTIC_FEEDBACK = booleanPreferencesKey("haptic_feedback")
+    val BIOMETRIC_LOCK = booleanPreferencesKey("biometric_lock")
 }
 
 class AppPreferences(private val context: Context) {
@@ -94,6 +98,8 @@ class AppPreferences(private val context: Context) {
     val novelTheme: Flow<String> = context.dataStore.data.map { it[PrefKeys.NOVEL_THEME] ?: "Dark" }
     val novelFontSize: Flow<Float> = context.dataStore.data.map { it[PrefKeys.NOVEL_FONT_SIZE] ?: 18f }
     val novelSerif: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.NOVEL_SERIF] ?: true }
+    val hapticFeedback: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.HAPTIC_FEEDBACK] ?: true }
+    val biometricLock: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.BIOMETRIC_LOCK] ?: false }
 
     suspend fun set(key: Preferences.Key<String>, value: String) {
         context.dataStore.edit { it[key] = value }

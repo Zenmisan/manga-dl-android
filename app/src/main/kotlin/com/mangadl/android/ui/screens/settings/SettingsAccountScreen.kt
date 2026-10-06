@@ -172,7 +172,7 @@ fun AccountSettingsScreen(onBack: () -> Unit, onSignOut: () -> Unit, onDeleteAcc
                     BodyText("Downloads stay on the device. Sync stops until you sign in again.", size = 13.sp, color = c.fg.copy(alpha = 0.7f))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         MdButton("Cancel", { confirmSignOut = false }, Modifier.weight(1f), tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 13.sp)
-                        MdButton("Sign Out", onSignOut, Modifier.weight(1f), tone = ButtonTone.DangerFill, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 13.sp)
+                        MdButton("Sign Out", { vm.signOut(onSignOut) }, Modifier.weight(1f), tone = ButtonTone.DangerFill, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 13.sp)
                     }
                 }
             } else {

@@ -39,8 +39,11 @@ fun StatsScreen(onBack: () -> Unit) {
     val vm: StatisticsViewModel = viewModel()
     val library by vm.library.collectAsState()
     val chapters by vm.totalChaptersRead.collectAsState()
+    val readingTime by vm.readingTimeHours.collectAsState()
     val streak by vm.streak.collectAsState()
     val allProgress by vm.allProgress.collectAsState()
+    val activityHeatmap by vm.activityHeatmap.collectAsState()
+
     Screen {
         BackHeader("Statistics", onBack, Modifier.padding(bottom = 0.dp))
         BodyText("Your reading habits, at a glance", Modifier.padding(start = 60.dp, bottom = 14.dp), size = 13.sp, color = c.fgSubtle)
@@ -48,7 +51,12 @@ fun StatsScreen(onBack: () -> Unit) {
             Modifier.verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(22.dp),
         ) {
-            val tiles = listOf("Chapters read" to chapters.toString(), "Time reading" to "—", "Current streak" to "${streak}d", "In library" to library.size.toString())
+            val tiles = listOf(
+                "Chapters read" to chapters.toString(),
+                "Time reading" to readingTime,
+                "Current streak" to "${streak}d",
+                "In library" to library.size.toString()
+            )
             tiles.chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 0.dp)) {
                     row.forEach { (label, value) ->
@@ -63,7 +71,7 @@ fun StatsScreen(onBack: () -> Unit) {
             }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Eyebrow("Activity · last 18 weeks", color = c.fgSubtle)
-                Heatmap(weeks = 18)
+                Heatmap(activity = activityHeatmap)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                     BodyText("Less", size = 11.sp, color = c.fgSubtle)
                     heatShades().forEach { Box(Modifier.width(10.dp).aspectRatio(1f).clip(RoundedCornerShape(2.dp)).background(it)) }
@@ -96,15 +104,20 @@ private fun heatShades(): List<Color> {
 }
 
 @Composable
-fun Heatmap(weeks: Int, modifier: Modifier = Modifier, gap: Int = 3) {
+fun Heatmap(activity: List<List<Int>>, modifier: Modifier = Modifier, gap: Int = 3) {
     val shades = heatShades()
+    val weeks = activity.size.coerceAtLeast(1)
     Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap.dp)) {
         repeat(weeks) { w ->
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(gap.dp)) {
                 repeat(7) { d ->
-                    val i = w * 7 + d
-                    val v = (i * 37 + w * 11) % 13
-                    val shade = shades[if (v < 5) 0 else if (v < 9) 1 else if (v < 12) 2 else 3]
+                    val count = activity.getOrNull(w)?.getOrNull(d) ?: 0
+                    val shade = when {
+                        count == 0 -> shades[0]
+                        count in 1..2 -> shades[1]
+                        count in 3..5 -> shades[2]
+                        else -> shades[3]
+                    }
                     Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(3.dp)).background(shade))
                 }
             }

@@ -28,6 +28,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     val keepScreenOn: StateFlow<Boolean> = prefs.keepScreenOn.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val showPageNumber: StateFlow<Boolean> = prefs.showPageNumber.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val fullScreen: StateFlow<Boolean> = prefs.fullScreen.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val hapticFeedback: StateFlow<Boolean> = prefs.hapticFeedback.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val biometricLock: StateFlow<Boolean> = prefs.biometricLock.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     fun setTheme(v: String) = viewModelScope.launch { prefs.set(PrefKeys.THEME, v) }
     fun setAmbilight(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.AMBILIGHT, v) }
@@ -44,4 +46,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun setKeepScreenOn(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.KEEP_SCREEN_ON, v) }
     fun setShowPageNumber(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.SHOW_PAGE_NUMBER, v) }
     fun setFullScreen(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.FULL_SCREEN, v) }
+    fun setHapticFeedback(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.HAPTIC_FEEDBACK, v) }
+    fun setBiometricLock(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.BIOMETRIC_LOCK, v) }
 }

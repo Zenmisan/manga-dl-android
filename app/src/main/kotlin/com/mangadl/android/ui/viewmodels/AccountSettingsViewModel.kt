@@ -103,4 +103,10 @@ class AccountSettingsViewModel(app: Application) : AndroidViewModel(app) {
         runCatching { MangaDlApp.instance.googleAuthHelper.signOut() }
         withContext(Dispatchers.Main) { onDone() }
     }
+
+    fun signOut(onDone: () -> Unit) = viewModelScope.launch(Dispatchers.IO) {
+        runCatching { SupabaseManager.client.auth.signOut() }
+        runCatching { MangaDlApp.instance.googleAuthHelper.signOut() }
+        withContext(Dispatchers.Main) { onDone() }
+    }
 }

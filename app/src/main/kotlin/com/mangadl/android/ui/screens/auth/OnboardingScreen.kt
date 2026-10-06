@@ -22,9 +22,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mangadl.android.data.network.BackendHealth
+import com.mangadl.android.data.prefs.AppPreferences
+import com.mangadl.android.data.prefs.PrefKeys
 import com.mangadl.android.ui.components.BodyText
 import com.mangadl.android.ui.components.ButtonTone
 import com.mangadl.android.ui.components.DisplayText
@@ -37,13 +42,21 @@ import com.mangadl.android.ui.components.TextLink
 import com.mangadl.android.ui.components.VSpace
 import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.theme.MdTheme
+import kotlinx.coroutines.launch
 
 @Composable
 fun OnboardingScreen(onBack: () -> Unit, onContinue: () -> Unit, onSkip: () -> Unit) {
     val c = MdTheme.colors
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val appPrefs = remember { AppPreferences.getInstance(context) }
+
     var url by rememberState("https://[your-server]:8000")
-    var key by rememberState("secretkey")
-    var connected by rememberState(true)
+    var key by rememberState("")
+    var connected by rememberState(false)
+    var testing by rememberState(false)
+    var testError by rememberState<String?>(null)
+
     Screen {
         Column(
             Modifier
@@ -63,19 +76,49 @@ fun OnboardingScreen(onBack: () -> Unit, onContinue: () -> Unit, onSkip: () -> U
                 )
             }
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                MdTextField(url, { url = it }, label = "Backend URL", keyboardType = KeyboardType.Uri)
+                MdTextField(url, { url = it; connected = false; testError = null }, label = "Backend URL", keyboardType = KeyboardType.Uri)
                 MdTextField(key, { key = it }, label = "API key (optional)", isPassword = true)
-                if (connected) StatusBoxOnboarding("Connected")
+                if (connected) StatusBoxOnboarding("Connected", isError = false)
+                if (testError != null) StatusBoxOnboarding(testError!!, isError = true)
                 MdButton(
-                    "Test Connection", { connected = true },
-                    tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 13.sp,
+                    if (testing) "Testing…" else "Test Connection",
+                    onClick = {
+                        scope.launch {
+                            testing = true
+                            testError = null
+                            BackendHealth.checkHealth(url)
+                                .onSuccess {
+                                    connected = true
+                                    testError = null
+                                }
+                                .onFailure { e ->
+                                    connected = false
+                                    testError = e.message ?: "Failed to connect"
+                                }
+                            testing = false
+                        }
+                    },
+                    tone = ButtonTone.Ghost,
+                    height = 44.dp,
+                    shape = RoundedCornerShape(12.dp),
+                    fontSize = 13.sp,
                 )
             }
         }
         Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 28.dp, top = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MdButton("Back", onBack, Modifier.weight(1f), tone = ButtonTone.Ghost)
-                MdButton("Continue", onContinue, Modifier.weight(2f))
+                MdButton(
+                    "Continue",
+                    onClick = {
+                        scope.launch {
+                            appPrefs.set(PrefKeys.BACKEND_URL, url)
+                            appPrefs.set(PrefKeys.API_KEY, key)
+                            onContinue()
+                        }
+                    },
+                    modifier = Modifier.weight(2f),
+                )
             }
             VSpace(4.dp)
             TextLink("Skip — Read Offline", onSkip)
@@ -94,18 +137,21 @@ private fun StepBarOnboarding(step: Int, of: Int) {
 }
 
 @Composable
-private fun StatusBoxOnboarding(text: String) {
+private fun StatusBoxOnboarding(text: String, isError: Boolean = false) {
     val c = MdTheme.colors
+    val bg = if (isError) c.accentFaint else c.success.copy(alpha = 0.12f)
+    val fg = if (isError) c.accentLight else c.successText
+    val icon = if (isError) MdIcons.Close else MdIcons.Check
     Row(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(c.success.copy(alpha = 0.12f))
+            .background(bg)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Icon(MdIcons.Check, null, tint = c.successText, modifier = Modifier.size(18.dp))
-        BodyText(text, size = 13.sp, weight = FontWeight.Bold, color = c.successText)
+        Icon(icon, null, tint = fg, modifier = Modifier.size(18.dp))
+        BodyText(text, size = 13.sp, weight = FontWeight.Bold, color = fg)
     }
 }
