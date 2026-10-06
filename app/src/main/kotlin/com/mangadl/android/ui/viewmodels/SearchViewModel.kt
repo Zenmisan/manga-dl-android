@@ -8,8 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.mangadl.android.MangaDlApp
 import com.mangadl.android.data.ui.Manga
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -31,13 +33,18 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     private val _searching = MutableStateFlow(false)
     val searching: StateFlow<Boolean> = _searching
 
+    private var searchJob: Job? = null
+
     fun search(query: String) {
+        searchJob?.cancel()
         if (query.isBlank()) {
             _results.value = emptyList()
+            _searching.value = false
             return
         }
-        viewModelScope.launch {
-            _searching.value = true
+        _searching.value = true
+        searchJob = viewModelScope.launch {
+            delay(300)
             _results.value = emptyList()
             val disabledIds = prefs.getStringSet("disabled_sources", emptySet()) ?: emptySet()
             val enabledSources = extMgr.listExtensions().filter { it.id !in disabledIds }
@@ -47,7 +54,13 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
                         val items = extMgr.search(src.id, query, 1)
                         src.name to items.map { r ->
                             val idx = r.id.hashCode().let { if (it < 0) -it else it } % COVER_PALETTE.size
-                            Manga(id = r.id, title = r.title, cover = COVER_PALETTE[idx], coverUrl = r.coverUrl, source = r.provider)
+                            Manga(
+                                id = r.id,
+                                title = r.title,
+                                cover = COVER_PALETTE[idx],
+                                coverUrl = r.coverUrl,
+                                source = r.provider.ifEmpty { src.id }
+                            )
                         }
                     }.getOrNull()
                 }
