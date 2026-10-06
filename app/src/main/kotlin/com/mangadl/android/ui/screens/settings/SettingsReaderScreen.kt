@@ -42,7 +42,7 @@ fun ReaderSettingsScreen(onBack: () -> Unit) {
                 value = tapZones != "disabled",
                 onValueChange = { vm.setTapZones(if (it) "default" else "disabled") },
             )
-            ValueSetting("Webtoon side padding", "[n]%")
+            ValueSetting("Webtoon side padding", "5%")
         }
         SettingsSection("Controls") {
             SwitchSetting("Volume keys turn pages", true)

@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mangadl.android.BuildConfig
 import com.mangadl.android.ui.components.BodyText
 import com.mangadl.android.ui.components.CountBadge
@@ -39,6 +40,7 @@ import com.mangadl.android.ui.components.MdSwitch
 import com.mangadl.android.ui.components.SurfaceCard
 import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.theme.MdTheme
+import com.mangadl.android.ui.viewmodels.AuthViewModel
 
 enum class MoreDestination(val label: String, val icon: ImageVector, val badge: Int = 0) {
     Downloads("Downloads", MdIcons.Download, 3),
@@ -56,6 +58,19 @@ fun MoreScreen(onProfile: () -> Unit, onOpen: (MoreDestination) -> Unit) {
     val c = MdTheme.colors
     var incognito by rememberState(false)
     var downloadedOnly by rememberState(true)
+    val authVm: AuthViewModel = viewModel()
+    val user = authVm.currentUser
+    val displayName = run {
+        val meta = user?.userMetadata
+        val username = try {
+            (meta?.get("username") as? kotlinx.serialization.json.JsonPrimitive)?.content
+        } catch (_: Exception) { null }
+        val fullName = try {
+            (meta?.get("full_name") as? kotlinx.serialization.json.JsonPrimitive)?.content
+        } catch (_: Exception) { null }
+        username ?: fullName ?: user?.email?.substringBefore('@') ?: "Guest"
+    }
+    val initial = displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
     Column(
         Modifier
             .fillMaxSize()
@@ -66,10 +81,10 @@ fun MoreScreen(onProfile: () -> Unit, onOpen: (MoreDestination) -> Unit) {
         SurfaceCard(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(onClick = onProfile), padding = PaddingValues(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Box(Modifier.size(52.dp).clip(CircleShape).background(Color(0xFF2D1716)), contentAlignment = Alignment.Center) {
-                    BodyText("U", size = 20.sp, weight = FontWeight.ExtraBold)
+                    BodyText(initial, size = 20.sp, weight = FontWeight.ExtraBold)
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    BodyText("[Display name]", size = 16.sp, weight = FontWeight.ExtraBold)
+                    BodyText(displayName, size = 16.sp, weight = FontWeight.ExtraBold)
                     BodyText("Tap to view profile", size = 13.sp, color = c.fg.copy(alpha = 0.65f))
                 }
                 Icon(MdIcons.ChevronRight, null, tint = c.fg, modifier = Modifier.size(20.dp))

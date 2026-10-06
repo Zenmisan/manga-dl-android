@@ -59,10 +59,14 @@ fun MangaDetailScreen(
     onBack: () -> Unit,
     onResume: () -> Unit,
     onOpenChapter: (UiChapter) -> Unit,
+    onToggleLibrary: () -> Unit = {},
     onWebView: () -> Unit = {},
     initiallyTracking: Boolean = false,
     genres: List<String> = emptyList(),
     trackers: List<UiTracker> = emptyList(),
+    synopsis: String = "",
+    authors: List<String> = emptyList(),
+    resumeLabel: String = "Start Reading",
 ) {
     val c = MdTheme.colors
     var inLibrary by rememberState(manga.inLibrary)
@@ -88,7 +92,9 @@ fun MangaDetailScreen(
                         )
                         Column(Modifier.align(Alignment.Bottom), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             DisplayText(manga.title, 30.sp, lineHeight = 32.sp)
-                            BodyText("[Author name]", size = 13.sp, color = c.fg.copy(alpha = 0.75f))
+                            if (authors.isNotEmpty()) {
+                                BodyText(authors.joinToString(", "), size = 13.sp, color = c.fg.copy(alpha = 0.75f))
+                            }
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 MangaTag("Ongoing")
                                 MangaTag(manga.source)
@@ -104,20 +110,22 @@ fun MangaDetailScreen(
                             if (inLibrary) "In library" else "Add to library",
                             if (inLibrary) MdIcons.BookmarkFilled else MdIcons.Bookmark,
                             active = inLibrary,
-                            onClick = { inLibrary = !inLibrary },
+                            onClick = { inLibrary = !inLibrary; onToggleLibrary() },
                             modifier = Modifier.weight(1f),
                         )
                         ActionTile("Track", MdIcons.Track, onClick = { showTracking = true }, modifier = Modifier.weight(1f))
                         ActionTile("WebView", MdIcons.Globe, onClick = onWebView, modifier = Modifier.weight(1f))
                     }
-                    MdButton("Resume Ch. 48", onResume, Modifier.fillMaxWidth(), height = 52.dp, leadingIcon = MdIcons.Play)
-                    BodyText(
-                        "[Synopsis — pulled from the source. Three lines shown, tap to expand the full description and see every genre tag.]",
-                        modifier = Modifier.clickable { synopsisOpen = !synopsisOpen },
-                        color = c.fgMuted,
-                        lineHeight = 21.sp,
-                        maxLines = if (synopsisOpen) Int.MAX_VALUE else 3,
-                    )
+                    MdButton(resumeLabel, onResume, Modifier.fillMaxWidth(), height = 52.dp, leadingIcon = MdIcons.Play)
+                    if (synopsis.isNotBlank()) {
+                        BodyText(
+                            synopsis,
+                            modifier = Modifier.clickable { synopsisOpen = !synopsisOpen },
+                            color = c.fgMuted,
+                            lineHeight = 21.sp,
+                            maxLines = if (synopsisOpen) Int.MAX_VALUE else 3,
+                        )
+                    }
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         genres.forEach { g ->
                             BodyText(

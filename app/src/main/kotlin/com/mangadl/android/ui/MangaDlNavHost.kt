@@ -11,13 +11,17 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -35,7 +39,11 @@ import com.mangadl.android.data.ui.toUiSource
 import com.mangadl.android.data.ui.toUpdateGroups
 import com.mangadl.android.data.ui.toNotices
 import com.mangadl.android.data.ui.toUiDownloadItem
+import com.mangadl.android.ui.viewmodels.BrowseSourceViewModel
+import com.mangadl.android.ui.viewmodels.DetailState
 import com.mangadl.android.ui.viewmodels.DownloadViewModel
+import com.mangadl.android.ui.viewmodels.MangaDetailViewModel
+import com.mangadl.android.ui.viewmodels.NavStateHolder
 import com.mangadl.android.ui.viewmodels.NotificationsViewModel
 import com.mangadl.android.ui.viewmodels.HistoryViewModel
 import com.mangadl.android.ui.viewmodels.LibraryViewModel
@@ -116,6 +124,9 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
     val goHome: () -> Unit = {
         nav.navigate(Routes.Main) { popUpTo(0) { inclusive = true } }
     }
+    val navState: NavStateHolder = viewModel()
+
+    var selectedSource by remember { mutableStateOf<com.mangadl.android.data.ui.UiSource?>(null) }
 
     NavHost(
         navController = nav,
@@ -127,7 +138,7 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
         popExitTransition = { fadeOut(tween(300)) },
     ) {
         composable(Routes.Welcome) {
-            WelcomeScreen(onStartReading = { nav.navigate(Routes.Onboarding) }, onSignIn = { nav.navigate(Routes.Login) })
+            WelcomeScreen(onStartReading = { nav.navigate(Routes.Register) }, onSignIn = { nav.navigate(Routes.Login) })
         }
         composable(Routes.Onboarding) {
             OnboardingScreen(onBack = back, onContinue = { nav.navigate(Routes.Register) }, onSkip = goHome)
@@ -146,22 +157,108 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
         }
         composable(Routes.Forgot) { ForgotPasswordScreen(onBack = back) }
 
-        composable(Routes.Main) { MainTabs(nav) }
-        composable(Routes.LibraryEmpty) { MainTabs(nav, emptyLibrary = true) }
+        composable(Routes.Main) { MainTabs(nav, onSourceSelected = { selectedSource = it }) }
+        composable(Routes.LibraryEmpty) { MainTabs(nav, emptyLibrary = true, onSourceSelected = { selectedSource = it }) }
 
         composable(Routes.Detail) {
-            MangaDetailScreen(
-                manga = com.mangadl.android.data.ui.Manga(id = "demo", title = "Demo Manga", cover = androidx.compose.ui.graphics.Color(0xFF3A1518), source = "MangaDex"),
-                chapters = emptyList(),
-                onBack = back,
-                onResume = { nav.navigate(Routes.Reader) },
-                onOpenChapter = { nav.navigate(Routes.Reader) },
-            )
+            val detailVm: MangaDetailViewModel = viewModel()
+            val detailState by detailVm.state.collectAsState()
+            val inLibrary by detailVm.inLibrary.collectAsState()
+
+            LaunchedEffect(navState.mangaId, navState.sourceId) {
+                if (navState.mangaId.isNotEmpty()) detailVm.load(navState.sourceId, navState.mangaId)
+            }
+
+            val openReader: (String, String) -> Unit = { chapterId, chapterLabel ->
+                navState.chapterId = chapterId
+                navState.chapterLabel = chapterLabel
+                navState.isLocalRead = false
+                nav.navigate(Routes.Reader)
+            }
+
+            when (val s = detailState) {
+                is DetailState.Loading -> {
+                    Box(Modifier.fillMaxSize().background(MdTheme.colors.bg), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MdTheme.colors.accent)
+                    }
+                }
+                is DetailState.Error -> {
+                    Box(Modifier.fillMaxSize().background(MdTheme.colors.bg), contentAlignment = Alignment.Center) {
+                        Text(s.message, color = MdTheme.colors.fgMuted)
+                    }
+                }
+                is DetailState.Success -> {
+                    val detail = s.detail
+                    val coverColor = androidx.compose.ui.graphics.Color(0xFF3A1518)
+                    val manga = com.mangadl.android.data.ui.Manga(
+                        id = detail.id, title = detail.title,
+                        cover = coverColor, source = detail.provider, inLibrary = inLibrary,
+                    )
+                    val firstUnread = detail.chapters.firstOrNull { ch ->
+                        true
+                    }
+                    MangaDetailScreen(
+                        manga = manga,
+                        chapters = detail.chapters.map { ch ->
+                            com.mangadl.android.data.ui.UiChapter(
+                                number = if (ch.number > 0) ch.number.toString().trimEnd('0').trimEnd('.') else "",
+                                title = ch.title,
+                                meta = ch.publishedAt,
+                            )
+                        },
+                        onBack = back,
+                        onResume = {
+                            firstUnread?.let { ch ->
+                                navState.chapterId = ch.id
+                                navState.chapterLabel = "Ch. ${ch.number} · ${ch.title}"
+                                navState.isLocalRead = false
+                            }
+                            nav.navigate(Routes.Reader)
+                        },
+                        onOpenChapter = { uiCh ->
+                            val matching = detail.chapters.find { ch ->
+                                (if (ch.number > 0) ch.number.toString().trimEnd('0').trimEnd('.') else "") == uiCh.number
+                            }
+                            matching?.let { ch ->
+                                navState.chapterId = ch.id
+                                navState.chapterLabel = "Ch. ${ch.number} · ${ch.title}"
+                                navState.isLocalRead = false
+                            }
+                            nav.navigate(Routes.Reader)
+                        },
+                        onToggleLibrary = { detailVm.toggleLibrary(detail) },
+                        genres = detail.genres,
+                        synopsis = detail.description,
+                        authors = detail.authors,
+                        resumeLabel = firstUnread?.let { ch ->
+                            if (ch.number > 0) "Read Ch. ${ch.number.toString().trimEnd('0').trimEnd('.')}" else "Start Reading"
+                        } ?: "Start Reading",
+                    )
+                }
+            }
         }
         composable(Routes.Tracking) {
+            val detailVm: MangaDetailViewModel = viewModel()
+            val detailState by detailVm.state.collectAsState()
+            val inLibrary by detailVm.inLibrary.collectAsState()
+            LaunchedEffect(navState.mangaId) {
+                if (navState.mangaId.isNotEmpty()) detailVm.load(navState.sourceId, navState.mangaId)
+            }
+            val detail = (detailState as? DetailState.Success)?.detail
             MangaDetailScreen(
-                manga = com.mangadl.android.data.ui.Manga(id = "demo", title = "Demo Manga", cover = androidx.compose.ui.graphics.Color(0xFF3A1518), source = "MangaDex"),
-                chapters = emptyList(),
+                manga = com.mangadl.android.data.ui.Manga(
+                    id = detail?.id ?: navState.mangaId,
+                    title = detail?.title ?: navState.mangaTitle,
+                    cover = androidx.compose.ui.graphics.Color(0xFF3A1518),
+                    source = detail?.provider ?: navState.sourceId,
+                    inLibrary = inLibrary,
+                ),
+                chapters = detail?.chapters?.map { ch ->
+                    com.mangadl.android.data.ui.UiChapter(
+                        number = if (ch.number > 0) ch.number.toString().trimEnd('0').trimEnd('.') else "",
+                        title = ch.title, meta = ch.publishedAt,
+                    )
+                } ?: emptyList(),
                 onBack = back,
                 onResume = { nav.navigate(Routes.Reader) },
                 onOpenChapter = { nav.navigate(Routes.Reader) },
@@ -171,15 +268,22 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
         }
         composable(Routes.Reader) {
             ReaderScreen(
-                title = "Demo Manga",
-                chapterLabel = "Ch. 1 · Chapter title",
                 onClose = back,
                 onOpenSettings = { nav.navigate(Routes.ReaderSettings) },
             )
         }
-        composable(Routes.NovelReader) { NovelReaderScreen("[Novel title]", "Chapter 12 · [Chapter title]", onClose = back) }
+        composable(Routes.NovelReader) { NovelReaderScreen(navState.mangaTitle, navState.chapterLabel, onClose = back) }
         composable(Routes.Local) {
-            LocalFileDetailScreen(onBack = back, onRead = { nav.navigate(Routes.Reader) })
+            LocalFileDetailScreen(
+                onBack = back,
+                onRead = { pages ->
+                    navState.localPages = pages
+                    navState.isLocalRead = true
+                    navState.chapterId = "local"
+                    navState.chapterLabel = "Local file"
+                    nav.navigate(Routes.Reader)
+                },
+            )
         }
 
         composable(Routes.Search) {
@@ -187,13 +291,38 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
             val searchResults by searchVm.results.collectAsState()
             GlobalSearchScreen(
                 onBack = back,
-                onOpenManga = { nav.navigate(Routes.Detail) },
+                onOpenManga = { m ->
+                    navState.mangaId = m.id
+                    navState.sourceId = m.source
+                    navState.mangaTitle = m.title
+                    nav.navigate(Routes.Detail)
+                },
                 searchResults = searchResults,
                 onSearch = { searchVm.search(it) },
             )
         }
         composable(Routes.Source) {
-            BrowseSourceScreen("MangaDex", emptyList(), onBack = back, onOpenManga = { nav.navigate(Routes.Detail) })
+            val browseVm: BrowseSourceViewModel = viewModel()
+            val browseItems by browseVm.items.collectAsState()
+            val browseLoading by browseVm.loading.collectAsState()
+            val browseError by browseVm.error.collectAsState()
+            val src = selectedSource
+            LaunchedEffect(src?.id) {
+                if (src != null) browseVm.load(src.id)
+            }
+            BrowseSourceScreen(
+                sourceName = src?.name ?: "Source",
+                items = browseItems,
+                loading = browseLoading,
+                error = browseError,
+                onBack = back,
+                onOpenManga = { m ->
+                    navState.mangaId = m.id
+                    navState.sourceId = m.source
+                    navState.mangaTitle = m.title
+                    nav.navigate(Routes.Detail)
+                },
+            )
         }
         composable(Routes.Migrate) { MigrateScreen(onBack = back, onMigrate = back) }
 
@@ -240,7 +369,8 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
 }
 
 @Composable
-private fun MainTabs(nav: NavHostController, emptyLibrary: Boolean = false) {
+private fun MainTabs(nav: NavHostController, emptyLibrary: Boolean = false, onSourceSelected: (com.mangadl.android.data.ui.UiSource) -> Unit = {}) {
+    val navState: NavStateHolder = viewModel()
     var tab by rememberSaveable { mutableStateOf(MainTab.Library) }
 
     val libraryVm: LibraryViewModel = viewModel()
@@ -274,15 +404,32 @@ private fun MainTabs(nav: NavHostController, emptyLibrary: Boolean = false) {
                 MainTab.Library -> LibraryScreen(
                     items = uiLibrary,
                     continueItem = continueItem,
-                    onOpenManga = { nav.navigate(Routes.Detail) },
-                    onResume = { nav.navigate(Routes.Reader) },
+                    onOpenManga = { m ->
+                        navState.mangaId = m.id
+                        navState.sourceId = m.source
+                        navState.mangaTitle = m.title
+                        nav.navigate(Routes.Detail)
+                    },
+                    onResume = { m ->
+                        navState.mangaId = m.id
+                        navState.sourceId = m.source
+                        navState.mangaTitle = m.title
+                        nav.navigate(Routes.Detail)
+                    },
                     onBrowse = { tab = MainTab.Browse },
                     onImport = { nav.navigate(Routes.Local) },
                 )
-                MainTab.Updates -> UpdatesScreen(updateGroups, onOpenChapter = { nav.navigate(Routes.Reader) })
-                MainTab.History -> HistoryScreen(historyItems, onResume = { nav.navigate(Routes.Reader) })
+                MainTab.Updates -> UpdatesScreen(updateGroups, onOpenChapter = {
+                    nav.navigate(Routes.Detail)
+                })
+                MainTab.History -> HistoryScreen(historyItems, onResume = { item ->
+                    navState.mangaId = item.manga.id
+                    navState.sourceId = item.manga.source
+                    navState.mangaTitle = item.manga.title
+                    nav.navigate(Routes.Detail)
+                })
                 MainTab.Browse -> BrowseScreen(
-                    onOpenSource = { nav.navigate(Routes.Source) },
+                    onOpenSource = { src -> onSourceSelected(src); nav.navigate(Routes.Source) },
                     onSearch = { nav.navigate(Routes.Search) },
                     onMigrate = { nav.navigate(Routes.Migrate) },
                     sources = uiSources,

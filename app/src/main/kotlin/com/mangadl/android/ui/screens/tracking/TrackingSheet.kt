@@ -181,13 +181,13 @@ private fun TrackedCard(tracker: TrackerDef, onRemove: () -> Unit) {
             MdIconButton(MdIcons.Close, "Remove tracking", onRemove, tint = c.fg.copy(alpha = 0.7f), iconSize = 18.dp)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TrackField("Status", "Reading", Modifier.weight(1f))
+            TrackField("Status", "—", Modifier.weight(1f))
             TrackField("Chapters", "— / —", Modifier.weight(1f))
             TrackField("Score", "—", Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MdButton("Started —", {}, Modifier.weight(1f), tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 12.sp, horizontalPadding = 8.dp)
-            MdButton("Finished —", {}, Modifier.weight(1f), tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 12.sp, horizontalPadding = 8.dp)
+            MdButton("Set start date", {}, Modifier.weight(1f), tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 12.sp, horizontalPadding = 8.dp)
+            MdButton("Set end date", {}, Modifier.weight(1f), tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 12.sp, horizontalPadding = 8.dp)
         }
     }
 }

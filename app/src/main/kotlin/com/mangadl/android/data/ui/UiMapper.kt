@@ -46,6 +46,7 @@ fun Chapter.toUiChapter(progress: ReadingProgress? = null): UiChapter {
 fun ExtensionMeta.toUiSource(): UiSource {
     val colorIdx = id.hashCode().let { if (it < 0) -it else it } % COVER_PALETTE.size
     return UiSource(
+        id = id,
         name = name,
         meta = "$lang · v$version",
         initial = name.firstOrNull()?.uppercase() ?: "?",

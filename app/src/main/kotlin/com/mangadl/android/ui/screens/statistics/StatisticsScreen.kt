@@ -40,6 +40,7 @@ fun StatsScreen(onBack: () -> Unit) {
     val library by vm.library.collectAsState()
     val chapters by vm.totalChaptersRead.collectAsState()
     val streak by vm.streak.collectAsState()
+    val allProgress by vm.allProgress.collectAsState()
     Screen {
         BackHeader("Statistics", onBack, Modifier.padding(bottom = 0.dp))
         BodyText("Your reading habits, at a glance", Modifier.padding(start = 60.dp, bottom = 14.dp), size = 13.sp, color = c.fgSubtle)
@@ -60,11 +61,6 @@ fun StatsScreen(onBack: () -> Unit) {
                     }
                 }
             }
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Eyebrow("Reading goals")
-                Goal("Monthly chapters", 0.62f)
-                Goal("Yearly manga", 0.35f)
-            }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Eyebrow("Activity · last 18 weeks", color = c.fgSubtle)
                 Heatmap(weeks = 18)
@@ -74,28 +70,22 @@ fun StatsScreen(onBack: () -> Unit) {
                     BodyText("More", size = 11.sp, color = c.fgSubtle)
                 }
             }
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Eyebrow("By source", color = c.fgSubtle)
-                listOf("MangaDex" to 0.64f, "MangaKatana" to 0.24f, "Local files" to 0.12f).forEach { (name, f) ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        BodyText(name, Modifier.width(96.dp), size = 13.sp, weight = FontWeight.SemiBold)
-                        ProgressBar(f, Modifier.weight(1f), color = c.fg, track = c.surfaceHigh, height = 8.dp)
+            val bySource = allProgress.groupBy { it.provider }
+                .mapValues { (_, v) -> v.size }
+                .entries.sortedByDescending { it.value }
+            if (bySource.isNotEmpty()) {
+                val maxCount = bySource.first().value.toFloat().coerceAtLeast(1f)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Eyebrow("By source", color = c.fgSubtle)
+                    bySource.take(5).forEach { (provider, count) ->
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            BodyText(provider.replaceFirstChar { it.uppercaseChar() }, Modifier.width(96.dp), size = 13.sp, weight = FontWeight.SemiBold)
+                            ProgressBar(count / maxCount, Modifier.weight(1f), color = c.fg, track = c.surfaceHigh, height = 8.dp)
+                        }
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun Goal(label: String, fraction: Float) {
-    val c = MdTheme.colors
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row {
-            BodyText(label, Modifier.weight(1f), size = 13.sp, weight = FontWeight.SemiBold)
-            BodyText("[x] / [goal]", size = 13.sp, color = c.fg.copy(alpha = 0.65f))
-        }
-        ProgressBar(fraction, height = 6.dp)
     }
 }
 

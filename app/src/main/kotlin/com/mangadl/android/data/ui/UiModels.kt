@@ -33,7 +33,7 @@ data class Notice(val title: String, val body: String, val whenText: String, val
 enum class DownloadState { Downloading, Queued, Paused, Failed, Done }
 data class DownloadItem(val manga: Manga, val chapter: String, val status: String, val progress: Float, val state: DownloadState)
 
-data class UiSource(val name: String, val meta: String, val initial: String, val color: Color)
+data class UiSource(val id: String, val name: String, val meta: String, val initial: String, val color: Color)
 
 enum class ExtensionState { UpdateAvailable, Installed, Available }
 data class UiExtension(val name: String, val meta: String, val initial: String, val color: Color, val state: ExtensionState)

@@ -51,7 +51,7 @@ import java.io.File
 @Composable
 fun LocalFileDetailScreen(
     onBack: () -> Unit,
-    onRead: () -> Unit,
+    onRead: (List<String>) -> Unit,
 ) {
     val c = MdTheme.colors
     val vm: LocalFileViewModel = viewModel()
@@ -127,7 +127,7 @@ fun LocalFileDetailScreen(
                 }
                 item {
                     Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        MdButton("Start Reading", onRead, Modifier.weight(2f), height = 50.dp, fontSize = 14.sp)
+                        MdButton("Start Reading", { onRead(pages) }, Modifier.weight(2f), height = 50.dp, fontSize = 14.sp)
                         MdButton("Change", { filePicker.launch(arrayOf("*/*")) }, Modifier.weight(1f), tone = ButtonTone.Ghost, height = 50.dp, fontSize = 14.sp)
                     }
                     Eyebrow("Pages", Modifier.padding(start = 20.dp, top = 16.dp, bottom = 6.dp), color = c.fgSubtle)

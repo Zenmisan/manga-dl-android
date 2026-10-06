@@ -41,16 +41,30 @@ import com.mangadl.android.ui.components.Screen
 import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.theme.MdTheme
 import com.mangadl.android.ui.viewmodels.AccountSettingsViewModel
+import com.mangadl.android.ui.viewmodels.AuthViewModel
 
 @Composable
 fun AccountSettingsScreen(onBack: () -> Unit, onSignOut: () -> Unit, onDeleteAccount: () -> Unit = {}) {
     val c = MdTheme.colors
     val vm: AccountSettingsViewModel = viewModel()
+    val authVm: AuthViewModel = viewModel()
     val exportStatus by vm.exportStatus.collectAsState()
     val importStatus by vm.importStatus.collectAsState()
     val deleteStatus by vm.deleteStatus.collectAsState()
-    var name by rememberState("[Display name]")
-    var bio by rememberState("[Bio]")
+    val user = authVm.currentUser
+    val meta = user?.userMetadata
+    val initialName = try {
+        (meta?.get("username") as? kotlinx.serialization.json.JsonPrimitive)?.content
+            ?: (meta?.get("full_name") as? kotlinx.serialization.json.JsonPrimitive)?.content
+            ?: user?.email?.substringBefore('@')
+            ?: ""
+    } catch (_: Exception) { user?.email?.substringBefore('@') ?: "" }
+    val initialBio = try {
+        (meta?.get("bio") as? kotlinx.serialization.json.JsonPrimitive)?.content ?: ""
+    } catch (_: Exception) { "" }
+    val realEmail = user?.email ?: ""
+    var name by rememberState(initialName)
+    var bio by rememberState(initialBio)
     var public by rememberState(true)
     var confirmSignOut by rememberState(true)
     var confirmDelete by rememberState(false)
@@ -62,35 +76,39 @@ fun AccountSettingsScreen(onBack: () -> Unit, onSignOut: () -> Unit, onDeleteAcc
         uri?.let { vm.importLibrary(it) }
     }
 
+    val saveStatus by vm.saveStatus.collectAsState()
     Screen {
         BackHeader("Account", onBack, Modifier.padding(bottom = 0.dp))
         Column(
             Modifier.verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
+            val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Box(Modifier.size(64.dp).clip(CircleShape).background(Color(0xFF3A1518)), contentAlignment = Alignment.Center) {
-                    BodyText("U", size = 24.sp, weight = FontWeight.ExtraBold)
+                    BodyText(initial, size = 24.sp, weight = FontWeight.ExtraBold)
                 }
                 Column {
-                    BodyText(name, size = 18.sp, weight = FontWeight.ExtraBold)
-                    BodyText("you@example.com", size = 13.sp, color = c.fgSubtle)
+                    BodyText(name.ifEmpty { "Guest" }, size = 18.sp, weight = FontWeight.ExtraBold)
+                    BodyText(realEmail, size = 13.sp, color = c.fgSubtle)
                 }
             }
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(c.success.copy(alpha = 0.10f))
-                    .border(1.dp, c.success.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icon(MdIcons.CloudCheck, null, tint = c.successText, modifier = Modifier.size(22.dp))
-                Column(Modifier.weight(1f)) {
-                    BodyText("Cloud sync on", weight = FontWeight.Bold)
-                    BodyText("Synced across devices · [time]", size = 12.sp, color = c.fg.copy(alpha = 0.65f))
+            if (realEmail.isNotEmpty()) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(c.success.copy(alpha = 0.10f))
+                        .border(1.dp, c.success.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(MdIcons.CloudCheck, null, tint = c.successText, modifier = Modifier.size(22.dp))
+                    Column(Modifier.weight(1f)) {
+                        BodyText("Cloud sync on", weight = FontWeight.Bold)
+                        BodyText("Signed in as $realEmail", size = 12.sp, color = c.fg.copy(alpha = 0.65f))
+                    }
                 }
             }
             MdTextField(name, { name = it }, label = "Display name", height = 48.dp)
@@ -105,7 +123,8 @@ fun AccountSettingsScreen(onBack: () -> Unit, onSignOut: () -> Unit, onDeleteAcc
                     MdSwitch(public, { public = it })
                 }
             }
-            MdButton("Save Changes", {}, Modifier.fillMaxWidth(), height = 50.dp, fontSize = 14.sp)
+            if (saveStatus != null) BodyText(saveStatus!!, size = 12.sp, color = c.fgSubtle)
+            MdButton("Save Changes", { vm.saveProfile(name, bio) }, Modifier.fillMaxWidth(), height = 50.dp, fontSize = 14.sp)
             Column(
                 Modifier
                     .fillMaxWidth()

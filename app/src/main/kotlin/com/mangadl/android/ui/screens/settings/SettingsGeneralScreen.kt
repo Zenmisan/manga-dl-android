@@ -57,7 +57,7 @@ fun GeneralSettingsScreen(onBack: () -> Unit, accent: Accent, onAccentChange: (A
                 "API key", "", isPassword = true,
                 value = apiKey, onValueChange = { vm.setApiKey(it) },
             )
-            ButtonSetting("Status: connected", "Test", "Last checked [time]")
+            ButtonSetting("Backend", "Test", "Tap to check connection")
         }
         SettingsSection("Behaviour") {
             SwitchSetting(

@@ -28,8 +28,11 @@ import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -38,11 +41,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.mangadl.android.ui.components.BodyText
 import com.mangadl.android.ui.components.Divider
 import com.mangadl.android.ui.components.Eyebrow
@@ -52,44 +60,77 @@ import com.mangadl.android.ui.components.MdSlider
 import com.mangadl.android.ui.components.PagePlaceholder
 import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.theme.MdTheme
+import com.mangadl.android.ui.viewmodels.NavStateHolder
+import com.mangadl.android.ui.viewmodels.ReaderState
+import com.mangadl.android.ui.viewmodels.ReaderViewModel
 import kotlinx.coroutines.launch
 
 enum class ReadingMode(val label: String) { LTR("LTR pager"), RTL("RTL pager"), Vertical("Vertical"), Webtoon("Webtoon") }
 
 @Composable
 fun ReaderScreen(
-    title: String,
-    chapterLabel: String,
     onClose: () -> Unit,
     onPrevChapter: () -> Unit = {},
     onNextChapter: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
-    pageCount: Int = 38,
-    startPage: Int = 14,
     initialMode: ReadingMode = ReadingMode.RTL,
     initiallyShowControls: Boolean = true,
 ) {
+    val navState: NavStateHolder = viewModel()
+    val vm: ReaderViewModel = viewModel()
+    val readerState by vm.state.collectAsState()
+
+    LaunchedEffect(navState.chapterId, navState.isLocalRead) {
+        if (navState.isLocalRead && navState.localPages.isNotEmpty()) {
+            vm.loadLocal(navState.localPages)
+        } else if (navState.chapterId.isNotEmpty() && navState.sourceId.isNotEmpty()) {
+            vm.load(navState.sourceId, navState.chapterId)
+        }
+    }
+
     val c = MdTheme.colors
     var controls by rememberState(initiallyShowControls)
     var mode by rememberState(initialMode)
     var bookmarked by rememberState(false)
     var showMoreOptions by rememberState(false)
     var brightness by rememberState(1f)
-    val pager = rememberPagerState(initialPage = startPage - 1) { pageCount }
+
+    val pages = (readerState as? ReaderState.Success)?.pages ?: emptyList()
+    val pageCount = pages.size.coerceAtLeast(1)
+
+    val pager = rememberPagerState(initialPage = 0) { pageCount }
     val scope = rememberCoroutineScope()
     val toggle = Modifier.clickable(remember { MutableInteractionSource() }, indication = null) { controls = !controls }
 
+    LaunchedEffect(pager.currentPage, pages.size) {
+        if (pages.isNotEmpty()) {
+            vm.saveProgress(navState.mangaId, navState.chapterId, navState.sourceId, pager.currentPage, pages.size)
+        }
+    }
+
     Box(Modifier.fillMaxSize().background(c.readerBg)) {
-        when (mode) {
-            ReadingMode.LTR, ReadingMode.RTL -> HorizontalPager(
-                state = pager,
-                reverseLayout = mode == ReadingMode.RTL,
-                modifier = Modifier.fillMaxSize(),
-            ) { page -> ReaderPage(page, toggle) }
-            ReadingMode.Vertical -> VerticalPager(state = pager, modifier = Modifier.fillMaxSize()) { page -> ReaderPage(page, toggle) }
-            ReadingMode.Webtoon -> LazyColumn(Modifier.fillMaxSize().then(toggle)) {
-                items(pageCount) { page ->
-                    PagePlaceholder("[Page ${page + 1}]", Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+        when {
+            readerState is ReaderState.Loading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = c.accent)
+                }
+            }
+            readerState is ReaderState.Error -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    BodyText((readerState as ReaderState.Error).message, color = c.fgMuted)
+                }
+            }
+            else -> when (mode) {
+                ReadingMode.LTR, ReadingMode.RTL -> HorizontalPager(
+                    state = pager,
+                    reverseLayout = mode == ReadingMode.RTL,
+                    modifier = Modifier.fillMaxSize(),
+                ) { page -> MangaPage(pages.getOrElse(page) { "" }, toggle) }
+                ReadingMode.Vertical -> VerticalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
+                    MangaPage(pages.getOrElse(page) { "" }, toggle)
+                }
+                ReadingMode.Webtoon -> LazyColumn(Modifier.fillMaxSize().then(toggle)) {
+                    items(pages.size) { i -> MangaPage(pages[i], Modifier.fillMaxWidth(), webtoon = true) }
                 }
             }
         }
@@ -99,8 +140,8 @@ fun ReaderScreen(
                 Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     MdIconButton(MdIcons.Back, "Close reader", onClose)
                     Column(Modifier.weight(1f)) {
-                        BodyText(title, size = 15.sp, weight = FontWeight.Bold, maxLines = 1)
-                        BodyText(chapterLabel, size = 12.sp, color = c.fg.copy(alpha = 0.65f), maxLines = 1)
+                        BodyText(navState.mangaTitle, size = 15.sp, weight = FontWeight.Bold, maxLines = 1)
+                        BodyText(navState.chapterLabel, size = 12.sp, color = c.fg.copy(alpha = 0.65f), maxLines = 1)
                     }
                     MdIconButton(
                         if (bookmarked) MdIcons.BookmarkFilled else MdIcons.Bookmark,
@@ -123,7 +164,7 @@ fun ReaderScreen(
             onDismiss = { showMoreOptions = false },
         )
 
-        AnimatedVisibility(controls, modifier = Modifier.align(Alignment.BottomCenter), enter = fadeIn() + slideInVertically { it }, exit = fadeOut() + slideOutVertically { it }) {
+        AnimatedVisibility(controls && !showMoreOptions, modifier = Modifier.align(Alignment.BottomCenter), enter = fadeIn() + slideInVertically { it }, exit = fadeOut() + slideOutVertically { it }) {
             Column(
                 Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -170,10 +211,29 @@ fun ReaderScreen(
 }
 
 @Composable
-private fun ReaderPage(page: Int, toggle: Modifier) {
-    Box(Modifier.fillMaxSize().then(toggle), contentAlignment = Alignment.Center) {
-        PagePlaceholder("[Page ${page + 1}]", Modifier.fillMaxWidth().aspectRatio(2f / 3f))
-    }
+private fun MangaPage(url: String, modifier: Modifier = Modifier, webtoon: Boolean = false) {
+    val context = LocalContext.current
+    SubcomposeAsyncImage(
+        model = ImageRequest.Builder(context)
+            .data(url)
+            .addHeader("Referer", url.substringBefore("/", "").let {
+                if (url.startsWith("http")) url.split("/").take(3).joinToString("/") + "/" else ""
+            })
+            .crossfade(true)
+            .build(),
+        contentDescription = null,
+        contentScale = if (webtoon) ContentScale.FillWidth else ContentScale.Fit,
+        loading = {
+            Box(
+                if (webtoon) Modifier.fillMaxWidth().aspectRatio(2f / 3f)
+                else Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator(color = MdTheme.colors.accent, modifier = Modifier.size(32.dp))
+            }
+        },
+        modifier = if (webtoon) modifier else modifier.fillMaxSize().then(modifier),
+    )
 }
 
 @Composable

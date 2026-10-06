@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mangadl.android.BuildConfig
 import com.mangadl.android.ui.components.BackHeader
 import com.mangadl.android.ui.components.BodyText
 import com.mangadl.android.ui.components.Divider
@@ -66,6 +67,6 @@ fun SettingsScreen(onBack: () -> Unit, onOpen: (SettingsPage) -> Unit) {
                 Divider()
             }
         }
-        BodyText("manga-dl [version] · Android", Modifier.padding(20.dp), size = 12.sp, color = c.fgFaint)
+        BodyText("manga-dl ${BuildConfig.VERSION_NAME} · Android", Modifier.padding(20.dp), size = 12.sp, color = c.fgFaint)
     }
 }

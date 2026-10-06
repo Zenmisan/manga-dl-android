@@ -17,11 +17,32 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import okhttp3.Request
 
 class AccountSettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val db = MangaDlApp.instance.database
+
+    private val _saveStatus = MutableStateFlow<String?>(null)
+    val saveStatus: StateFlow<String?> = _saveStatus
+
+    fun saveProfile(name: String, bio: String) = viewModelScope.launch {
+        _saveStatus.value = "Saving…"
+        runCatching {
+            SupabaseManager.client.auth.updateUser {
+                data = buildJsonObject {
+                    put("username", name.trim())
+                    put("bio", bio.trim())
+                }
+            }
+        }.onSuccess {
+            _saveStatus.value = "Saved"
+        }.onFailure { e ->
+            _saveStatus.value = "Save failed: ${e.message}"
+        }
+    }
 
     private val _exportStatus = MutableStateFlow<String?>(null)
     val exportStatus: StateFlow<String?> = _exportStatus

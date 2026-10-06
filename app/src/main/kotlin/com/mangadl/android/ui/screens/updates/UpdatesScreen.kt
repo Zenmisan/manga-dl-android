@@ -28,13 +28,14 @@ import com.mangadl.android.ui.components.TabHeader
 import com.mangadl.android.ui.theme.MdTheme
 
 @Composable
-fun UpdatesScreen(groups: List<UpdateGroup>, onOpenChapter: () -> Unit, onRefresh: () -> Unit = {}) {
+fun UpdatesScreen(groups: List<UpdateGroup>, onOpenChapter: () -> Unit, onRefresh: () -> Unit = {}, lastChecked: String? = null) {
     val c = MdTheme.colors
     Column(Modifier.fillMaxSize()) {
         TabHeader("Updates", Modifier.padding(bottom = 0.dp)) {
             MdIconButton(MdIcons.Refresh, "Check for new chapters", onRefresh)
         }
-        BodyText("Last checked [time] · next check in 30 min", Modifier.padding(start = 20.dp, bottom = 8.dp), size = 12.sp, color = c.fgSubtle)
+        val checkedLabel = if (lastChecked != null) "Last checked $lastChecked" else "Not checked yet"
+        BodyText(checkedLabel, Modifier.padding(start = 20.dp, bottom = 8.dp), size = 12.sp, color = c.fgSubtle)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
             groups.forEach { group ->
                 item { Eyebrow(group.label, Modifier.padding(start = 20.dp, top = 14.dp, bottom = 6.dp), color = c.fgSubtle) }

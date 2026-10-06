@@ -95,7 +95,12 @@ fun ProfileScreen(onBack: () -> Unit, onEditProfile: () -> Unit) {
                 }
                 MdButton("Edit Profile", onEditProfile, tone = ButtonTone.Ghost, height = 40.dp, shape = CircleShape, fontSize = 13.sp, horizontalPadding = 16.dp)
             }
-            BodyText("[Bio — a short line about what this reader likes.]", color = c.fg.copy(alpha = 0.75f), lineHeight = 21.sp)
+            val bio = try {
+                (user?.userMetadata?.get("bio") as? kotlinx.serialization.json.JsonPrimitive)?.content
+            } catch (_: Exception) { null }
+            if (!bio.isNullOrBlank()) {
+                BodyText(bio, color = c.fg.copy(alpha = 0.75f), lineHeight = 21.sp)
+            }
             Column {
                 Divider(color = c.surfaceHigh)
                 Row(Modifier.padding(vertical = 14.dp)) {
@@ -115,8 +120,13 @@ fun ProfileScreen(onBack: () -> Unit, onEditProfile: () -> Unit) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Eyebrow("Pinned")
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    listOf(Color(0xFF1A2433), Color(0xFF3A1518), Color(0xFF2B1A2E)).forEach { cover ->
-                        CoverArt(cover, Modifier.weight(1f).aspectRatio(2f / 3f), RoundedCornerShape(8.dp))
+                    val pinned = library.take(3)
+                    val pinnedColors = listOf(Color(0xFF1A2433), Color(0xFF3A1518), Color(0xFF2B1A2E))
+                    pinned.forEachIndexed { i, _ ->
+                        CoverArt(pinnedColors[i % pinnedColors.size], Modifier.weight(1f).aspectRatio(2f / 3f), RoundedCornerShape(8.dp))
+                    }
+                    repeat((3 - pinned.size).coerceAtLeast(0)) {
+                        CoverArt(Color(0xFF22222A), Modifier.weight(1f).aspectRatio(2f / 3f), RoundedCornerShape(8.dp))
                     }
                     Box(
                         Modifier
@@ -129,12 +139,22 @@ fun ProfileScreen(onBack: () -> Unit, onEditProfile: () -> Unit) {
                     ) { Icon(MdIcons.Plus, "Pin a manga", tint = c.fgSubtle, modifier = Modifier.size(22.dp)) }
                 }
             }
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Eyebrow("Milestones", color = c.fgSubtle)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ProfileMilestone("[Milestone]", true)
-                    ProfileMilestone("[Milestone]", true)
-                    ProfileMilestone("[Locked milestone]", false)
+            val ch = chaptersRead
+            val milestones = listOf(
+                "First chapter" to (ch >= 1),
+                "10 chapters" to (ch >= 10),
+                "50 chapters" to (ch >= 50),
+                "100 chapters" to (ch >= 100),
+                "500 chapters" to (ch >= 500),
+            )
+            if (milestones.any { it.second }) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Eyebrow("Milestones", color = c.fgSubtle)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        milestones.forEach { (label, unlocked) ->
+                            ProfileMilestone(label, unlocked)
+                        }
+                    }
                 }
             }
         }
