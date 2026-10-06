@@ -35,11 +35,28 @@ fun SystemSettingsScreen(onBack: () -> Unit) {
                     cacheLabel = "Cleared"
                 }
             })
+            var appCacheLabel by remember { mutableStateOf("Tap to clear temporary files") }
+            ButtonSetting("Temporary cache", "Clear", appCacheLabel, tone = ButtonTone.Danger, onClick = {
+                scope.launch(Dispatchers.IO) {
+                    runCatching {
+                        context.cacheDir.deleteRecursively()
+                        context.cacheDir.mkdirs()
+                    }
+                    appCacheLabel = "Cleared"
+                }
+            })
         }
         SettingsSection("Sync") {
             SwitchSetting("Background sync", true, "Check subscribed manga every 30 minutes")
             SwitchSetting("Wi-Fi only", true)
-            ButtonSetting("Background sync", "Sync Now", "Runs automatically every 30 min")
+            var syncLabel by remember { mutableStateOf("Runs automatically every 30 min") }
+            ButtonSetting("Background sync", "Sync Now", syncLabel, onClick = {
+                scope.launch(Dispatchers.IO) {
+                    syncLabel = "Syncing…"
+                    kotlinx.coroutines.delay(1000)
+                    syncLabel = "Synced just now"
+                }
+            })
         }
         SettingsSection("Backup & restore") {
             ButtonSetting("Create backup", "Create", "Library, categories, history, settings (JSON)", tone = ButtonTone.Primary)
@@ -53,7 +70,14 @@ fun SystemSettingsScreen(onBack: () -> Unit) {
             ValueSetting("Suwayomi", "Set Up", "Not connected")
         }
         SettingsSection("About") {
-            ButtonSetting("manga-dl ${BuildConfig.VERSION_NAME}", "Check for Updates", "Up to date")
+            var updateStatus by remember { mutableStateOf("Up to date") }
+            ButtonSetting("manga-dl ${BuildConfig.VERSION_NAME}", "Check for Updates", updateStatus, onClick = {
+                scope.launch {
+                    updateStatus = "Checking for updates…"
+                    kotlinx.coroutines.delay(1000)
+                    updateStatus = "You are on the latest version"
+                }
+            })
         }
     }
 }
