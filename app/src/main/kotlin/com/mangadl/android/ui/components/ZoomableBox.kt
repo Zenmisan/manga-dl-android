@@ -20,9 +20,21 @@ import kotlinx.coroutines.launch
 fun ZoomableBox(
     modifier: Modifier = Modifier,
     maxScale: Float = 4.0f,
+    enabled: Boolean = true,
     onTap: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
+    if (!enabled) {
+        Box(
+            modifier = modifier.pointerInput(Unit) {
+                detectTapGestures(onTap = { onTap?.invoke() })
+            }
+        ) {
+            content()
+        }
+        return
+    }
+
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     val scope = rememberCoroutineScope()
