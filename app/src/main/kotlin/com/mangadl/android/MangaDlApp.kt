@@ -13,6 +13,8 @@ import com.mangadl.android.data.download.DownloadWorker
 import com.mangadl.android.data.library.LibraryUpdateWorker
 import com.mangadl.android.data.extensions.ExtensionManager
 import com.mangadl.android.data.db.AppDatabase
+import com.mangadl.android.data.network.AndroidCookieJar
+import com.mangadl.android.data.network.CloudflareInterceptor
 import com.mangadl.android.data.prefs.AppPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +37,9 @@ class MangaDlApp : Application() {
     lateinit var extensionManager: ExtensionManager
         private set
 
+    lateinit var sourceManager: com.mangadl.android.data.source.SourceManager
+        private set
+
     lateinit var googleAuthHelper: GoogleAuthHelper
         private set
 
@@ -42,22 +47,28 @@ class MangaDlApp : Application() {
         super.onCreate()
         instance = this
 
+        val cookieJar = AndroidCookieJar()
         httpClient = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .cookieJar(cookieJar)
             .addInterceptor { chain ->
                 val request = chain.request().newBuilder()
                     .header("User-Agent", BROWSER_UA)
                     .build()
                 chain.proceed(request)
             }
+            .addInterceptor(CloudflareInterceptor(this, cookieJar) { BROWSER_UA })
+            .addInterceptor(com.mangadl.android.data.source.descramble.TileDescramblerInterceptor())
             .build()
 
         database = AppDatabase.getInstance(this)
         googleAuthHelper = GoogleAuthHelper(this)
 
+        sourceManager = com.mangadl.android.data.source.SourceManager(this, httpClient)
         extensionManager = ExtensionManager(this, httpClient)
+        extensionManager.sourceManager = sourceManager
         extensionManager.backendUrl = BuildConfig.BACKEND_URL
         // loadAll() synchronously reads and parses all 39 bundled extension .js files from
         // assets; doing that on Application.onCreate() (main thread) blocks the first frame.

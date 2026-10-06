@@ -54,6 +54,18 @@ private val DOM_SHIM = """
         if (!json) return null;
         try { return mkElement(JSON.parse(json)); } catch(e) { return null; }
       },
+      closest: function(sel) {
+        var json = __jsoupClosest(el._html, sel);
+        if (!json) return null;
+        try { return mkElement(JSON.parse(json)); } catch(e) { return null; }
+      },
+      get parentElement() {
+        var json = __jsoupParent(el._html);
+        if (!json) return null;
+        try { return mkElement(JSON.parse(json)); } catch(e) { return null; }
+      },
+      get href() { return el.getAttribute('href') || ''; },
+      get src() { return el.getAttribute('src') || el.getAttribute('data-src') || ''; },
     };
     return el;
   }
@@ -84,6 +96,7 @@ class ExtensionManager(
     private val httpClient: OkHttpClient,
 ) {
     var backendUrl: String = ""
+    var sourceManager: com.mangadl.android.data.source.SourceManager? = null
 
     private val extensions = mutableMapOf<String, ExtensionMeta>()
 
@@ -119,6 +132,10 @@ class ExtensionManager(
     fun getExtension(id: String): ExtensionMeta? = extensions[id]
 
     suspend fun search(extensionId: String, query: String, page: Int = 1): List<MangaSearchResult> {
+        val nativeSrc = sourceManager?.getSource(extensionId)
+        if (nativeSrc != null) {
+            return nativeSrc.search(query, page)
+        }
         val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
                 "JSON.stringify(await __ext.search(${jsString(query)}, $page))"
@@ -128,6 +145,10 @@ class ExtensionManager(
     }
 
     suspend fun getPopular(extensionId: String, page: Int = 1): List<MangaSearchResult> {
+        val nativeSrc = sourceManager?.getSource(extensionId)
+        if (nativeSrc != null) {
+            return nativeSrc.getPopular(page)
+        }
         val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
                 "JSON.stringify(await (typeof __ext.getPopular === 'function' ? __ext.getPopular($page) : __ext.search('', $page)))"
@@ -137,6 +158,10 @@ class ExtensionManager(
     }
 
     suspend fun getLatest(extensionId: String, page: Int = 1): List<MangaSearchResult> {
+        val nativeSrc = sourceManager?.getSource(extensionId)
+        if (nativeSrc != null) {
+            return nativeSrc.getLatest(page)
+        }
         val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
                 "JSON.stringify(await (typeof __ext.getLatest === 'function' ? __ext.getLatest($page) : " +
@@ -147,6 +172,10 @@ class ExtensionManager(
     }
 
     suspend fun getMangaDetail(extensionId: String, mangaId: String): MangaDetail {
+        val nativeSrc = sourceManager?.getSource(extensionId)
+        if (nativeSrc != null) {
+            return nativeSrc.getMangaDetail(mangaId)
+        }
         val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
                 "JSON.stringify(await __ext.getMangaDetail(${jsString(mangaId)}))"
@@ -156,6 +185,10 @@ class ExtensionManager(
     }
 
     suspend fun getPages(extensionId: String, chapterId: String): List<String> {
+        val nativeSrc = sourceManager?.getSource(extensionId) as? com.mangadl.android.data.source.MangaSource
+        if (nativeSrc != null) {
+            return nativeSrc.getPages(chapterId)
+        }
         val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
                 "JSON.stringify(await __ext.getPages(${jsString(chapterId)}))"
@@ -165,6 +198,10 @@ class ExtensionManager(
     }
 
     suspend fun getChapterText(extensionId: String, chapterId: String): String {
+        val nativeSrc = sourceManager?.getSource(extensionId) as? com.mangadl.android.data.source.NovelSource
+        if (nativeSrc != null) {
+            return nativeSrc.getChapterText(chapterId)
+        }
         val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
                 "typeof __ext.getChapterText !== 'function' ? JSON.stringify({content:'',format:'plain'}) : " +
@@ -215,6 +252,32 @@ class ExtensionManager(
                         serializeElement(el).toString()
                     } catch (e: Exception) {
                         Log.e(TAG, "jsoupSelectOne error: selector=$selector", e)
+                        null
+                    }
+                }
+                js.function("__jsoupClosest") { args: Array<Any?> ->
+                    val html = args.getOrNull(0) as? String ?: return@function null
+                    val selector = args.getOrNull(1) as? String ?: return@function null
+                    try {
+                        val doc = Jsoup.parse(html)
+                        val el = doc.body().children().firstOrNull() ?: return@function null
+                        val match = el.parents().firstOrNull { it.`is`(selector) }
+                            ?: if (el.`is`(selector)) el else null
+                            ?: return@function null
+                        serializeElement(match).toString()
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+                js.function("__jsoupParent") { args: Array<Any?> ->
+                    val html = args.getOrNull(0) as? String ?: return@function null
+                    try {
+                        val doc = Jsoup.parse(html)
+                        val el = doc.body().children().firstOrNull() ?: return@function null
+                        val parent = el.parent() ?: return@function null
+                        if (parent.tagName().equals("body", ignoreCase = true)) return@function null
+                        serializeElement(parent).toString()
+                    } catch (_: Exception) {
                         null
                     }
                 }

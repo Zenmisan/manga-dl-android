@@ -4,12 +4,14 @@ import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -22,6 +24,8 @@ import com.mangadl.android.MangaDlApp
 import com.mangadl.android.R
 import com.mangadl.android.data.extensions.ExtensionManager
 import com.mangadl.android.data.model.DownloadEntry
+import com.mangadl.android.data.prefs.AppPreferences
+import kotlinx.coroutines.flow.first
 import okhttp3.Request
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -178,7 +182,8 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         buildEpub(epubFile, mangaTitle, chapterTitle, rawContent, entry.id)
 
         db.downloadDao().updateProgress(entry.id, "downloading", 1)
-        db.downloadDao().markCompleted(entry.id, System.currentTimeMillis(), epubFile.absolutePath)
+        val finalPath = publishToPublicDownloadsIfEnabled(epubFile, mangaTitle, "application/epub+zip")
+        db.downloadDao().markCompleted(entry.id, System.currentTimeMillis(), finalPath)
         runCatching {
             setForeground(createForegroundInfo("Saved $chapterTitle (EPUB)", 1, 1, false))
         }
@@ -253,8 +258,41 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             }
         }
 
-        db.downloadDao().markCompleted(entry.id, System.currentTimeMillis(), cbzFile.absolutePath)
-        Log.i(TAG, "Manga chapter completed: ${entry.chapterTitle} (${pages.size} pages) -> ${cbzFile.absolutePath}")
+        val finalPath = publishToPublicDownloadsIfEnabled(cbzFile, mangaTitle, "application/vnd.comicbook+zip")
+        db.downloadDao().markCompleted(entry.id, System.currentTimeMillis(), finalPath)
+        Log.i(TAG, "Manga chapter completed: ${entry.chapterTitle} (${pages.size} pages) -> $finalPath")
+    }
+
+    /**
+     * When "Save chapters to device" is enabled, copies the finished archive into the shared
+     * Downloads collection (visible to other apps/file managers) via MediaStore and returns that
+     * location; otherwise leaves it in app-private external storage and returns the local path.
+     * Copy failures fall back to the local file rather than losing the completed download.
+     */
+    private suspend fun publishToPublicDownloadsIfEnabled(file: File, mangaTitle: String, mimeType: String): String {
+        val prefs = AppPreferences.getInstance(applicationContext)
+        val publicEnabled = runCatching { prefs.saveChaptersPublic.first() }.getOrDefault(false)
+        // MediaStore.Downloads requires API 29+; below that, keep the app-private path (same as toggle off).
+        if (!publicEnabled || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return file.absolutePath
+
+        return runCatching {
+            val resolver = applicationContext.contentResolver
+            val relativePath = "${Environment.DIRECTORY_DOWNLOADS}/manga-dl/${sanitizeFilename(mangaTitle)}"
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, file.name)
+                put(MediaStore.Downloads.MIME_TYPE, mimeType)
+                put(MediaStore.Downloads.RELATIVE_PATH, relativePath)
+            }
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: error("MediaStore insert returned null Uri")
+            resolver.openOutputStream(uri)?.use { out ->
+                file.inputStream().use { input -> input.copyTo(out) }
+            } ?: error("Unable to open output stream for $uri")
+            uri.toString()
+        }.getOrElse { e ->
+            Log.w(TAG, "Failed to publish ${file.name} to public Downloads, keeping local copy", e)
+            file.absolutePath
+        }
     }
 
     private fun buildComicInfoXml(series: String, title: String, pageCount: Int): String =
