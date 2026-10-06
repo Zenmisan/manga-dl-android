@@ -118,6 +118,31 @@ class ExtensionManager(
         return parseSearchResults(result)
     }
 
+    suspend fun getPopular(extensionId: String, page: Int = 1): List<MangaSearchResult> {
+        val result = evalWithContext(extensionId) { js ->
+            js.evaluate<String>(
+                "(async () => { " +
+                "  if (typeof __ext.getPopular === 'function') { const r = await __ext.getPopular($page); return JSON.stringify(r); } " +
+                "  const r = await __ext.search('', $page); return JSON.stringify(r); " +
+                "})()"
+            )
+        }
+        return parseSearchResults(result)
+    }
+
+    suspend fun getLatest(extensionId: String, page: Int = 1): List<MangaSearchResult> {
+        val result = evalWithContext(extensionId) { js ->
+            js.evaluate<String>(
+                "(async () => { " +
+                "  if (typeof __ext.getLatest === 'function') { const r = await __ext.getLatest($page); return JSON.stringify(r); } " +
+                "  if (typeof __ext.getPopular === 'function') { const r = await __ext.getPopular($page); return JSON.stringify(r); } " +
+                "  const r = await __ext.search('', $page); return JSON.stringify(r); " +
+                "})()"
+            )
+        }
+        return parseSearchResults(result)
+    }
+
     suspend fun getMangaDetail(extensionId: String, mangaId: String): MangaDetail {
         val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
@@ -300,12 +325,20 @@ class ExtensionManager(
         if (json.isNullOrBlank()) return emptyList()
         return try {
             val arr = JSONArray(json)
+            val backendBase = com.mangadl.android.BuildConfig.BACKEND_URL.trimEnd('/')
             (0 until arr.length()).map { i ->
                 val obj = arr.getJSONObject(i)
+                val rawCover = obj.optString("cover_url").ifEmpty { obj.optString("coverUrl") }
+                val resolvedCover = when {
+                    rawCover.startsWith("http://") || rawCover.startsWith("https://") -> rawCover
+                    rawCover.startsWith("/api/") -> "$backendBase$rawCover"
+                    rawCover.startsWith("/") -> "$backendBase/api$rawCover"
+                    else -> rawCover
+                }
                 MangaSearchResult(
                     id = obj.optString("id"),
                     title = obj.optString("title"),
-                    coverUrl = obj.optString("cover_url"),
+                    coverUrl = resolvedCover,
                     provider = obj.optString("provider"),
                     url = obj.optString("url"),
                 )
