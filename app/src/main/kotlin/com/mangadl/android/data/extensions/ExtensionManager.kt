@@ -321,103 +321,6 @@ class ExtensionManager(
 
     private fun jsString(value: String): String = JSONObject.quote(value)
 
-    private fun parseSearchResults(json: String?): List<MangaSearchResult> {
-        if (json.isNullOrBlank()) return emptyList()
-        return try {
-            val arr = JSONArray(json)
-            val backendBase = com.mangadl.android.BuildConfig.BACKEND_URL.trimEnd('/')
-            (0 until arr.length()).map { i ->
-                val obj = arr.getJSONObject(i)
-                val rawCover = obj.optString("cover_url").ifEmpty { obj.optString("coverUrl") }
-                val resolvedCover = when {
-                    rawCover.startsWith("http://") || rawCover.startsWith("https://") -> rawCover
-                    rawCover.startsWith("/api/") -> "$backendBase$rawCover"
-                    rawCover.startsWith("/") -> "$backendBase/api$rawCover"
-                    else -> rawCover
-                }
-                MangaSearchResult(
-                    id = obj.optString("id"),
-                    title = obj.optString("title"),
-                    coverUrl = resolvedCover,
-                    provider = obj.optString("provider"),
-                    url = obj.optString("url"),
-                )
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Parse search error", e)
-            emptyList()
-        }
-    }
-
-    private fun parseMangaDetail(json: String?): MangaDetail {
-        if (json.isNullOrBlank()) return MangaDetail()
-        return try {
-            val obj = JSONObject(json)
-            val chaptersArr = obj.optJSONArray("chapters")
-            val chapters = if (chaptersArr != null) {
-                (0 until chaptersArr.length()).map { i ->
-                    val c = chaptersArr.getJSONObject(i)
-                    Chapter(
-                        id = c.optString("id"),
-                        title = c.optString("title"),
-                        number = c.optDouble("number", 0.0).toFloat(),
-                        publishedAt = c.optString("published_at"),
-                    )
-                }
-            } else emptyList()
-
-            MangaDetail(
-                id = obj.optString("id"),
-                title = obj.optString("title"),
-                coverUrl = obj.optString("cover_url"),
-                description = obj.optString("description"),
-                status = obj.optString("status"),
-                genres = obj.optJSONArray("genres")?.let { g ->
-                    (0 until g.length()).map { g.optString(it) }
-                } ?: emptyList(),
-                authors = obj.optJSONArray("authors")?.let { a ->
-                    (0 until a.length()).map { a.optString(it) }
-                } ?: emptyList(),
-                provider = obj.optString("provider"),
-                url = obj.optString("url"),
-                chapters = chapters,
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Parse detail error", e)
-            MangaDetail()
-        }
-    }
-
-    private fun parsePages(json: String?): List<String> {
-        if (json.isNullOrBlank()) return emptyList()
-        return try {
-            val arr = JSONArray(json)
-            val backendBase = com.mangadl.android.BuildConfig.BACKEND_URL.trimEnd('/')
-            (0 until arr.length()).map { i ->
-                val raw = arr.optString(i)
-                when {
-                    raw.startsWith("http://") || raw.startsWith("https://") -> raw
-                    raw.startsWith("/api/") -> "$backendBase$raw"
-                    raw.startsWith("/") -> "$backendBase/api$raw"
-                    else -> raw
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Parse pages error", e)
-            emptyList()
-        }
-    }
-
-    private fun parseMetaComment(id: String, script: String): Map<String, String> {
-        val meta = mutableMapOf<String, String>("id" to id)
-        val metaBlock = Regex("""// ==Extension==\n(.*?)// ==/Extension==""", RegexOption.DOT_MATCHES_ALL)
-            .find(script)?.groupValues?.get(1) ?: return meta
-        Regex("""// @(\w+)\s+(.+)""").findAll(metaBlock).forEach { m ->
-            meta[m.groupValues[1]] = m.groupValues[2].trim()
-        }
-        return meta
-    }
-
     companion object {
         private const val TAG = "ExtensionManager"
 
@@ -431,6 +334,103 @@ class ExtensionManager(
 
         fun isNovelSource(extensionId: String): Boolean =
             extensionId.lowercase() in NOVEL_EXTENSION_IDS
+
+        internal fun parseSearchResults(json: String?): List<MangaSearchResult> {
+            if (json.isNullOrBlank()) return emptyList()
+            return try {
+                val arr = JSONArray(json)
+                val backendBase = com.mangadl.android.BuildConfig.BACKEND_URL.trimEnd('/')
+                (0 until arr.length()).map { i ->
+                    val obj = arr.getJSONObject(i)
+                    val rawCover = obj.optString("cover_url").ifEmpty { obj.optString("coverUrl") }
+                    val resolvedCover = when {
+                        rawCover.startsWith("http://") || rawCover.startsWith("https://") -> rawCover
+                        rawCover.startsWith("/api/") -> "$backendBase$rawCover"
+                        rawCover.startsWith("/") -> "$backendBase/api$rawCover"
+                        else -> rawCover
+                    }
+                    MangaSearchResult(
+                        id = obj.optString("id"),
+                        title = obj.optString("title"),
+                        coverUrl = resolvedCover,
+                        provider = obj.optString("provider"),
+                        url = obj.optString("url"),
+                    )
+                }
+            } catch (e: Exception) {
+                try { Log.e(TAG, "Parse search error", e) } catch (_: Throwable) {}
+                emptyList()
+            }
+        }
+
+        internal fun parseMangaDetail(json: String?): MangaDetail {
+            if (json.isNullOrBlank()) return MangaDetail()
+            return try {
+                val obj = JSONObject(json)
+                val chaptersArr = obj.optJSONArray("chapters")
+                val chapters = if (chaptersArr != null) {
+                    (0 until chaptersArr.length()).map { i ->
+                        val c = chaptersArr.getJSONObject(i)
+                        Chapter(
+                            id = c.optString("id"),
+                            title = c.optString("title"),
+                            number = c.optDouble("number", 0.0).toFloat(),
+                            publishedAt = c.optString("published_at"),
+                        )
+                    }
+                } else emptyList()
+
+                MangaDetail(
+                    id = obj.optString("id"),
+                    title = obj.optString("title"),
+                    coverUrl = obj.optString("cover_url"),
+                    description = obj.optString("description"),
+                    status = obj.optString("status"),
+                    genres = obj.optJSONArray("genres")?.let { g ->
+                        (0 until g.length()).map { g.optString(it) }
+                    } ?: emptyList(),
+                    authors = obj.optJSONArray("authors")?.let { a ->
+                        (0 until a.length()).map { a.optString(it) }
+                    } ?: emptyList(),
+                    provider = obj.optString("provider"),
+                    url = obj.optString("url"),
+                    chapters = chapters,
+                )
+            } catch (e: Exception) {
+                try { Log.e(TAG, "Parse detail error", e) } catch (_: Throwable) {}
+                MangaDetail()
+            }
+        }
+
+        internal fun parsePages(json: String?): List<String> {
+            if (json.isNullOrBlank()) return emptyList()
+            return try {
+                val arr = JSONArray(json)
+                val backendBase = com.mangadl.android.BuildConfig.BACKEND_URL.trimEnd('/')
+                (0 until arr.length()).map { i ->
+                    val raw = arr.optString(i)
+                    when {
+                        raw.startsWith("http://") || raw.startsWith("https://") -> raw
+                        raw.startsWith("/api/") -> "$backendBase$raw"
+                        raw.startsWith("/") -> "$backendBase/api$raw"
+                        else -> raw
+                    }
+                }
+            } catch (e: Exception) {
+                try { Log.e(TAG, "Parse pages error", e) } catch (_: Throwable) {}
+                emptyList()
+            }
+        }
+
+        internal fun parseMetaComment(id: String, script: String): Map<String, String> {
+            val meta = mutableMapOf<String, String>("id" to id)
+            val metaBlock = Regex("""// ==Extension==\n(.*?)// ==/Extension==""", RegexOption.DOT_MATCHES_ALL)
+                .find(script)?.groupValues?.get(1) ?: return meta
+            Regex("""// @(\w+)\s+(.+)""").findAll(metaBlock).forEach { m ->
+                meta[m.groupValues[1]] = m.groupValues[2].trim()
+            }
+            return meta
+        }
     }
 }
 

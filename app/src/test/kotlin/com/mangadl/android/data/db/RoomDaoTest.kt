@@ -14,7 +14,13 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], application = android.app.Application::class)
 class RoomDaoTest {
 
     private lateinit var db: AppDatabase
@@ -25,8 +31,7 @@ class RoomDaoTest {
 
     @Before
     fun setup() {
-        val context = mockk<Context>(relaxed = true)
-        every { context.applicationContext } returns context
+        val context = RuntimeEnvironment.getApplication()
 
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
