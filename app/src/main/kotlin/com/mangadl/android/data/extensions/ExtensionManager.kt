@@ -112,7 +112,7 @@ class ExtensionManager(
     suspend fun search(extensionId: String, query: String, page: Int = 1): List<MangaSearchResult> {
         val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
-                "(async () => { const r = await __ext.search(${jsString(query)}, $page); return JSON.stringify(r); })()"
+                "JSON.stringify(await __ext.search(${jsString(query)}, $page))"
             )
         }
         return parseSearchResults(result)
@@ -121,10 +121,7 @@ class ExtensionManager(
     suspend fun getPopular(extensionId: String, page: Int = 1): List<MangaSearchResult> {
         val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
-                "(async () => { " +
-                "  if (typeof __ext.getPopular === 'function') { const r = await __ext.getPopular($page); return JSON.stringify(r); } " +
-                "  const r = await __ext.search('', $page); return JSON.stringify(r); " +
-                "})()"
+                "JSON.stringify(await (typeof __ext.getPopular === 'function' ? __ext.getPopular($page) : __ext.search('', $page)))"
             )
         }
         return parseSearchResults(result)
@@ -133,11 +130,8 @@ class ExtensionManager(
     suspend fun getLatest(extensionId: String, page: Int = 1): List<MangaSearchResult> {
         val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
-                "(async () => { " +
-                "  if (typeof __ext.getLatest === 'function') { const r = await __ext.getLatest($page); return JSON.stringify(r); } " +
-                "  if (typeof __ext.getPopular === 'function') { const r = await __ext.getPopular($page); return JSON.stringify(r); } " +
-                "  const r = await __ext.search('', $page); return JSON.stringify(r); " +
-                "})()"
+                "JSON.stringify(await (typeof __ext.getLatest === 'function' ? __ext.getLatest($page) : " +
+                "typeof __ext.getPopular === 'function' ? __ext.getPopular($page) : __ext.search('', $page)))"
             )
         }
         return parseSearchResults(result)
@@ -146,7 +140,7 @@ class ExtensionManager(
     suspend fun getMangaDetail(extensionId: String, mangaId: String): MangaDetail {
         val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
-                "(async () => { const r = await __ext.getMangaDetail(${jsString(mangaId)}); return JSON.stringify(r); })()"
+                "JSON.stringify(await __ext.getMangaDetail(${jsString(mangaId)}))"
             )
         }
         return parseMangaDetail(result)
@@ -155,7 +149,7 @@ class ExtensionManager(
     suspend fun getPages(extensionId: String, chapterId: String): List<String> {
         val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
-                "(async () => { const r = await __ext.getPages(${jsString(chapterId)}); return JSON.stringify(r); })()"
+                "JSON.stringify(await __ext.getPages(${jsString(chapterId)}))"
             )
         }
         return parsePages(result)
@@ -164,10 +158,8 @@ class ExtensionManager(
     suspend fun getChapterText(extensionId: String, chapterId: String): String {
         val result = evalWithContext(extensionId) { js ->
             js.evaluate<String>(
-                "(async () => { " +
-                "  if (typeof __ext.getChapterText !== 'function') return JSON.stringify({content:'',format:'plain'});" +
-                "  const r = await __ext.getChapterText(${jsString(chapterId)}); return JSON.stringify(r); " +
-                "})()"
+                "typeof __ext.getChapterText !== 'function' ? JSON.stringify({content:'',format:'plain'}) : " +
+                "JSON.stringify(await __ext.getChapterText(${jsString(chapterId)}))"
             )
         }
         return try {

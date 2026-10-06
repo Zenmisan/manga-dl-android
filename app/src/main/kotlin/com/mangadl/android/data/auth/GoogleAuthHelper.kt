@@ -13,7 +13,7 @@ import com.mangadl.android.BuildConfig
 import kotlinx.coroutines.tasks.await
 
 sealed class GoogleSignInResult {
-    data class Success(val user: FirebaseUser) : GoogleSignInResult()
+    data class Success(val user: FirebaseUser, val googleIdToken: String) : GoogleSignInResult()
     data object Cancelled : GoogleSignInResult()
     data class Error(val message: String) : GoogleSignInResult()
 }
@@ -48,7 +48,7 @@ class GoogleAuthHelper(private val context: Context) {
             val authResult = firebaseAuth.signInWithCredential(firebaseCredential).await()
             val user = authResult.user ?: return GoogleSignInResult.Error("Firebase user null after sign-in")
 
-            GoogleSignInResult.Success(user)
+            GoogleSignInResult.Success(user, googleIdToken)
         } catch (e: GetCredentialCancellationException) {
             GoogleSignInResult.Cancelled
         } catch (e: Exception) {

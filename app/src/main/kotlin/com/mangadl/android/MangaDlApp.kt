@@ -62,6 +62,7 @@ class MangaDlApp : Application() {
         extensionManager.loadAll()
 
         LibraryUpdateWorker.createChannel(this)
+        DownloadWorker.createChannel(this)
 
         val wm = WorkManager.getInstance(this)
         val networkConstraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()

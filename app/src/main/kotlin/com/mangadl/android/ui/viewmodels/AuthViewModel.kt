@@ -83,17 +83,21 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
             _authState.value = AuthState.Loading
             when (val result = googleHelper.signIn(activityContext)) {
                 is GoogleSignInResult.Success -> {
-                    // Firebase sign-in succeeded; get the ID token for Supabase
-                    val idToken = result.user.getIdToken(false).result?.token
-                    if (idToken != null) {
-                        try {
-                            supabase.auth.signInWith(io.github.jan.supabase.auth.providers.builtin.IDToken) {
-                                this.idToken = idToken
-                                this.provider = io.github.jan.supabase.auth.providers.Google
-                            }
-                        } catch (_: Exception) {
-                            // If Supabase Google OIDC isn't configured, Firebase success is enough
+                    // Firebase sign-in succeeded; exchange the ORIGINAL Google ID token (not a
+                    // Firebase-issued token — Supabase's native ID-token flow verifies the token
+                    // against Google, so it must be the one Credential Manager actually returned)
+                    // for a Supabase session, so Supabase-backed features (username, profile,
+                    // trackers) see this user.
+                    try {
+                        supabase.auth.signInWith(io.github.jan.supabase.auth.providers.builtin.IDToken) {
+                            this.idToken = result.googleIdToken
+                            this.provider = io.github.jan.supabase.auth.providers.Google
                         }
+                    } catch (e: Exception) {
+                        // Supabase session not established (provider misconfigured, audience
+                        // mismatch, etc). Firebase auth still succeeded, but Supabase-backed
+                        // profile data (username, etc) will be unavailable this session.
+                        android.util.Log.e("AuthViewModel", "Supabase Google ID-token sign-in failed", e)
                     }
                     _authState.value = AuthState.Success(supabase.auth.currentUserOrNull())
                     onSuccess()
