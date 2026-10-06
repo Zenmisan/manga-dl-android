@@ -11,7 +11,9 @@ import com.mangadl.android.data.model.MangaDetail
 import com.mangadl.android.data.model.MangaSearchResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -87,6 +89,13 @@ class ExtensionManager(
 
     private data class JsContext(val js: QuickJs, val mutex: Mutex)
     private val jsContexts = ConcurrentHashMap<String, JsContext>()
+
+    // Caps how many extension scripts (one per source) run at once device-wide. Each evaluation
+    // does real CPU work (QuickJS execution + Jsoup HTML parsing), and a global search fans out
+    // to every enabled source in parallel — on a low-end device, 30+ unbounded concurrent
+    // evaluations starve the main thread of CPU scheduling time even though none of this runs
+    // *on* the main thread, producing multi-hundred-ms frame drops during typing/scrolling.
+    private val evalConcurrency = Semaphore(4)
 
     fun loadAll() {
         val assetFiles = context.assets.list("extensions") ?: return
@@ -215,9 +224,11 @@ class ExtensionManager(
             }
             JsContext(js, Mutex())
         }
-        return ctx.mutex.withLock {
-            withContext(Dispatchers.IO) {
-                block(ctx.js)
+        return evalConcurrency.withPermit {
+            ctx.mutex.withLock {
+                withContext(Dispatchers.IO) {
+                    block(ctx.js)
+                }
             }
         }
     }

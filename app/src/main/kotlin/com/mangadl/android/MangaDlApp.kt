@@ -59,7 +59,14 @@ class MangaDlApp : Application() {
 
         extensionManager = ExtensionManager(this, httpClient)
         extensionManager.backendUrl = BuildConfig.BACKEND_URL
-        extensionManager.loadAll()
+        // loadAll() synchronously reads and parses all 39 bundled extension .js files from
+        // assets; doing that on Application.onCreate() (main thread) blocks the first frame.
+        // Moved off-thread; screens that read listExtensions() before this completes will
+        // briefly see an empty list (true for the first composition regardless of where this
+        // runs, since it was never actually synchronous-safe for Compose to depend on).
+        appScope.launch(Dispatchers.IO) {
+            extensionManager.loadAll()
+        }
 
         LibraryUpdateWorker.createChannel(this)
         DownloadWorker.createChannel(this)

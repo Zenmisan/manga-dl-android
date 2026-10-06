@@ -223,7 +223,7 @@ fun CoverArt(
 
     Box(modifier.clip(shape).background(placeholderColor)) {
         if (!resolvedUrl.isNullOrBlank()) {
-            coil.compose.SubcomposeAsyncImage(
+            coil.compose.AsyncImage(
                 model = coil.request.ImageRequest.Builder(context)
                     .data(resolvedUrl)
                     .apply {
@@ -234,12 +234,8 @@ fun CoverArt(
                 contentDescription = contentDescription,
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                 modifier = Modifier.matchParentSize(),
-                loading = {
-                    Box(Modifier.matchParentSize().background(placeholderColor))
-                },
-                error = {
-                    Box(Modifier.matchParentSize().background(placeholderColor))
-                },
+                placeholder = androidx.compose.ui.graphics.painter.ColorPainter(placeholderColor),
+                error = androidx.compose.ui.graphics.painter.ColorPainter(placeholderColor),
             )
         }
         content()
