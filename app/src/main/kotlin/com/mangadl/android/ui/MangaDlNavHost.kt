@@ -396,7 +396,8 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
                     }
                 },
                 onProgressChange = { pct ->
-                    novelVm.saveProgress(pct)
+                    val chNum = if (currentIndex in 0 until chapters.size) chapters[currentIndex].number else 0f
+                    novelVm.saveProgress(pct, chNum)
                 },
             )
         }

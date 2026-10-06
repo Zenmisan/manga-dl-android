@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
     private fun handleOAuthIntent(intent: Intent?) {
         val data = intent?.data ?: return
         when (data.host) {
-            "anilist-callback" -> trackerVm.handleAnilistCallback(data.fragment)
+            "anilist-callback" -> trackerVm.handleAnilistCallback(data.toString())
             "mal-callback" -> trackerVm.handleMalCallback(data)
         }
     }

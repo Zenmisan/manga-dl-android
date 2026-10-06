@@ -56,8 +56,16 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
         _state.value = ReaderState.Success(pages)
     }
 
-    fun saveProgress(mangaId: String, chapterId: String, provider: String, page: Int, total: Int) {
+    fun saveProgress(
+        mangaId: String,
+        chapterId: String,
+        provider: String,
+        page: Int,
+        total: Int,
+        chapterNumber: Float = 0f,
+    ) {
         viewModelScope.launch {
+            val isCompleted = page >= total - 1
             progressDao.upsert(
                 com.mangadl.android.data.model.ReadingProgress(
                     mangaId = mangaId,
@@ -65,11 +73,25 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
                     provider = provider,
                     page = page,
                     totalPages = total,
-                    completed = page >= total - 1,
+                    completed = isCompleted,
                 )
             )
             if (mangaId.isNotEmpty()) {
                 libraryDao.updateLastRead(mangaId, chapterId, System.currentTimeMillis())
+            }
+            if (isCompleted && mangaId.isNotEmpty()) {
+                val effectiveNum = if (chapterNumber > 0f) chapterNumber else {
+                    Regex("""(?:chapter[_-]?|ch[_-]?|#)?([0-9]+(?:\.[0-9]+)?)""", RegexOption.IGNORE_CASE)
+                        .find(chapterId)?.groupValues?.get(1)?.toFloatOrNull() ?: 0f
+                }
+                if (effectiveNum > 0f) {
+                    com.mangadl.android.data.tracking.TrackerService.syncChapterRead(
+                        context = getApplication(),
+                        mangaId = mangaId,
+                        chapterNumber = effectiveNum,
+                        isCompleted = true,
+                    )
+                }
             }
         }
     }

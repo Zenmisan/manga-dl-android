@@ -61,9 +61,10 @@ class NovelReaderViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun saveProgress(scrollPercent: Float) {
+    fun saveProgress(scrollPercent: Float, chapterNumber: Float = 0f) {
         if (currentMangaId.isBlank() || currentChapterId.isBlank()) return
         val pct = (scrollPercent * 100).toInt().coerceIn(0, 100)
+        val isCompleted = pct >= 95
         viewModelScope.launch(Dispatchers.IO) {
             db.progressDao().upsert(
                 ReadingProgress(
@@ -73,10 +74,24 @@ class NovelReaderViewModel(app: Application) : AndroidViewModel(app) {
                     page = pct,
                     totalPages = 100,
                     readAt = System.currentTimeMillis(),
-                    completed = pct >= 95,
+                    completed = isCompleted,
                 )
             )
             db.libraryDao().updateLastRead(currentMangaId, currentChapterId, System.currentTimeMillis())
+            if (isCompleted) {
+                val effectiveNum = if (chapterNumber > 0f) chapterNumber else {
+                    Regex("""(?:chapter[_-]?|ch[_-]?|#)?([0-9]+(?:\.[0-9]+)?)""", RegexOption.IGNORE_CASE)
+                        .find(currentChapterId)?.groupValues?.get(1)?.toFloatOrNull() ?: 0f
+                }
+                if (effectiveNum > 0f) {
+                    com.mangadl.android.data.tracking.TrackerService.syncChapterRead(
+                        context = MangaDlApp.instance,
+                        mangaId = currentMangaId,
+                        chapterNumber = effectiveNum,
+                        isCompleted = true,
+                    )
+                }
+            }
         }
     }
 

@@ -36,8 +36,11 @@ fun TrackerSettingsScreen(onBack: () -> Unit) {
     val vm: TrackerViewModel = viewModel()
     val anilistConnected by vm.anilistConnected.collectAsState()
     val anilistClientId by vm.anilistClientId.collectAsState()
+    val anilistUsername by vm.anilistUsername.collectAsState()
     val malConnected by vm.malConnected.collectAsState()
     val malClientId by vm.malClientId.collectAsState()
+    val malUsername by vm.malUsername.collectAsState()
+    val autoSync by vm.autoSyncTrackers.collectAsState()
 
     SettingsFrame("Trackers", onBack) {
         SettingsSection("Services") {
@@ -46,6 +49,7 @@ fun TrackerSettingsScreen(onBack: () -> Unit) {
                 color = Color(0xFF0099CC),
                 name = "AniList",
                 connected = anilistConnected,
+                username = anilistUsername,
                 onConnect = {
                     val url = vm.anilistAuthUrl()
                     if (url.isNotEmpty()) context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -69,6 +73,7 @@ fun TrackerSettingsScreen(onBack: () -> Unit) {
                 color = Color(0xFF2E51A2),
                 name = "MyAnimeList",
                 connected = malConnected,
+                username = malUsername,
                 onConnect = {
                     val url = vm.malAuthUrl()
                     if (url.isNotEmpty()) context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -86,7 +91,13 @@ fun TrackerSettingsScreen(onBack: () -> Unit) {
             }
         }
         SettingsSection("Sync") {
-            SwitchSetting("Auto-sync progress", true, "Update trackers after each chapter")
+            SwitchSetting(
+                label = "Auto-sync progress",
+                initial = autoSync,
+                description = "Update trackers after each chapter",
+                value = autoSync,
+                onValueChange = { vm.setAutoSync(it) },
+            )
             SwitchSetting("Mark completed", true, "Set status to Completed on last chapter")
             SwitchSetting("Ask before changing scores", false, "Confirm before overwriting a score")
         }
@@ -99,6 +110,7 @@ private fun TrackerRow(
     color: Color,
     name: String,
     connected: Boolean,
+    username: String = "",
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
@@ -111,8 +123,13 @@ private fun TrackerRow(
         LogoTile(short, color, anton = false)
         Column(Modifier.weight(1f)) {
             BodyText(name, size = 15.sp, weight = FontWeight.Bold)
+            val subtitle = when {
+                connected && username.isNotEmpty() -> "Connected as $username"
+                connected -> "Connected"
+                else -> "Not connected"
+            }
             BodyText(
-                if (connected) "Connected" else "Not connected",
+                subtitle,
                 size = 12.sp,
                 color = if (connected) c.successText else c.fgSubtle,
             )

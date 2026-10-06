@@ -7,35 +7,35 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mangadl.android.BuildConfig
-import com.mangadl.android.MangaDlApp
 import com.mangadl.android.data.prefs.AppPreferences
 import com.mangadl.android.data.prefs.PrefKeys
+import com.mangadl.android.data.tracking.TrackerService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
 
 class TrackerViewModel(app: Application) : AndroidViewModel(app) {
 
     private val prefs = AppPreferences.getInstance(app)
-    private val httpClient = MangaDlApp.instance.httpClient
 
     val anilistToken: StateFlow<String> = prefs.anilistToken.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val anilistClientId: StateFlow<String> = prefs.anilistClientId.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val anilistConnected: StateFlow<Boolean> = prefs.anilistConnected.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val anilistUsername: StateFlow<String> = prefs.anilistUsername.stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     val malToken: StateFlow<String> = prefs.malToken.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val malClientId: StateFlow<String> = prefs.malClientId.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val malConnected: StateFlow<Boolean> = prefs.malConnected.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val malUsername: StateFlow<String> = prefs.malUsername.stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    val autoSyncTrackers: StateFlow<Boolean> = prefs.autoSyncTrackers.stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     fun setAnilistClientId(id: String) = viewModelScope.launch { prefs.set(PrefKeys.ANILIST_CLIENT_ID, id) }
     fun setMalClientId(id: String) = viewModelScope.launch { prefs.set(PrefKeys.MAL_CLIENT_ID, id) }
+    fun setAutoSync(enabled: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.AUTO_SYNC_TRACKERS, enabled) }
 
     private fun effectiveAnilistClientId() = anilistClientId.value.ifEmpty { BuildConfig.ANILIST_CLIENT_ID }
     private fun effectiveMalClientId() = malClientId.value.ifEmpty { BuildConfig.MAL_CLIENT_ID }
@@ -49,23 +49,44 @@ class TrackerViewModel(app: Application) : AndroidViewModel(app) {
             "&redirect_uri=${Uri.encode(ANILIST_REDIRECT)}"
     }
 
-    /** Called from MainActivity when mangadl://anilist-callback#access_token=... is received. */
-    fun handleAnilistCallback(fragment: String?) {
-        if (fragment == null) return
-        val params = fragment.split("&").associate {
-            val (k, v) = it.split("=", limit = 2).let { p -> p[0] to (p.getOrElse(1) { "" }) }
-            k to v
-        }
-        val token = params["access_token"] ?: return
+    /**
+     * Called from MainActivity when mangadl://anilist-callback#access_token=... is received.
+     * Extracts token from fragment, query, or URI string.
+     */
+    fun handleAnilistCallback(uriOrFragment: String?) {
+        if (uriOrFragment == null) return
+        val raw = uriOrFragment.trim()
+        val token = when {
+            raw.contains("access_token=") -> {
+                val paramStr = if (raw.contains("#")) raw.substringAfter("#") else raw.substringAfter("?")
+                paramStr.split("&").associate {
+                    val p = it.split("=", limit = 2)
+                    p[0] to (p.getOrElse(1) { "" })
+                }["access_token"]
+            }
+            else -> null
+        } ?: return
+
         viewModelScope.launch {
             prefs.set(PrefKeys.ANILIST_TOKEN, token)
             prefs.set(PrefKeys.ANILIST_CONNECTED, true)
-            Log.i(TAG, "AniList connected")
+            Log.i(TAG, "AniList token saved")
+
+            // Fetch username
+            TrackerService.getAniListViewer(token)
+                .onSuccess { (_, name) ->
+                    prefs.set(PrefKeys.ANILIST_USERNAME, name)
+                    Log.i(TAG, "AniList connected as $name")
+                }
+                .onFailure {
+                    Log.w(TAG, "Failed to fetch AniList viewer profile: ${it.message}")
+                }
         }
     }
 
     fun disconnectAnilist() = viewModelScope.launch {
         prefs.set(PrefKeys.ANILIST_TOKEN, "")
+        prefs.set(PrefKeys.ANILIST_USERNAME, "")
         prefs.set(PrefKeys.ANILIST_CONNECTED, false)
     }
 
@@ -89,28 +110,26 @@ class TrackerViewModel(app: Application) : AndroidViewModel(app) {
         val code = uri.getQueryParameter("code") ?: return
         val clientId = effectiveMalClientId().ifEmpty { return }
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val json = JSONObject()
-                    .put("client_id", clientId)
-                    .put("code", code)
-                    .put("code_verifier", malCodeVerifier)
-                    .put("redirect_uri", MAL_REDIRECT)
-                val body = json.toString().toRequestBody("application/json".toMediaType())
-                val request = Request.Builder()
-                    .url("${BuildConfig.BACKEND_URL}/auth/mal/token")
-                    .post(body)
-                    .build()
-                val resp = httpClient.newCall(request).execute()
-                val respJson = JSONObject(resp.body?.string() ?: return@launch)
-                val token = respJson.optString("access_token", "")
-                val refresh = respJson.optString("refresh_token", "")
-                if (token.isNotEmpty()) {
-                    prefs.set(PrefKeys.MAL_TOKEN, token)
-                    prefs.set(PrefKeys.MAL_REFRESH_TOKEN, refresh)
-                    prefs.set(PrefKeys.MAL_CONNECTED, true)
-                    Log.i(TAG, "MAL connected")
-                }
-            } catch (e: Exception) {
+            TrackerService.exchangeMalToken(
+                code = code,
+                codeVerifier = malCodeVerifier,
+                clientId = clientId,
+                redirectUri = MAL_REDIRECT,
+            ).onSuccess { (accessToken, refreshToken) ->
+                prefs.set(PrefKeys.MAL_TOKEN, accessToken)
+                prefs.set(PrefKeys.MAL_REFRESH_TOKEN, refreshToken)
+                prefs.set(PrefKeys.MAL_CONNECTED, true)
+                Log.i(TAG, "MAL connected successfully")
+
+                TrackerService.getMalUser(accessToken)
+                    .onSuccess { username ->
+                        prefs.set(PrefKeys.MAL_USERNAME, username)
+                        Log.i(TAG, "MAL connected as $username")
+                    }
+                    .onFailure {
+                        Log.w(TAG, "Failed to fetch MAL username: ${it.message}")
+                    }
+            }.onFailure { e ->
                 Log.e(TAG, "MAL token exchange failed", e)
             }
         }
@@ -119,6 +138,7 @@ class TrackerViewModel(app: Application) : AndroidViewModel(app) {
     fun disconnectMal() = viewModelScope.launch {
         prefs.set(PrefKeys.MAL_TOKEN, "")
         prefs.set(PrefKeys.MAL_REFRESH_TOKEN, "")
+        prefs.set(PrefKeys.MAL_USERNAME, "")
         prefs.set(PrefKeys.MAL_CONNECTED, false)
     }
 
@@ -137,39 +157,32 @@ class TrackerViewModel(app: Application) : AndroidViewModel(app) {
         trackLinks.edit().remove("mal_$mangaId").apply()
     }
 
-    /** Search AniList via backend, take top result, store mediaId keyed by mangaId. */
+    /** Search AniList, take top result, store mediaId keyed by mangaId. */
     fun linkAnilist(mangaId: String, mangaTitle: String, onResult: (success: Boolean) -> Unit) {
-        val token = anilistToken.value.ifEmpty { onResult(false); return }
         viewModelScope.launch(Dispatchers.IO) {
-            val ok = runCatching {
-                val req = Request.Builder()
-                    .url("${BuildConfig.BACKEND_URL}/auth/anilist/search?q=${Uri.encode(mangaTitle)}")
-                    .header("Authorization", "Bearer $token")
-                    .build()
-                val resp = httpClient.newCall(req).execute()
-                val arr = org.json.JSONArray(resp.body?.string() ?: error("empty"))
-                val mediaId = arr.getJSONObject(0).getInt("id")
-                trackLinks.edit().putInt("anilist_$mangaId", mediaId).apply()
-                true
-            }.getOrDefault(false)
+            val token = anilistToken.value.ifEmpty { null }
+            val ok = TrackerService.searchAniList(mangaTitle, token)
+                .map { list ->
+                    val top = list.firstOrNull() ?: return@map false
+                    trackLinks.edit().putInt("anilist_$mangaId", top.id).apply()
+                    true
+                }
+                .getOrDefault(false)
             withContext(Dispatchers.Main) { onResult(ok) }
         }
     }
 
-    /** Search MAL via backend, take top result, store mediaId keyed by mangaId. */
+    /** Search MAL, take top result, store mediaId keyed by mangaId. */
     fun linkMal(mangaId: String, mangaTitle: String, onResult: (success: Boolean) -> Unit) {
         val token = malToken.value.ifEmpty { onResult(false); return }
         viewModelScope.launch(Dispatchers.IO) {
-            val ok = runCatching {
-                val req = Request.Builder()
-                    .url("${BuildConfig.BACKEND_URL}/auth/mal/search?q=${Uri.encode(mangaTitle)}&access_token=${Uri.encode(token)}")
-                    .build()
-                val resp = httpClient.newCall(req).execute()
-                val arr = org.json.JSONArray(resp.body?.string() ?: error("empty"))
-                val malId = arr.getJSONObject(0).getInt("id")
-                trackLinks.edit().putInt("mal_$mangaId", malId).apply()
-                true
-            }.getOrDefault(false)
+            val ok = TrackerService.searchMal(mangaTitle, token)
+                .map { list ->
+                    val top = list.firstOrNull() ?: return@map false
+                    trackLinks.edit().putInt("mal_$mangaId", top.id).apply()
+                    true
+                }
+                .getOrDefault(false)
             withContext(Dispatchers.Main) { onResult(ok) }
         }
     }

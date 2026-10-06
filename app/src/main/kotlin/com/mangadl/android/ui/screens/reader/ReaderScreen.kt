@@ -148,7 +148,8 @@ fun ReaderScreen(
 
     LaunchedEffect(pager.currentPage, pages.size) {
         if (pages.isNotEmpty()) {
-            vm.saveProgress(navState.mangaId, navState.chapterId, navState.sourceId, pager.currentPage, pages.size)
+            val chNum = navState.chapters.find { it.id == navState.chapterId }?.number ?: 0f
+            vm.saveProgress(navState.mangaId, navState.chapterId, navState.sourceId, pager.currentPage, pages.size, chNum)
         }
     }
 
