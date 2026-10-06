@@ -359,7 +359,16 @@ class ExtensionManager(
         if (json.isNullOrBlank()) return emptyList()
         return try {
             val arr = JSONArray(json)
-            (0 until arr.length()).map { i -> arr.optString(i) }
+            val backendBase = com.mangadl.android.BuildConfig.BACKEND_URL.trimEnd('/')
+            (0 until arr.length()).map { i ->
+                val raw = arr.optString(i)
+                when {
+                    raw.startsWith("http://") || raw.startsWith("https://") -> raw
+                    raw.startsWith("/api/") -> "$backendBase$raw"
+                    raw.startsWith("/") -> "$backendBase/api$raw"
+                    else -> raw
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Parse pages error", e)
             emptyList()
@@ -378,6 +387,17 @@ class ExtensionManager(
 
     companion object {
         private const val TAG = "ExtensionManager"
+
+        val NOVEL_EXTENSION_IDS = setOf(
+            "royalroad", "novelbin", "novelfull", "freewebnovel", "novelfire", "allnovel",
+            "novelphoenix", "readnovelfull", "libread", "brightnovel", "chrysanthemumgarden",
+            "comrademao", "lightnoveltranslations", "bestlightnovel", "asianovel", "novelbuddy",
+            "readlightnovel", "scribblehub", "lightnovelworld", "wuxiaworld", "ranobes",
+            "novelsonline", "readhive"
+        )
+
+        fun isNovelSource(extensionId: String): Boolean =
+            extensionId.lowercase() in NOVEL_EXTENSION_IDS
     }
 }
 

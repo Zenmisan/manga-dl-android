@@ -53,6 +53,11 @@ object PrefKeys {
 
     // Appearance extras
     val AMBILIGHT = booleanPreferencesKey("ambilight")
+
+    // Novel Reader
+    val NOVEL_THEME = stringPreferencesKey("novel_theme")
+    val NOVEL_FONT_SIZE = floatPreferencesKey("novel_font_size")
+    val NOVEL_SERIF = booleanPreferencesKey("novel_serif")
 }
 
 class AppPreferences(private val context: Context) {
@@ -74,6 +79,7 @@ class AppPreferences(private val context: Context) {
     val updateInterval: Flow<String> = context.dataStore.data.map { it[PrefKeys.UPDATE_INTERVAL] ?: "manual" }
     val autoDownloadNew: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.AUTO_DOWNLOAD_NEW] ?: false }
     val libraryDisplay: Flow<String> = context.dataStore.data.map { it[PrefKeys.LIBRARY_DISPLAY] ?: "grid" }
+    val lastUpdateCheck: Flow<Long> = context.dataStore.data.map { it[PrefKeys.LAST_UPDATE_CHECK] ?: 0L }
     val anilistConnected: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.ANILIST_CONNECTED] ?: false }
     val malConnected: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.MAL_CONNECTED] ?: false }
     val anilistToken: Flow<String> = context.dataStore.data.map { it[PrefKeys.ANILIST_TOKEN] ?: "" }
@@ -85,6 +91,9 @@ class AppPreferences(private val context: Context) {
     val backendUrl: Flow<String> = context.dataStore.data.map { it[PrefKeys.BACKEND_URL] ?: "" }
     val apiKey: Flow<String> = context.dataStore.data.map { it[PrefKeys.API_KEY] ?: "" }
     val ambilight: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.AMBILIGHT] ?: false }
+    val novelTheme: Flow<String> = context.dataStore.data.map { it[PrefKeys.NOVEL_THEME] ?: "Dark" }
+    val novelFontSize: Flow<Float> = context.dataStore.data.map { it[PrefKeys.NOVEL_FONT_SIZE] ?: 18f }
+    val novelSerif: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.NOVEL_SERIF] ?: true }
 
     suspend fun set(key: Preferences.Key<String>, value: String) {
         context.dataStore.edit { it[key] = value }
@@ -93,6 +102,9 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[key] = value }
     }
     suspend fun set(key: Preferences.Key<Long>, value: Long) {
+        context.dataStore.edit { it[key] = value }
+    }
+    suspend fun set(key: Preferences.Key<Float>, value: Float) {
         context.dataStore.edit { it[key] = value }
     }
 

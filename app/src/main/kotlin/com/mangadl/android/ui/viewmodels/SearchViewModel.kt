@@ -47,7 +47,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
                         val items = extMgr.search(src.id, query, 1)
                         src.name to items.map { r ->
                             val idx = r.id.hashCode().let { if (it < 0) -it else it } % COVER_PALETTE.size
-                            Manga(id = r.id, title = r.title, cover = COVER_PALETTE[idx], source = r.provider)
+                            Manga(id = r.id, title = r.title, cover = COVER_PALETTE[idx], coverUrl = r.coverUrl, source = r.provider)
                         }
                     }.getOrNull()
                 }

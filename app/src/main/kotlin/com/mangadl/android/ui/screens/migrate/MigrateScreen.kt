@@ -84,7 +84,7 @@ fun MigrateScreen(onBack: () -> Unit, onMigrate: () -> Unit) {
                         library.forEach { m ->
                             SurfaceCard(Modifier.fillMaxWidth().clickable { vm.selectSource(m) }, radius = 12.dp, background = c.surface) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    CoverArt(coverColor(m.id), Modifier.size(40.dp, 60.dp), RoundedCornerShape(6.dp))
+                                    CoverArt(coverColor(m.id), Modifier.size(40.dp, 60.dp), RoundedCornerShape(6.dp), imageUrl = m.coverUrl)
                                     Column(Modifier.weight(1f)) {
                                         BodyText(m.title, size = 14.sp, weight = FontWeight.Bold, maxLines = 1)
                                         BodyText(m.provider, size = 12.sp, color = c.fgSubtle)
@@ -98,7 +98,7 @@ fun MigrateScreen(onBack: () -> Unit, onMigrate: () -> Unit) {
                 // Source manga card
                 SurfaceCard(Modifier.fillMaxWidth(), radius = 14.dp, background = c.surface) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        CoverArt(coverColor(sourceManga!!.id), Modifier.size(44.dp, 66.dp), RoundedCornerShape(6.dp))
+                        CoverArt(coverColor(sourceManga!!.id), Modifier.size(44.dp, 66.dp), RoundedCornerShape(6.dp), imageUrl = sourceManga!!.coverUrl)
                         Column(Modifier.weight(1f)) {
                             Eyebrow("Moving from", color = c.fgSubtle)
                             BodyText(sourceManga!!.title, Modifier.padding(top = 4.dp), size = 15.sp, weight = FontWeight.Bold, maxLines = 1)
@@ -122,7 +122,7 @@ fun MigrateScreen(onBack: () -> Unit, onMigrate: () -> Unit) {
                             SelectableCard(i == pickIdx, { pickIdx = i }, Modifier.fillMaxWidth()) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                                     RadioDot(i == pickIdx)
-                                    CoverArt(coverColor(match.result.id), Modifier.size(40.dp, 60.dp), RoundedCornerShape(6.dp))
+                                    CoverArt(coverColor(match.result.id), Modifier.size(40.dp, 60.dp), RoundedCornerShape(6.dp), imageUrl = match.result.coverUrl)
                                     Column(Modifier.weight(1f)) {
                                         BodyText(match.extensionName, weight = FontWeight.Bold)
                                         BodyText(match.result.title, size = 12.sp, color = c.fg.copy(alpha = 0.65f), maxLines = 1)

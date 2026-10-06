@@ -12,10 +12,12 @@ import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.mangadl.android.MangaDlApp
+import com.mangadl.android.data.model.NewChapterEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
+import java.util.concurrent.CopyOnWriteArrayList
 
 class LibraryUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
 
@@ -27,7 +29,7 @@ class LibraryUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
         val items = db.libraryDao().getAllOnce()
         if (items.isEmpty()) return@withContext Result.success()
 
-        val newChapterItems = mutableListOf<Pair<String, Int>>() // title, newCount
+        val newChapterItems = CopyOnWriteArrayList<Pair<String, Int>>() // title, newCount
 
         items.map { manga ->
             async {
@@ -38,6 +40,23 @@ class LibraryUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
                         db.libraryDao().updateTotalChapters(manga.id, latestCount)
                         val newCount = latestCount - manga.totalChapters
                         newChapterItems.add(manga.title to newCount)
+
+                        val newest = detail.chapters
+                            .sortedByDescending { it.number }
+                            .take(newCount)
+                            .map { ch ->
+                                NewChapterEntry(
+                                    id = "${manga.id}:${ch.id}",
+                                    mangaId = manga.id,
+                                    mangaTitle = manga.title,
+                                    coverUrl = manga.coverUrl,
+                                    provider = manga.provider,
+                                    chapterId = ch.id,
+                                    chapterTitle = ch.title.ifBlank { "Chapter ${ch.number}" },
+                                    chapterNumber = ch.number,
+                                )
+                            }
+                        if (newest.isNotEmpty()) db.updatesDao().upsert(newest)
                     }
                 }
             }

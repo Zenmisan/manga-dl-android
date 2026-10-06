@@ -61,6 +61,8 @@ fun MangaDetailScreen(
     onOpenChapter: (UiChapter) -> Unit,
     onToggleLibrary: () -> Unit = {},
     onWebView: () -> Unit = {},
+    onDownloadChapter: (UiChapter) -> Unit = {},
+    onDownloadAllChapters: () -> Unit = {},
     initiallyTracking: Boolean = false,
     genres: List<String> = emptyList(),
     trackers: List<UiTracker> = emptyList(),
@@ -73,6 +75,27 @@ fun MangaDetailScreen(
     var showTracking by rememberState(initiallyTracking)
     var synopsisOpen by rememberState(false)
 
+    var sortAscending by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    var filterMode by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf("all") }
+
+    val displayChapters = androidx.compose.runtime.remember(chapters, sortAscending, filterMode) {
+        chapters
+            .let { list ->
+                when (filterMode) {
+                    "unread" -> list.filter { !it.read }
+                    "downloaded" -> list.filter { it.downloaded }
+                    else -> list
+                }
+            }
+            .let { list ->
+                if (sortAscending) {
+                    list.sortedBy { it.number.toFloatOrNull() ?: 0f }
+                } else {
+                    list.sortedByDescending { it.number.toFloatOrNull() ?: 0f }
+                }
+            }
+    }
+
     Box(Modifier.fillMaxSize().background(c.bg)) {
         LazyColumn(Modifier.fillMaxSize().navigationBarsPadding()) {
             item {
@@ -80,8 +103,8 @@ fun MangaDetailScreen(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         MdIconButton(MdIcons.Back, "Back", onBack)
                         Row {
-                            MdIconButton(MdIcons.Download, "Download chapters", {})
-                            MdIconButton(MdIcons.More, "More options", {})
+                            MdIconButton(MdIcons.Download, "Download chapters", onDownloadAllChapters)
+                            MdIconButton(MdIcons.Globe, "Open in browser", onWebView)
                         }
                     }
                     VSpace(12.dp)
@@ -89,6 +112,7 @@ fun MangaDetailScreen(
                         CoverArt(
                             manga.cover.copy(red = manga.cover.red * 0.6f, green = manga.cover.green * 0.6f, blue = manga.cover.blue * 0.6f),
                             Modifier.size(112.dp, 168.dp).border(1.dp, c.border, RoundedCornerShape(10.dp)),
+                            imageUrl = manga.coverUrl,
                         )
                         Column(Modifier.align(Alignment.Bottom), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             DisplayText(manga.title, 30.sp, lineHeight = 32.sp)
@@ -148,13 +172,37 @@ fun MangaDetailScreen(
                         Modifier.padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        BodyText("${chapters.size} chapters", Modifier.weight(1f), size = 15.sp, weight = FontWeight.ExtraBold)
-                        MdIconButton(MdIcons.Sort, "Sort chapters", {}, iconSize = 20.dp)
-                        MdIconButton(MdIcons.Filter, "Filter chapters", {}, iconSize = 20.dp)
+                        val filterLabel = if (filterMode != "all") " · ${filterMode.replaceFirstChar { it.uppercaseChar() }}" else ""
+                        val sortLabel = if (sortAscending) " (Asc)" else " (Desc)"
+                        BodyText(
+                            "${displayChapters.size} chapters$filterLabel$sortLabel",
+                            Modifier.weight(1f),
+                            size = 15.sp,
+                            weight = FontWeight.ExtraBold
+                        )
+                        MdIconButton(
+                            MdIcons.Sort,
+                            "Sort ${if (sortAscending) "descending" else "ascending"}",
+                            { sortAscending = !sortAscending },
+                            iconSize = 20.dp
+                        )
+                        MdIconButton(
+                            MdIcons.Filter,
+                            "Filter chapters ($filterMode)",
+                            {
+                                filterMode = when (filterMode) {
+                                    "all" -> "unread"
+                                    "unread" -> "downloaded"
+                                    else -> "all"
+                                }
+                            },
+                            iconSize = 20.dp,
+                            tint = if (filterMode != "all") c.accentLight else c.fg
+                        )
                     }
                 }
             }
-            items(chapters, key = { it.number }) { ch -> ChapterRow(ch, { onOpenChapter(ch) }) }
+            items(displayChapters, key = { "${it.number}_${it.title}" }) { ch -> ChapterRow(ch, { onOpenChapter(ch) }, { onDownloadChapter(ch) }) }
         }
 
         TrackingSheet(visible = showTracking, onDismiss = { showTracking = false }, mangaId = manga.id, mangaTitle = manga.title)
@@ -194,7 +242,7 @@ private fun ActionTile(label: String, icon: ImageVector, onClick: () -> Unit, mo
 }
 
 @Composable
-private fun ChapterRow(ch: UiChapter, onClick: () -> Unit) {
+private fun ChapterRow(ch: UiChapter, onClick: () -> Unit, onDownload: () -> Unit = {}) {
     val c = MdTheme.colors
     Row(
         Modifier
@@ -214,7 +262,7 @@ private fun ChapterRow(ch: UiChapter, onClick: () -> Unit) {
                 Icon(MdIcons.Check, "Downloaded", tint = c.accentLight, modifier = Modifier.size(20.dp))
             }
         } else {
-            MdIconButton(MdIcons.Download, "Download chapter", {}, tint = c.fg.copy(alpha = 0.7f), iconSize = 20.dp)
+            MdIconButton(MdIcons.Download, "Download chapter", onDownload, tint = c.fg.copy(alpha = 0.7f), iconSize = 20.dp)
         }
     }
 }

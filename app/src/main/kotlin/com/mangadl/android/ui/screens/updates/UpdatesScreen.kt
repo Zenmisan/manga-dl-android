@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mangadl.android.data.ui.UpdateGroup
+import com.mangadl.android.data.ui.UpdateItem
 import com.mangadl.android.ui.components.BodyText
 import com.mangadl.android.ui.components.CoverArt
 import com.mangadl.android.ui.components.Eyebrow
@@ -28,7 +29,13 @@ import com.mangadl.android.ui.components.TabHeader
 import com.mangadl.android.ui.theme.MdTheme
 
 @Composable
-fun UpdatesScreen(groups: List<UpdateGroup>, onOpenChapter: () -> Unit, onRefresh: () -> Unit = {}, lastChecked: String? = null) {
+fun UpdatesScreen(
+    groups: List<UpdateGroup>,
+    onOpenChapter: (UpdateItem) -> Unit,
+    onDownloadChapter: (UpdateItem) -> Unit = {},
+    onRefresh: () -> Unit = {},
+    lastChecked: String? = null,
+) {
     val c = MdTheme.colors
     Column(Modifier.fillMaxSize()) {
         TabHeader("Updates", Modifier.padding(bottom = 0.dp)) {
@@ -43,17 +50,17 @@ fun UpdatesScreen(groups: List<UpdateGroup>, onOpenChapter: () -> Unit, onRefres
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .clickable(onClick = onOpenChapter)
+                            .clickable { onOpenChapter(u) }
                             .padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        CoverArt(u.manga.cover, Modifier.size(44.dp, 64.dp), RoundedCornerShape(6.dp))
+                        CoverArt(u.manga.cover, Modifier.size(44.dp, 64.dp), RoundedCornerShape(6.dp), imageUrl = u.manga.coverUrl)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             BodyText(u.manga.title, size = 15.sp, weight = FontWeight.Bold)
                             BodyText(u.chapter, size = 13.sp, color = c.fg.copy(alpha = 0.65f))
                         }
-                        MdIconButton(MdIcons.Download, "Download chapter", {}, tint = c.fg.copy(alpha = 0.75f), iconSize = 20.dp)
+                        MdIconButton(MdIcons.Download, "Download chapter", { onDownloadChapter(u) }, tint = c.fg.copy(alpha = 0.75f), iconSize = 20.dp)
                     }
                 }
             }

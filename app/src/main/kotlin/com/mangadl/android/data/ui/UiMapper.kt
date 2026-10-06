@@ -5,6 +5,7 @@ import com.mangadl.android.data.extensions.ExtensionMeta
 import com.mangadl.android.data.model.Chapter
 import com.mangadl.android.data.model.DownloadEntry
 import com.mangadl.android.data.model.LibraryManga
+import com.mangadl.android.data.model.NewChapterEntry
 import com.mangadl.android.data.model.ReadingProgress
 import java.text.SimpleDateFormat
 import java.util.*
@@ -21,6 +22,7 @@ fun LibraryManga.toUiManga(): Manga {
         id = id,
         title = title,
         cover = COVER_PALETTE[colorIndex],
+        coverUrl = coverUrl,
         source = provider,
         inLibrary = true,
         unread = (totalChapters - readCount).coerceAtLeast(0),
@@ -65,22 +67,41 @@ fun ExtensionMeta.toUiExtension(state: ExtensionState = ExtensionState.Installed
     )
 }
 
-fun List<LibraryManga>.toUpdateGroups(): List<UpdateGroup> {
+fun NewChapterEntry.toUpdateItem(): UpdateItem {
+    val colorIndex = mangaId.hashCode().let { if (it < 0) -it else it } % COVER_PALETTE.size
+    val manga = Manga(
+        id = mangaId,
+        title = mangaTitle,
+        cover = COVER_PALETTE[colorIndex],
+        coverUrl = coverUrl,
+        source = provider,
+        inLibrary = true,
+    )
+    val numberLabel = if (chapterNumber % 1f == 0f) chapterNumber.toInt().toString() else chapterNumber.toString()
+    return UpdateItem(
+        manga = manga,
+        chapter = "Ch. $numberLabel · $chapterTitle",
+        chapterId = chapterId,
+        chapterNumber = chapterNumber,
+        publishedAt = detectedAt,
+    )
+}
+
+fun List<NewChapterEntry>.toUpdateGroups(): List<UpdateGroup> {
     if (isEmpty()) return emptyList()
-    val recent = sortedByDescending { it.lastReadAt ?: it.addedAt }
-    val now = System.currentTimeMillis()
+    val recent = sortedByDescending { it.detectedAt }
     val cal = Calendar.getInstance()
     cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
     val todayStart = cal.timeInMillis
     val yesterdayStart = todayStart - 86_400_000L
     val groups = mutableListOf<UpdateGroup>()
-    fun bucket(items: List<LibraryManga>, label: String) {
+    fun bucket(items: List<NewChapterEntry>, label: String) {
         if (items.isEmpty()) return
-        groups.add(UpdateGroup(label, items.map { UpdateItem(it.toUiManga(), "Ch. ${it.readCount + 1}") }))
+        groups.add(UpdateGroup(label, items.map { it.toUpdateItem() }))
     }
-    bucket(recent.filter { (it.lastReadAt ?: it.addedAt) >= todayStart }, "Today")
-    bucket(recent.filter { val t = it.lastReadAt ?: it.addedAt; t in yesterdayStart until todayStart }, "Yesterday")
-    bucket(recent.filter { (it.lastReadAt ?: it.addedAt) < yesterdayStart }, "Earlier")
+    bucket(recent.filter { it.detectedAt >= todayStart }, "Today")
+    bucket(recent.filter { it.detectedAt in yesterdayStart until todayStart }, "Yesterday")
+    bucket(recent.filter { it.detectedAt < yesterdayStart }, "Earlier")
     return groups
 }
 
@@ -152,7 +173,7 @@ fun DownloadEntry.toUiDownload(manga: Manga): DownloadItem {
         "queued" -> DownloadState.Queued
         "paused" -> DownloadState.Paused
         "failed" -> DownloadState.Failed
-        "done" -> DownloadState.Done
+        "completed" -> DownloadState.Done
         else -> DownloadState.Queued
     }
     val fraction = if (totalPages > 0) progress.toFloat() / totalPages else 0f
@@ -164,6 +185,7 @@ fun DownloadEntry.toUiDownload(manga: Manga): DownloadItem {
         DownloadState.Done -> "Done"
     }
     return DownloadItem(
+        id = id,
         manga = manga,
         chapter = chapterTitle,
         status = statusText,

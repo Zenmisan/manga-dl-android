@@ -66,12 +66,20 @@ fun ProfileScreen(onBack: () -> Unit, onEditProfile: () -> Unit) {
     val displayName = username
     val initial = displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
     val email = user?.email ?: ""
+    val context = androidx.compose.ui.platform.LocalContext.current
     Column(Modifier.fillMaxSize().background(c.bg).verticalScroll(rememberScrollState()).navigationBarsPadding()) {
         Box(Modifier.fillMaxWidth()) {
             Box(Modifier.fillMaxWidth().background(Color(0xFF2D1716)).statusBarsPadding().height(128.dp)) {
                 Row(Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                     MdIconButton(MdIcons.Back, "Back", onBack)
-                    MdIconButton(MdIcons.Share, "Share profile", {}, iconSize = 20.dp)
+                    MdIconButton(MdIcons.Share, "Share profile", {
+                        val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(android.content.Intent.EXTRA_SUBJECT, "Manga-DL Profile")
+                            putExtra(android.content.Intent.EXTRA_TEXT, "Manga-DL: $displayName ($chaptersRead chapters read, $streak-day streak)")
+                        }
+                        context.startActivity(android.content.Intent.createChooser(sendIntent, "Share profile"))
+                    }, iconSize = 20.dp)
                 }
             }
             Box(

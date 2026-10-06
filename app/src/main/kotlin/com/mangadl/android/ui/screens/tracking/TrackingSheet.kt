@@ -166,6 +166,10 @@ fun TrackingSheet(
 @Composable
 private fun TrackedCard(tracker: TrackerDef, onRemove: () -> Unit) {
     val c = MdTheme.colors
+    var startDate by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var endDate by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    val today = java.time.LocalDate.now().toString()
+
     Column(
         Modifier
             .fillMaxWidth()
@@ -186,8 +190,16 @@ private fun TrackedCard(tracker: TrackerDef, onRemove: () -> Unit) {
             TrackField("Score", "—", Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MdButton("Set start date", {}, Modifier.weight(1f), tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 12.sp, horizontalPadding = 8.dp)
-            MdButton("Set end date", {}, Modifier.weight(1f), tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 12.sp, horizontalPadding = 8.dp)
+            MdButton(
+                startDate?.let { "Start: $it" } ?: "Set start date",
+                { startDate = if (startDate == null) today else null },
+                Modifier.weight(1f), tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 12.sp, horizontalPadding = 8.dp,
+            )
+            MdButton(
+                endDate?.let { "End: $it" } ?: "Set end date",
+                { endDate = if (endDate == null) today else null },
+                Modifier.weight(1f), tone = ButtonTone.Ghost, height = 44.dp, shape = RoundedCornerShape(12.dp), fontSize = 12.sp, horizontalPadding = 8.dp,
+            )
         }
     }
 }
@@ -199,8 +211,7 @@ private fun TrackField(label: String, value: String, modifier: Modifier) {
         modifier
             .height(56.dp)
             .clip(RoundedCornerShape(12.dp))
-            .border(1.dp, c.track, RoundedCornerShape(12.dp))
-            .clickable(role = Role.Button) {},
+            .border(1.dp, c.track, RoundedCornerShape(12.dp)),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
     ) {

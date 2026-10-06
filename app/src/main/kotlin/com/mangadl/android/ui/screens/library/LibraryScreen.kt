@@ -284,6 +284,7 @@ fun CoverCell(
             CoverArt(
                 if (dimInLibrary && manga.inLibrary) manga.cover.copy(alpha = 0.55f) else manga.cover,
                 Modifier.fillMaxSize(),
+                imageUrl = manga.coverUrl,
             )
             if (showInLibraryTag && manga.inLibrary) {
                 InLibraryTag(Modifier.padding(6.dp))
@@ -313,7 +314,7 @@ private fun ContinueCard(item: ContinueItem, onResume: () -> Unit, modifier: Mod
     val c = MdTheme.colors
     SurfaceCard(modifier.fillMaxWidth()) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            CoverArt(item.manga.cover, Modifier.size(64.dp, 96.dp), RoundedCornerShape(8.dp))
+            CoverArt(item.manga.cover, Modifier.size(64.dp, 96.dp), RoundedCornerShape(8.dp), imageUrl = item.manga.coverUrl)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Eyebrow("Continue")
                 BodyText(item.manga.title, size = 16.sp, weight = FontWeight.Bold)

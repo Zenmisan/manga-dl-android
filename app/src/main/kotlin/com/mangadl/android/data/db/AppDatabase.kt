@@ -6,17 +6,19 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.mangadl.android.data.model.DownloadEntry
 import com.mangadl.android.data.model.LibraryManga
+import com.mangadl.android.data.model.NewChapterEntry
 import com.mangadl.android.data.model.ReadingProgress
 
 @Database(
-    entities = [LibraryManga::class, ReadingProgress::class, DownloadEntry::class],
-    version = 1,
+    entities = [LibraryManga::class, ReadingProgress::class, DownloadEntry::class, NewChapterEntry::class],
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun libraryDao(): LibraryDao
     abstract fun progressDao(): ProgressDao
     abstract fun downloadDao(): DownloadDao
+    abstract fun updatesDao(): UpdatesDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -27,7 +29,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "manga_dl.db"
-                ).build().also { instance = it }
+                ).fallbackToDestructiveMigration().build().also { instance = it }
             }
     }
 }

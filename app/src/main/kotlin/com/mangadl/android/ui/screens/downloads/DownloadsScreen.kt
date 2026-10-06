@@ -13,8 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,40 +31,67 @@ import com.mangadl.android.ui.components.MdIcons
 import com.mangadl.android.ui.components.PillButton
 import com.mangadl.android.ui.components.ProgressBar
 import com.mangadl.android.ui.components.Screen
-import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.theme.MdTheme
 
 @Composable
-fun DownloadsScreen(items: List<DownloadItem>, onBack: () -> Unit) {
+fun DownloadsScreen(
+    items: List<DownloadItem>,
+    onBack: () -> Unit,
+    isPaused: Boolean = false,
+    storageBytes: Long = 0L,
+    onTogglePauseAll: () -> Unit = {},
+    onItemAction: (DownloadItem) -> Unit = {},
+) {
     val c = MdTheme.colors
-    var paused by rememberState(false)
+    val formattedStorage = formatBytes(storageBytes)
+    val storageFraction = (storageBytes.toFloat() / (5L * 1024 * 1024 * 1024)).coerceIn(0f, 1f)
+
     Screen {
         BackHeader("Downloads", onBack) {
-            PillButton(if (paused) "Resume All" else "Pause All", { paused = !paused }, tone = ButtonTone.Primary, height = 40.dp)
+            PillButton(
+                if (isPaused) "Resume All" else "Pause All",
+                onTogglePauseAll,
+                tone = ButtonTone.Primary,
+                height = 40.dp
+            )
         }
-        BodyText("${items.size} in queue · Wi-Fi only", Modifier.padding(start = 20.dp, bottom = 12.dp), size = 13.sp, color = c.fg.copy(alpha = 0.65f))
+        BodyText(
+            "${items.size} in queue · Wi-Fi only",
+            Modifier.padding(start = 20.dp, bottom = 12.dp),
+            size = 13.sp,
+            color = c.fg.copy(alpha = 0.65f)
+        )
         LazyColumn(
             Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(items) { d -> DownloadCard(d) }
+            items(items) { d ->
+                DownloadCard(d, onAction = { onItemAction(d) })
+            }
         }
         Column(Modifier.fillMaxWidth()) {
             Divider(color = c.surfaceHigh)
-            Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Row {
                     BodyText("Device storage used by manga-dl", Modifier.weight(1f), size = 13.sp, color = c.fg.copy(alpha = 0.7f))
-                    BodyText("—", size = 13.sp, weight = FontWeight.Bold)
+                    BodyText(formattedStorage, size = 13.sp, weight = FontWeight.Bold)
                 }
-                ProgressBar(0.4f, color = c.fg, height = 6.dp)
+                ProgressBar(storageFraction, color = c.fg, height = 6.dp)
             }
         }
     }
 }
 
 @Composable
-fun DownloadCard(d: DownloadItem, modifier: Modifier = Modifier) {
+fun DownloadCard(
+    d: DownloadItem,
+    onAction: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val c = MdTheme.colors
     val stateColor = when (d.state) {
         DownloadState.Failed -> c.errorText
@@ -95,12 +120,20 @@ fun DownloadCard(d: DownloadItem, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        CoverArt(d.manga.cover, Modifier.size(36.dp, 54.dp), RoundedCornerShape(6.dp))
+        CoverArt(d.manga.cover, Modifier.size(36.dp, 54.dp), RoundedCornerShape(6.dp), imageUrl = d.manga.coverUrl)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             BodyText("${d.manga.title} · ${d.chapter}", weight = FontWeight.Bold, maxLines = 1)
             BodyText(d.status, size = 12.sp, weight = FontWeight.SemiBold, color = stateColor)
             ProgressBar(d.progress, color = barColor)
         }
-        MdIconButton(icon, label, {}, background = c.surfaceHigh, iconSize = 18.dp)
+        MdIconButton(icon, label, onAction, background = c.surfaceHigh, iconSize = 18.dp)
     }
+}
+
+private fun formatBytes(bytes: Long): String {
+    if (bytes <= 0) return "0 MB"
+    val mb = bytes.toDouble() / (1024 * 1024)
+    if (mb < 1024) return String.format("%.1f MB", mb)
+    val gb = mb / 1024
+    return String.format("%.2f GB", gb)
 }

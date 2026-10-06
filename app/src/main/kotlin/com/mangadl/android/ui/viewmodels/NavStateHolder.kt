@@ -10,4 +10,5 @@ class NavStateHolder : ViewModel() {
     var chapterLabel: String = ""
     var localPages: List<String> = emptyList()
     var isLocalRead: Boolean = false
+    var chapters: List<com.mangadl.android.data.model.Chapter> = emptyList()
 }

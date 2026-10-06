@@ -201,12 +201,86 @@ fun ProgressBar(
 
 @Composable
 fun CoverArt(
+    imageUrl: String?,
+    modifier: Modifier = Modifier,
+    placeholderColor: Color = Color(0xFF1A2433),
+    shape: Shape = RoundedCornerShape(10.dp),
+    contentDescription: String? = null,
+    content: @Composable BoxScope.() -> Unit = {},
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val url = imageUrl?.trim()
+    val resolvedUrl = androidx.compose.runtime.remember(url) {
+        if (!url.isNullOrBlank() && url.startsWith("/")) {
+            "${com.mangadl.android.BuildConfig.BACKEND_URL.trimEnd('/')}/api$url"
+        } else url
+    }
+    val referer = androidx.compose.runtime.remember(resolvedUrl) {
+        if (!resolvedUrl.isNullOrBlank() && resolvedUrl.startsWith("http")) {
+            resolvedUrl.split("/").take(3).joinToString("/") + "/"
+        } else ""
+    }
+
+    Box(modifier.clip(shape).background(placeholderColor)) {
+        if (!resolvedUrl.isNullOrBlank()) {
+            coil.compose.SubcomposeAsyncImage(
+                model = coil.request.ImageRequest.Builder(context)
+                    .data(resolvedUrl)
+                    .apply {
+                        if (referer.isNotEmpty()) addHeader("Referer", referer)
+                    }
+                    .crossfade(true)
+                    .build(),
+                contentDescription = contentDescription,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.matchParentSize(),
+                loading = {
+                    Box(Modifier.matchParentSize().background(placeholderColor))
+                },
+                error = {
+                    Box(Modifier.matchParentSize().background(placeholderColor))
+                },
+            )
+        }
+        content()
+    }
+}
+
+@Composable
+fun CoverArt(
     color: Color,
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(10.dp),
+    imageUrl: String? = null,
     content: @Composable BoxScope.() -> Unit = {},
 ) {
-    Box(modifier.clip(shape).background(color), content = content)
+    CoverArt(
+        imageUrl = imageUrl,
+        modifier = modifier,
+        placeholderColor = color,
+        shape = shape,
+        content = content,
+    )
+}
+
+@Composable
+fun CoverArt(
+    manga: com.mangadl.android.data.ui.Manga,
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(10.dp),
+    dimmed: Boolean = false,
+    contentDescription: String? = null,
+    content: @Composable BoxScope.() -> Unit = {},
+) {
+    val placeholder = if (dimmed) manga.cover.copy(alpha = 0.55f) else manga.cover
+    CoverArt(
+        imageUrl = manga.coverUrl,
+        modifier = modifier,
+        placeholderColor = placeholder,
+        shape = shape,
+        contentDescription = contentDescription ?: manga.title,
+        content = content,
+    )
 }
 
 @Composable

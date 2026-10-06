@@ -32,7 +32,16 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _state.value = ReaderState.Loading
             runCatching {
-                extMgr.getPages(sourceId, chapterId)
+                val rawPages = extMgr.getPages(sourceId, chapterId)
+                val backendBase = com.mangadl.android.BuildConfig.BACKEND_URL.trimEnd('/')
+                rawPages.map { url ->
+                    when {
+                        url.startsWith("http://") || url.startsWith("https://") -> url
+                        url.startsWith("/api/") -> "$backendBase$url"
+                        url.startsWith("/") -> "$backendBase/api$url"
+                        else -> url
+                    }
+                }
             }.onSuccess { pages ->
                 _state.value = if (pages.isEmpty()) ReaderState.Error("No pages found")
                 else ReaderState.Success(pages)

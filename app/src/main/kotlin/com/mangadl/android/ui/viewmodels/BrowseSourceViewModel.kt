@@ -47,7 +47,7 @@ class BrowseSourceViewModel(app: Application) : AndroidViewModel(app) {
             }.onSuccess { results ->
                 _items.value = results.map { r ->
                     val idx = r.id.hashCode().let { h -> if (h < 0) -h else h } % COVER_PALETTE.size
-                    Manga(id = r.id, title = r.title, cover = COVER_PALETTE[idx], source = r.provider)
+                    Manga(id = r.id, title = r.title, cover = COVER_PALETTE[idx], coverUrl = r.coverUrl, source = r.provider)
                 }
             }.onFailure { e ->
                 _error.value = e.message ?: "Failed to load"

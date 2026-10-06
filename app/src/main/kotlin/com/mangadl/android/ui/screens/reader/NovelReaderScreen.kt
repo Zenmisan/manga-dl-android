@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,25 +22,40 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mangadl.android.data.model.Chapter
+import com.mangadl.android.data.prefs.AppPreferences
+import com.mangadl.android.data.prefs.PrefKeys
 import com.mangadl.android.ui.components.BodyText
 import com.mangadl.android.ui.components.ButtonTone
+import com.mangadl.android.ui.components.DisplayText
 import com.mangadl.android.ui.components.MdButton
 import com.mangadl.android.ui.components.MdIconButton
 import com.mangadl.android.ui.components.MdIcons
@@ -48,6 +64,7 @@ import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.theme.Inter
 import com.mangadl.android.ui.theme.MdTheme
 import com.mangadl.android.ui.theme.PtSerif
+import kotlinx.coroutines.launch
 
 private enum class NovelTheme(val label: String, val bg: Color, val fg: Color) {
     Dark("Dark", Color(0xFF0D0D0D), Color.White.copy(alpha = 0.86f)),
@@ -56,44 +73,127 @@ private enum class NovelTheme(val label: String, val bg: Color, val fg: Color) {
     Light("Light", Color(0xFFF5F5F2), Color(0xFF1F1F1F)),
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NovelReaderScreen(
     novelTitle: String,
     chapterLabel: String,
+    paragraphs: List<String> = emptyList(),
+    loading: Boolean = false,
+    error: String? = null,
+    hasPrev: Boolean = false,
+    hasNext: Boolean = false,
+    chapters: List<Chapter> = emptyList(),
     onClose: () -> Unit,
     onChapterList: () -> Unit = {},
+    onSelectChapter: (Chapter) -> Unit = {},
     onPrevChapter: () -> Unit = {},
     onNextChapter: () -> Unit = {},
+    onProgressChange: (Float) -> Unit = {},
     initiallyShowControls: Boolean = true,
 ) {
     val c = MdTheme.colors
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val appPrefs = remember { AppPreferences.getInstance(context) }
+
+    val savedTheme by appPrefs.novelTheme.collectAsState(initial = "Dark")
+    val savedSize by appPrefs.novelFontSize.collectAsState(initial = 18f)
+    val savedSerif by appPrefs.novelSerif.collectAsState(initial = true)
+
     var controls by rememberState(initiallyShowControls)
-    var serif by rememberState(true)
-    var size by rememberState(18f)
-    var theme by rememberState(NovelTheme.Dark)
+    var serif by remember(savedSerif) { mutableStateOf(savedSerif) }
+    var size by remember(savedSize) { mutableStateOf(savedSize) }
+    var theme by remember(savedTheme) {
+        mutableStateOf(NovelTheme.entries.find { it.label.equals(savedTheme, ignoreCase = true) } ?: NovelTheme.Dark)
+    }
+    var showChapterSheet by rememberState(false)
+
     val bodyStyle = TextStyle(
         fontFamily = if (serif) PtSerif else Inter,
         fontSize = size.sp,
-        lineHeight = (size * 1.7f).sp,
+        lineHeight = (size * 1.75f).sp,
         color = theme.fg,
     )
 
+    val scrollState = rememberScrollState()
+
+    val scrollPercent = remember(scrollState.value, scrollState.maxValue) {
+        if (scrollState.maxValue > 0) {
+            (scrollState.value.toFloat() / scrollState.maxValue).coerceIn(0f, 1f)
+        } else 0f
+    }
+
+    LaunchedEffect(scrollPercent) {
+        onProgressChange(scrollPercent)
+    }
+
     Box(Modifier.fillMaxSize().background(theme.bg)) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .clickable(remember { MutableInteractionSource() }, indication = null) { controls = !controls }
-                .statusBarsPadding()
-                .padding(start = 24.dp, end = 24.dp, top = 84.dp, bottom = 320.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
-            BodyText(chapterLabel.uppercase(), size = 13.sp, weight = FontWeight.ExtraBold, color = theme.fg.copy(alpha = 0.6f))
-            listOf(
-                "[Chapter text loads here in the reading font. Size, line height, margins and theme all come from the controls below.]",
-                "[Paragraphs keep generous spacing so long sessions stay comfortable on a phone screen.]",
-                "[Scroll progress is saved per chapter and synced like manga progress.]",
-            ).forEach { androidx.compose.material3.Text(it, style = bodyStyle) }
+        when {
+            loading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        CircularProgressIndicator(color = c.accentSoft)
+                        BodyText("Loading chapter…", size = 14.sp, color = theme.fg.copy(alpha = 0.7f))
+                    }
+                }
+            }
+            error != null -> {
+                Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        BodyText(error, size = 14.sp, color = theme.fg.copy(alpha = 0.8f))
+                        MdButton("Retry", { onPrevChapter() }, height = 44.dp)
+                    }
+                }
+            }
+            else -> {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                        .clickable(remember { MutableInteractionSource() }, indication = null) { controls = !controls }
+                        .statusBarsPadding()
+                        .padding(start = 24.dp, end = 24.dp, top = 84.dp, bottom = 320.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                ) {
+                    BodyText(chapterLabel.uppercase(), size = 13.sp, weight = FontWeight.ExtraBold, color = theme.fg.copy(alpha = 0.6f))
+                    paragraphs.forEach { paragraph ->
+                        androidx.compose.material3.Text(paragraph, style = bodyStyle)
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (hasPrev) {
+                            MdButton(
+                                "Previous Chapter",
+                                onPrevChapter,
+                                Modifier.weight(1f),
+                                tone = ButtonTone.Ghost,
+                                height = 48.dp,
+                                shape = RoundedCornerShape(12.dp),
+                                fontSize = 13.sp,
+                            )
+                        }
+                        if (hasNext) {
+                            MdButton(
+                                "Next Chapter",
+                                onNextChapter,
+                                Modifier.weight(1f),
+                                tone = ButtonTone.Primary,
+                                height = 48.dp,
+                                shape = RoundedCornerShape(12.dp),
+                                fontSize = 13.sp,
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         AnimatedVisibility(controls, modifier = Modifier.align(Alignment.TopCenter), enter = fadeIn(), exit = fadeOut()) {
@@ -102,9 +202,17 @@ fun NovelReaderScreen(
                     MdIconButton(MdIcons.Back, "Close reader", onClose)
                     Column(Modifier.weight(1f)) {
                         BodyText(novelTitle, size = 15.sp, weight = FontWeight.Bold, maxLines = 1)
-                        BodyText("Ch. 12 · 34%", size = 12.sp, color = c.fg.copy(alpha = 0.65f))
+                        val pctText = "${(scrollPercent * 100).toInt()}%"
+                        BodyText(
+                            if (chapterLabel.isNotBlank()) "$chapterLabel · $pctText" else pctText,
+                            size = 12.sp,
+                            color = c.fg.copy(alpha = 0.65f),
+                            maxLines = 1,
+                        )
                     }
-                    MdIconButton(MdIcons.ListBullets, "Chapter list", onChapterList)
+                    MdIconButton(MdIcons.ListBullets, "Chapter list", {
+                        if (chapters.isNotEmpty()) showChapterSheet = true else onChapterList()
+                    })
                 }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(c.dividerStrong))
             }
@@ -123,14 +231,36 @@ fun NovelReaderScreen(
             ) {
                 NovelControlRow("Font") {
                     Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        NovelFontOption("Serif", serif, PtSerif, Modifier.weight(1f)) { serif = true }
-                        NovelFontOption("Sans", !serif, Inter, Modifier.weight(1f)) { serif = false }
+                        NovelFontOption("Serif", serif, PtSerif, Modifier.weight(1f)) {
+                            serif = true
+                            scope.launch { appPrefs.set(PrefKeys.NOVEL_SERIF, true) }
+                        }
+                        NovelFontOption("Sans", !serif, Inter, Modifier.weight(1f)) {
+                            serif = false
+                            scope.launch { appPrefs.set(PrefKeys.NOVEL_SERIF, false) }
+                        }
                     }
                 }
                 NovelControlRow("Size") {
-                    NovelSizeButton("A−", 13, "Smaller text") { size = (size - 1f).coerceAtLeast(14f) }
-                    MdSlider(size, { size = it }, Modifier.weight(1f), valueRange = 14f..26f)
-                    NovelSizeButton("A+", 17, "Larger text") { size = (size + 1f).coerceAtMost(26f) }
+                    NovelSizeButton("A−", 13, "Smaller text") {
+                        val newSize = (size - 1f).coerceAtLeast(14f)
+                        size = newSize
+                        scope.launch { appPrefs.set(PrefKeys.NOVEL_FONT_SIZE, newSize) }
+                    }
+                    MdSlider(
+                        size,
+                        { newSize ->
+                            size = newSize
+                            scope.launch { appPrefs.set(PrefKeys.NOVEL_FONT_SIZE, newSize) }
+                        },
+                        Modifier.weight(1f),
+                        valueRange = 14f..26f,
+                    )
+                    NovelSizeButton("A+", 17, "Larger text") {
+                        val newSize = (size + 1f).coerceAtMost(26f)
+                        size = newSize
+                        scope.launch { appPrefs.set(PrefKeys.NOVEL_FONT_SIZE, newSize) }
+                    }
                 }
                 NovelControlRow("Theme") {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -141,14 +271,71 @@ fun NovelReaderScreen(
                                     .clip(CircleShape)
                                     .background(t.bg)
                                     .border(if (t == theme) 2.dp else 1.dp, if (t == theme) c.accent else c.fg.copy(alpha = 0.2f), CircleShape)
-                                    .clickable(role = Role.RadioButton) { theme = t },
+                                    .clickable(role = Role.RadioButton) {
+                                        theme = t
+                                        scope.launch { appPrefs.set(PrefKeys.NOVEL_THEME, t.label) }
+                                    },
                             )
                         }
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MdButton("Prev Chapter", onPrevChapter, Modifier.weight(1f), tone = ButtonTone.Ghost, height = 48.dp, shape = RoundedCornerShape(12.dp), fontSize = 13.sp, horizontalPadding = 8.dp)
-                    MdButton("Next Chapter", onNextChapter, Modifier.weight(1f), height = 48.dp, shape = RoundedCornerShape(12.dp), fontSize = 13.sp, horizontalPadding = 8.dp)
+                    MdButton(
+                        "Prev Chapter",
+                        onPrevChapter,
+                        Modifier.weight(1f),
+                        enabled = hasPrev,
+                        tone = ButtonTone.Ghost,
+                        height = 48.dp,
+                        shape = RoundedCornerShape(12.dp),
+                        fontSize = 13.sp,
+                        horizontalPadding = 8.dp,
+                    )
+                    MdButton(
+                        "Next Chapter",
+                        onNextChapter,
+                        Modifier.weight(1f),
+                        enabled = hasNext,
+                        height = 48.dp,
+                        shape = RoundedCornerShape(12.dp),
+                        fontSize = 13.sp,
+                        horizontalPadding = 8.dp,
+                    )
+                }
+            }
+        }
+
+        if (showChapterSheet && chapters.isNotEmpty()) {
+            ModalBottomSheet(
+                onDismissRequest = { showChapterSheet = false },
+                sheetState = rememberModalBottomSheetState(),
+                containerColor = c.sheet,
+            ) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
+                    DisplayText("Chapters (${chapters.size})", 20.sp)
+                    Spacer(Modifier.height(12.dp))
+                    LazyColumn(Modifier.fillMaxWidth().height(400.dp)) {
+                        items(chapters, key = { it.id }) { ch ->
+                            val chNum = if (ch.number > 0) "Ch. ${ch.number.toString().trimEnd('0').trimEnd('.')}" else ""
+                            val label = listOf(chNum, ch.title).filter { it.isNotBlank() }.joinToString(" · ")
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        showChapterSheet = false
+                                        onSelectChapter(ch)
+                                    }
+                                    .padding(vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                BodyText(label, size = 14.sp, weight = FontWeight.SemiBold, maxLines = 1)
+                                if (ch.publishedAt.isNotBlank()) {
+                                    BodyText(ch.publishedAt, size = 12.sp, color = c.fgSubtle)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

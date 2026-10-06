@@ -74,7 +74,9 @@ fun LocalFileDetailScreen(
     Screen {
         Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 16.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             MdIconButton(MdIcons.Back, "Back", onBack)
-            MdIconButton(MdIcons.More, "More options", {})
+            MdIconButton(MdIcons.Upload, "Open another file", {
+                filePicker.launch(arrayOf("application/zip", "application/x-cbz", "application/octet-stream", "*/*"))
+            })
         }
 
         when {

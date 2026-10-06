@@ -6,6 +6,7 @@ data class Manga(
     val id: String,
     val title: String,
     val cover: Color,
+    val coverUrl: String? = null,
     val unread: Int = 0,
     val downloaded: Boolean = false,
     val inLibrary: Boolean = false,
@@ -22,7 +23,13 @@ data class UiChapter(
     val downloaded: Boolean = false,
 )
 
-data class UpdateItem(val manga: Manga, val chapter: String)
+data class UpdateItem(
+    val manga: Manga,
+    val chapter: String,
+    val chapterId: String = "",
+    val chapterNumber: Float = 0f,
+    val publishedAt: Long = 0L,
+)
 data class UpdateGroup(val label: String, val items: List<UpdateItem>)
 
 data class HistoryItem(val manga: Manga, val where: String, val whenText: String)
@@ -31,7 +38,7 @@ enum class NoticeKind { Info, Error, Success }
 data class Notice(val title: String, val body: String, val whenText: String, val unread: Boolean, val kind: NoticeKind, val icon: String)
 
 enum class DownloadState { Downloading, Queued, Paused, Failed, Done }
-data class DownloadItem(val manga: Manga, val chapter: String, val status: String, val progress: Float, val state: DownloadState)
+data class DownloadItem(val id: String, val manga: Manga, val chapter: String, val status: String, val progress: Float, val state: DownloadState)
 
 data class UiSource(val id: String, val name: String, val meta: String, val initial: String, val color: Color)
 

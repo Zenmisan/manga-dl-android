@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,26 +43,59 @@ fun BrowseSourceScreen(
     onOpenManga: (Manga) -> Unit,
 ) {
     val c = MdTheme.colors
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
     var tab by rememberState("Popular")
+    var isSearching by rememberState(false)
+    var searchQuery by rememberState("")
+
+    val displayedItems = remember(items, searchQuery) {
+        if (searchQuery.isBlank()) items
+        else items.filter { it.title.contains(searchQuery, ignoreCase = true) }
+    }
+
     Box(Modifier.fillMaxSize()) {
         Screen {
-            BackHeader(sourceName, onBack) {
-                MdIconButton(MdIcons.Search, "Search this source", {})
-                MdIconButton(MdIcons.Globe, "Open in WebView", {})
+            if (isSearching) {
+                Row(
+                    Modifier.padding(start = 8.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    MdIconButton(MdIcons.Back, "Close search", {
+                        isSearching = false
+                        searchQuery = ""
+                    })
+                    com.mangadl.android.ui.components.SearchField(
+                        searchQuery,
+                        { searchQuery = it },
+                        "Filter $sourceName…",
+                        Modifier.weight(1f),
+                        focused = true,
+                    )
+                }
+            } else {
+                BackHeader(sourceName, onBack) {
+                    MdIconButton(MdIcons.Search, "Search this source", { isSearching = true })
+                    MdIconButton(MdIcons.Globe, "Open in Browser", {
+                        runCatching {
+                            uriHandler.openUri("https://www.google.com/search?q=" + java.net.URLEncoder.encode(sourceName, "UTF-8"))
+                        }
+                    })
+                }
             }
             Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 PillChip("Popular", tab == "Popular", { tab = "Popular" })
                 PillChip("Latest", tab == "Latest", { tab = "Latest" })
             }
             when {
-                loading && items.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                loading && displayedItems.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = c.accentSoft, modifier = Modifier.size(36.dp))
                 }
-                error != null && items.isEmpty() -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                error != null && displayedItems.isEmpty() -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                     BodyText(error, color = c.fgSubtle, size = 14.sp)
                 }
-                items.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    BodyText("No results", color = c.fgSubtle, size = 14.sp)
+                displayedItems.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    BodyText(if (isSearching) "No matches found" else "No results", color = c.fgSubtle, size = 14.sp)
                 }
                 else -> LazyVerticalGrid(
                     GridCells.Fixed(3),
@@ -69,16 +103,11 @@ fun BrowseSourceScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    items(items, key = { it.id }) { m ->
+                    items(displayedItems, key = { it.id }) { m ->
                         CoverCell(m, { onOpenManga(m) }, showInLibraryTag = true, dimInLibrary = true)
                     }
                 }
             }
         }
-        MdButton(
-            "Filters", {},
-            Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(20.dp),
-            height = 52.dp, shape = RoundedCornerShape(16.dp), fontSize = 14.sp, leadingIcon = MdIcons.Filter,
-        )
     }
 }

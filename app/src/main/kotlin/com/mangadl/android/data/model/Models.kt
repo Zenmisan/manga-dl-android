@@ -76,3 +76,17 @@ data class DownloadEntry(
     val completedAt: Long? = null,
     val filePath: String? = null,
 )
+
+/** A chapter detected as new by [com.mangadl.android.data.library.LibraryUpdateWorker] for a subscribed manga. */
+@Entity(tableName = "new_chapters")
+data class NewChapterEntry(
+    @PrimaryKey val id: String, // "$mangaId:$chapterId"
+    val mangaId: String,
+    val mangaTitle: String,
+    val coverUrl: String,
+    val provider: String,
+    val chapterId: String,
+    val chapterTitle: String,
+    val chapterNumber: Float,
+    val detectedAt: Long = System.currentTimeMillis(),
+)

@@ -62,7 +62,12 @@ fun GlobalSearchScreen(
                 Modifier.weight(1f),
                 focused = true,
             ) {
-                MdIconButton(MdIcons.Filter, "Search filters", {}, size = 36.dp, iconSize = 18.dp)
+                if (query.isNotEmpty()) {
+                    MdIconButton(MdIcons.Close, "Clear search", {
+                        query = ""
+                        onSearch("")
+                    }, size = 36.dp, iconSize = 18.dp)
+                }
             }
         }
         UnderlineTabs(listOf("Manga", "Web Novels", "Readers"), tab, { tab = it }, Modifier.padding(horizontal = 20.dp))
@@ -103,7 +108,7 @@ private fun SearchSection(title: String, meta: String, content: @Composable () -
 @Composable
 private fun SearchCover(m: Manga, onClick: () -> Unit) {
     Column(Modifier.width(104.dp).clickable(onClick = onClick), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        CoverArt(m.cover, Modifier.size(104.dp, 156.dp)) {
+        CoverArt(m.cover, Modifier.size(104.dp, 156.dp), imageUrl = m.coverUrl) {
             if (m.inLibrary) InLibraryTag(Modifier.padding(6.dp))
         }
         BodyText(m.title, size = 12.sp, weight = FontWeight.SemiBold, lineHeight = 16.sp, maxLines = 2)
