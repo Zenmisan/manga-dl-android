@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.mangadl.android.MangaDlApp
 import com.mangadl.android.data.ui.Manga
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -30,28 +31,82 @@ class BrowseSourceViewModel(app: Application) : AndroidViewModel(app) {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    private val _currentTab = MutableStateFlow("Popular")
+    val currentTab: StateFlow<String> = _currentTab
+
     private var loadedSourceId = ""
+    private var currentPage = 1
+    private var currentQuery = ""
+    private var hasMorePages = true
+    private var fetchJob: Job? = null
 
     fun load(sourceId: String) {
         if (sourceId == loadedSourceId && _items.value.isNotEmpty()) return
         loadedSourceId = sourceId
-        search(sourceId, "")
+        currentQuery = ""
+        currentPage = 1
+        hasMorePages = true
+        fetch(sourceId, page = 1, append = false)
+    }
+
+    fun setTab(sourceId: String, tab: String) {
+        if (_currentTab.value == tab && currentQuery.isBlank()) return
+        _currentTab.value = tab
+        currentQuery = ""
+        currentPage = 1
+        hasMorePages = true
+        fetch(sourceId, page = 1, append = false)
     }
 
     fun search(sourceId: String, query: String) {
-        viewModelScope.launch(Dispatchers.IO) {
+        currentQuery = query.trim()
+        currentPage = 1
+        hasMorePages = true
+        fetch(sourceId, page = 1, append = false)
+    }
+
+    fun loadMore(sourceId: String) {
+        if (_loading.value || !hasMorePages) return
+        val nextPage = currentPage + 1
+        fetch(sourceId, page = nextPage, append = true)
+    }
+
+    private fun fetch(sourceId: String, page: Int, append: Boolean) {
+        fetchJob?.cancel()
+        fetchJob = viewModelScope.launch(Dispatchers.IO) {
             _loading.value = true
-            _error.value = null
+            if (!append) _error.value = null
             runCatching {
-                extMgr.search(sourceId, query.ifBlank { "a" }, 1)
-            }.onSuccess { results ->
-                _items.value = results.map { r ->
-                    val idx = r.id.hashCode().let { h -> if (h < 0) -h else h } % COVER_PALETTE.size
-                    Manga(id = r.id, title = r.title, cover = COVER_PALETTE[idx], coverUrl = r.coverUrl, source = r.provider)
+                if (currentQuery.isNotBlank()) {
+                    extMgr.search(sourceId, currentQuery, page)
+                } else if (_currentTab.value == "Latest") {
+                    extMgr.getLatest(sourceId, page)
+                } else {
+                    extMgr.getPopular(sourceId, page)
                 }
+            }.onSuccess { results ->
+                val newItems = results.map { r ->
+                    val idx = r.id.hashCode().let { h -> if (h < 0) -h else h } % COVER_PALETTE.size
+                    Manga(
+                        id = r.id,
+                        title = r.title,
+                        cover = COVER_PALETTE[idx],
+                        coverUrl = r.coverUrl,
+                        source = r.provider.ifEmpty { sourceId }
+                    )
+                }
+                if (append) {
+                    _items.value = (_items.value + newItems).distinctBy { it.id }
+                } else {
+                    _items.value = newItems
+                }
+                hasMorePages = newItems.isNotEmpty()
+                currentPage = page
             }.onFailure { e ->
-                _error.value = e.message ?: "Failed to load"
-                _items.value = emptyList()
+                if (!append) {
+                    _error.value = e.message ?: "Failed to load"
+                    _items.value = emptyList()
+                }
             }
             _loading.value = false
         }

@@ -39,18 +39,30 @@ fun BrowseSourceScreen(
     items: List<Manga>,
     loading: Boolean = false,
     error: String? = null,
+    currentTab: String = "Popular",
+    onTabChange: (String) -> Unit = {},
+    onSearch: (String) -> Unit = {},
+    onLoadMore: () -> Unit = {},
     onBack: () -> Unit,
     onOpenManga: (Manga) -> Unit,
 ) {
     val c = MdTheme.colors
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-    var tab by rememberState("Popular")
     var isSearching by rememberState(false)
     var searchQuery by rememberState("")
 
-    val displayedItems = remember(items, searchQuery) {
-        if (searchQuery.isBlank()) items
-        else items.filter { it.title.contains(searchQuery, ignoreCase = true) }
+    val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    val shouldLoadMore by androidx.compose.runtime.remember {
+        androidx.compose.runtime.derivedStateOf {
+            val totalItemsCount = gridState.layoutInfo.totalItemsCount
+            val lastVisibleItemIndex = gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            totalItemsCount > 0 && lastVisibleItemIndex >= totalItemsCount - 6
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore && !loading) {
+            onLoadMore()
+        }
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -64,11 +76,15 @@ fun BrowseSourceScreen(
                     MdIconButton(MdIcons.Back, "Close search", {
                         isSearching = false
                         searchQuery = ""
+                        onSearch("")
                     })
                     com.mangadl.android.ui.components.SearchField(
                         searchQuery,
-                        { searchQuery = it },
-                        "Filter $sourceName…",
+                        {
+                            searchQuery = it
+                            onSearch(it)
+                        },
+                        "Search $sourceName…",
                         Modifier.weight(1f),
                         focused = true,
                     )
@@ -83,27 +99,30 @@ fun BrowseSourceScreen(
                     })
                 }
             }
-            Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PillChip("Popular", tab == "Popular", { tab = "Popular" })
-                PillChip("Latest", tab == "Latest", { tab = "Latest" })
+            if (!isSearching) {
+                Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PillChip("Popular", currentTab == "Popular", { onTabChange("Popular") })
+                    PillChip("Latest", currentTab == "Latest", { onTabChange("Latest") })
+                }
             }
             when {
-                loading && displayedItems.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                loading && items.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = c.accentSoft, modifier = Modifier.size(36.dp))
                 }
-                error != null && displayedItems.isEmpty() -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                error != null && items.isEmpty() -> Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                     BodyText(error, color = c.fgSubtle, size = 14.sp)
                 }
-                displayedItems.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                items.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     BodyText(if (isSearching) "No matches found" else "No results", color = c.fgSubtle, size = 14.sp)
                 }
                 else -> LazyVerticalGrid(
                     GridCells.Fixed(3),
+                    state = gridState,
                     contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 96.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    items(displayedItems, key = { it.id }) { m ->
+                    items(items, key = { it.id }) { m ->
                         CoverCell(m, { onOpenManga(m) }, showInLibraryTag = true, dimInLibrary = true)
                     }
                 }

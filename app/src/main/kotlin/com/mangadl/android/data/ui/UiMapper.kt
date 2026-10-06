@@ -59,6 +59,7 @@ fun ExtensionMeta.toUiSource(): UiSource {
 fun ExtensionMeta.toUiExtension(state: ExtensionState = ExtensionState.Installed): UiExtension {
     val colorIdx = id.hashCode().let { if (it < 0) -it else it } % COVER_PALETTE.size
     return UiExtension(
+        id = id,
         name = name,
         meta = "$lang · v$version",
         initial = name.firstOrNull()?.uppercase() ?: "?",

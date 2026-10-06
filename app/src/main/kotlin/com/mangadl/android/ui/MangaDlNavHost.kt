@@ -433,6 +433,7 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
             val browseItems by browseVm.items.collectAsState()
             val browseLoading by browseVm.loading.collectAsState()
             val browseError by browseVm.error.collectAsState()
+            val currentTab by browseVm.currentTab.collectAsState()
             val src = selectedSource
             LaunchedEffect(src?.id) {
                 if (src != null) browseVm.load(src.id)
@@ -442,6 +443,10 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
                 items = browseItems,
                 loading = browseLoading,
                 error = browseError,
+                currentTab = currentTab,
+                onTabChange = { tab -> if (src != null) browseVm.setTab(src.id, tab) },
+                onSearch = { q -> if (src != null) browseVm.search(src.id, q) },
+                onLoadMore = { if (src != null) browseVm.loadMore(src.id) },
                 onBack = back,
                 onOpenManga = { m ->
                     navState.mangaId = m.id
