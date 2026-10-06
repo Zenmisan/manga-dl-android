@@ -237,8 +237,7 @@ class ExtensionManager(
 
     // Direct HTTP — no Render backend. Proxy patterns are resolved locally:
     //   /manga/proxy/html?url=X → fetch X, return {html, url}
-    //   /manga/proxy/json?url=X → fetch X, return parsed JSON
-    private suspend fun apiFetch(url: String, options: Any?): Any? {
+    internal suspend fun apiFetch(url: String, options: Any? = null): Any? {
         return withContext(Dispatchers.IO) {
             val proxyHtml = url.startsWith("/manga/proxy/html")
             val proxyJson = url.startsWith("/manga/proxy/json")
@@ -270,13 +269,13 @@ class ExtensionManager(
                 val response = httpClient.newCall(requestBuilder.build()).execute()
                 val responseBody = response.body?.string() ?: ""
                 if (!response.isSuccessful) {
-                    Log.w(TAG, "apiFetch HTTP ${response.code}: $resolvedUrl")
+                    try { Log.w(TAG, "apiFetch HTTP ${response.code}: $resolvedUrl") } catch (_: Throwable) {}
                     return@withContext null
                 }
                 if (proxyHtml) mapOf("html" to responseBody, "url" to resolvedUrl)
                 else jsonToKotlin(responseBody)
             } catch (e: Exception) {
-                Log.e(TAG, "apiFetch error: $resolvedUrl", e)
+                try { Log.e(TAG, "apiFetch error: $resolvedUrl", e) } catch (_: Throwable) {}
                 null
             }
         }

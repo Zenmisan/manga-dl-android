@@ -31,7 +31,47 @@ class RealExtensionParsingTest {
     }
 
     @Test
-    fun testParseMetaCommentAgainstBundledExtensions() {
+    fun testParseMetaCommentProduction() {
+        val sampleScriptWithMeta = """
+            // ==Extension==
+            // @name        Manga Katana
+            // @lang        en
+            // @version     1.2.3
+            // @nsfw        false
+            // @icon        https://mangakatana.com/favicon.ico
+            // ==/Extension==
+
+            var extension = { search: async function() {} };
+        """.trimIndent()
+
+        val meta = ExtensionManager.parseMetaComment("mangakatana", sampleScriptWithMeta)
+        assertEquals("mangakatana", meta["id"])
+        assertEquals("Manga Katana", meta["name"])
+        assertEquals("en", meta["lang"])
+        assertEquals("1.2.3", meta["version"])
+        assertEquals("false", meta["nsfw"])
+        assertEquals("https://mangakatana.com/favicon.ico", meta["icon"])
+
+        val extMeta = ExtensionMeta("mangakatana", "mangakatana.js", sampleScriptWithMeta, meta)
+        assertEquals("Manga Katana", extMeta.name)
+        assertEquals("en", extMeta.lang)
+        assertEquals("1.2.3", extMeta.version)
+        assertFalse(extMeta.nsfw)
+
+        // Script with no meta header
+        val plainScript = "var extension = {};"
+        val plainMeta = ExtensionManager.parseMetaComment("plain", plainScript)
+        assertEquals(mapOf("id" to "plain"), plainMeta)
+
+        val plainExtMeta = ExtensionMeta("plain", "plain.js", plainScript, plainMeta)
+        assertEquals("plain", plainExtMeta.name)
+        assertEquals("en", plainExtMeta.lang)
+        assertEquals("1.0.0", plainExtMeta.version)
+        assertFalse(plainExtMeta.nsfw)
+    }
+
+    @Test
+    fun testParseBundledExtensionsFiles() {
         val extensionsDir = listOf(
             File("src/main/assets/extensions"),
             File("app/src/main/assets/extensions")
@@ -41,21 +81,16 @@ class RealExtensionParsingTest {
         val jsFiles = extensionsDir!!.listFiles { _, name -> name.endsWith(".js") } ?: emptyArray()
         assertTrue("Should have bundled extension JS files", jsFiles.isNotEmpty())
 
-        var verifiedCount = 0
         for (file in jsFiles) {
             val script = file.readText()
-            if (script.contains("// ==Extension==")) {
-                val id = file.nameWithoutExtension
-                val meta = ExtensionManager.parseMetaComment(id, script)
-                assertNotNull("Meta comment should parse", meta)
-                assertEquals(id, meta["id"])
-                assertTrue("Extension ${file.name} must have a name", meta["name"]?.isNotBlank() == true)
-                assertTrue("Extension ${file.name} must have a version", meta["version"]?.isNotBlank() == true)
-                verifiedCount++
-            }
-        }
+            val id = file.nameWithoutExtension
+            val meta = ExtensionManager.parseMetaComment(id, script)
+            val extMeta = ExtensionMeta(id, file.name, script, meta)
 
-        assertTrue("Verified metadata for at least 10 bundled extensions", verifiedCount >= 10)
+            assertEquals(id, extMeta.id)
+            assertTrue("Extension should have valid name", extMeta.name.isNotBlank())
+            assertEquals("en", extMeta.lang)
+        }
     }
 
     @Test

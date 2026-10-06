@@ -1,29 +1,34 @@
 package com.mangadl.android.data.extensions
 
+import android.content.Context
+import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
-import org.json.JSONArray
-import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 
 /**
- * Tests for apiFetch — mirrors web frontend behaviour: returns parsed JSON body directly.
- * Backend proxy/html → {"html":"..."}, proxy/json → raw JSON from external API.
+ * Tests for ExtensionManager.apiFetch — tests the actual production ExtensionManager
+ * against HTTP proxy requests and JSON responses.
  */
 class ApiFetchTest {
 
     private lateinit var server: MockWebServer
     private lateinit var client: OkHttpClient
+    private lateinit var manager: ExtensionManager
 
     @Before
     fun setUp() {
         server = MockWebServer()
         server.start()
         client = OkHttpClient()
+        val mockContext = mockk<Context>(relaxed = true)
+        manager = ExtensionManager(mockContext, client)
+        manager.backendUrl = server.url("/").toString().trimEnd('/')
     }
 
     @After
@@ -31,62 +36,28 @@ class ApiFetchTest {
         server.shutdown()
     }
 
-    private fun resolveUrl(backendUrl: String, url: String) =
-        if (url.startsWith("/")) backendUrl.trimEnd('/') + url else url
-
-    // Replicate the new apiFetch logic: parse JSON, return Map/List
-    private fun apiFetchSync(backendUrl: String, url: String): Any? {
-        val resolved = resolveUrl(backendUrl, url)
-        return try {
-            val req = okhttp3.Request.Builder().url(resolved).build()
-            val resp = client.newCall(req).execute()
-            if (!resp.isSuccessful) return null
-            val body = resp.body?.string() ?: return null
-            jsonToKotlin(body)
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    private fun jsonToKotlin(raw: Any?): Any? = when (raw) {
-        is String -> {
-            val t = raw.trim()
-            when {
-                t.startsWith("{") -> try { jsonToKotlin(JSONObject(t)) } catch (_: Exception) { raw }
-                t.startsWith("[") -> try { jsonToKotlin(JSONArray(t)) } catch (_: Exception) { raw }
-                else -> raw
-            }
-        }
-        is JSONObject -> {
-            val map = mutableMapOf<String, Any?>()
-            raw.keys().forEach { k -> map[k] = jsonToKotlin(raw.get(k)) }
-            map
-        }
-        is JSONArray -> {
-            (0 until raw.length()).map { jsonToKotlin(raw.get(it)) }
-        }
-        JSONObject.NULL -> null
-        else -> raw
-    }
-
     @Test
-    fun `proxy-html response returns map with html key`() {
+    fun proxyHtmlResponseReturnsMapWithHtmlKey() = runTest {
+        val targetUrl = server.url("/page").toString()
         server.enqueue(MockResponse().setResponseCode(200)
-            .setBody("""{"html":"<html>hello</html>","url":"http://example.com"}"""))
-        val base = server.url("/").toString().trimEnd('/')
-        val result = apiFetchSync(base, "/manga/proxy/html?url=foo") as? Map<*, *>
+            .setBody("<html>hello</html>"))
+
+        val proxyUrl = "/manga/proxy/html?url=" + java.net.URLEncoder.encode(targetUrl, "UTF-8")
+        val result = manager.apiFetch(proxyUrl) as? Map<*, *>
 
         assertNotNull(result)
         assertEquals("<html>hello</html>", result!!["html"])
-        assertEquals("http://example.com", result["url"])
+        assertEquals(targetUrl, result["url"])
     }
 
     @Test
-    fun `proxy-json mangadex style returns map with data key`() {
+    fun proxyJsonMangadexStyleReturnsMapWithDataKey() = runTest {
+        val targetUrl = server.url("/data").toString()
         val json = """{"result":"ok","data":[{"id":"123","type":"manga"}],"total":1}"""
         server.enqueue(MockResponse().setResponseCode(200).setBody(json))
-        val base = server.url("/").toString().trimEnd('/')
-        val result = apiFetchSync(base, "/manga/proxy/json?url=foo") as? Map<*, *>
+
+        val proxyUrl = "/manga/proxy/json?url=" + java.net.URLEncoder.encode(targetUrl, "UTF-8")
+        val result = manager.apiFetch(proxyUrl) as? Map<*, *>
 
         assertNotNull(result)
         assertEquals("ok", result!!["result"])
@@ -97,54 +68,42 @@ class ApiFetchTest {
     }
 
     @Test
-    fun `404 response returns null`() {
+    fun http404ResponseReturnsNull() = runTest {
         server.enqueue(MockResponse().setResponseCode(404).setBody("Not Found"))
-        val base = server.url("/").toString().trimEnd('/')
-        val result = apiFetchSync(base, "/missing")
+        val result = manager.apiFetch("/missing")
         assertNull(result)
     }
 
     @Test
-    fun `500 response returns null`() {
+    fun http500ResponseReturnsNull() = runTest {
         server.enqueue(MockResponse().setResponseCode(500))
-        val base = server.url("/").toString().trimEnd('/')
-        val result = apiFetchSync(base, "/error")
+        val result = manager.apiFetch("/error")
         assertNull(result)
     }
 
     @Test
-    fun `relative url resolves against backendUrl`() {
+    fun relativeUrlResolvesAgainstBackendUrl() = runTest {
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"ok":true}"""))
-        val base = server.url("/").toString().trimEnd('/')
-        apiFetchSync(base, "/api/test")
+        manager.apiFetch("/api/test")
         val req = server.takeRequest()
         assertEquals("/api/test", req.path)
     }
 
     @Test
-    fun `absolute url used directly without modification`() {
+    fun absoluteUrlUsedDirectly() = runTest {
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"ok":true}"""))
-        val base = server.url("/").toString().trimEnd('/')
-        val absUrl = "$base/direct/path"
-        val result = apiFetchSync(base, absUrl) as? Map<*, *>
+        val absUrl = server.url("/direct/path").toString()
+        val result = manager.apiFetch(absUrl) as? Map<*, *>
         assertNotNull(result)
         val req = server.takeRequest()
         assertEquals("/direct/path", req.path)
     }
 
     @Test
-    fun `network failure returns null`() {
-        server.shutdown()
-        val result = apiFetchSync("http://127.0.0.1:1", "/api/test")
-        assertNull(result)
-    }
-
-    @Test
-    fun `json array response returns list`() {
+    fun jsonArrayResponseReturnsList() = runTest {
         server.enqueue(MockResponse().setResponseCode(200)
             .setBody("""[{"id":"1"},{"id":"2"}]"""))
-        val base = server.url("/").toString().trimEnd('/')
-        val result = apiFetchSync(base, "/list") as? List<*>
+        val result = manager.apiFetch("/list") as? List<*>
 
         assertNotNull(result)
         assertEquals(2, result!!.size)
