@@ -44,6 +44,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                     this.password = password
                 }
                 _authState.value = AuthState.Success(supabase.auth.currentUserOrNull())
+                com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncAllAsync()
                 onSuccess()
             } catch (e: Exception) {
                 _authState.value = AuthState.Error(friendlyError(e.message))
@@ -71,6 +72,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
                 _authState.value = AuthState.Success(supabase.auth.currentUserOrNull())
+                com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncAllAsync()
                 onSuccess()
             } catch (e: Exception) {
                 _authState.value = AuthState.Error(friendlyError(e.message))
@@ -100,6 +102,7 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
                         android.util.Log.e("AuthViewModel", "Supabase Google ID-token sign-in failed", e)
                     }
                     _authState.value = AuthState.Success(supabase.auth.currentUserOrNull())
+                    com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncAllAsync()
                     onSuccess()
                 }
                 is GoogleSignInResult.Cancelled -> {

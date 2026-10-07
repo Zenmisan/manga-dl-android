@@ -54,18 +54,19 @@ class MangaDetailViewModel(app: Application) : AndroidViewModel(app) {
             if (existing != null) {
                 dao.delete(existing.id)
                 _inLibrary.value = false
+                com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncMangaSubscriptionAsync(existing, subscribed = false)
             } else {
-                dao.upsert(
-                    com.mangadl.android.data.model.LibraryManga(
-                        id = detail.id,
-                        title = detail.title,
-                        coverUrl = detail.coverUrl,
-                        provider = detail.provider,
-                        url = detail.url,
-                        totalChapters = detail.chapters.size,
-                    )
+                val newManga = com.mangadl.android.data.model.LibraryManga(
+                    id = detail.id,
+                    title = detail.title,
+                    coverUrl = detail.coverUrl,
+                    provider = detail.provider,
+                    url = detail.url,
+                    totalChapters = detail.chapters.size,
                 )
+                dao.upsert(newManga)
                 _inLibrary.value = true
+                com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncMangaSubscriptionAsync(newManga, subscribed = true)
             }
         }
     }

@@ -181,6 +181,7 @@ fun SystemSettingsScreen(onBack: () -> Unit) {
                     androidx.work.ExistingWorkPolicy.REPLACE,
                     androidx.work.OneTimeWorkRequestBuilder<com.mangadl.android.data.library.LibraryUpdateWorker>().build(),
                 )
+                com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncAllAsync()
                 syncLabel = "Sync started"
             })
         }

@@ -110,11 +110,25 @@ class DownloadQueueViewModel(app: Application) : AndroidViewModel(app) {
 
     fun remove(id: String) = viewModelScope.launch(Dispatchers.IO) {
         val entry = db.downloadDao().getById(id)
-        if (entry?.filePath != null) {
-            runCatching { File(entry.filePath).delete() }
-        }
+        entry?.filePath?.let { deleteDownloadedFile(it) }
         db.downloadDao().delete(id)
         refreshStorageUsage()
+    }
+
+    /**
+     * [DownloadWorker] stores either a plain filesystem path (app-private storage) or a
+     * `content://` MediaStore URI (public Downloads, when "Save to public Downloads" is on) in
+     * [DownloadEntry.filePath] — `File(path).delete()` silently no-ops on a content URI since it
+     * isn't a real filesystem path, leaving the file orphaned in the public Downloads folder.
+     */
+    private fun deleteDownloadedFile(path: String) {
+        if (path.startsWith("content://")) {
+            runCatching {
+                getApplication<Application>().contentResolver.delete(android.net.Uri.parse(path), null, null)
+            }
+        } else {
+            runCatching { File(path).delete() }
+        }
     }
 
     fun toggleQueuePaused() {
@@ -129,9 +143,7 @@ class DownloadQueueViewModel(app: Application) : AndroidViewModel(app) {
     fun clearAll() = viewModelScope.launch(Dispatchers.IO) {
         val all = db.downloadDao().getPending()
         all.forEach { entry ->
-            if (entry.filePath != null) {
-                runCatching { File(entry.filePath).delete() }
-            }
+            entry.filePath?.let { deleteDownloadedFile(it) }
         }
         db.downloadDao().deleteAll()
         refreshStorageUsage()
@@ -143,8 +155,36 @@ class DownloadQueueViewModel(app: Application) : AndroidViewModel(app) {
                 ?: getApplication<Application>().filesDir,
             "manga-dl"
         )
-        val bytes = calculateDirectorySize(baseDownloadsDir)
+        val bytes = calculateDirectorySize(baseDownloadsDir) + publicDownloadsBytes()
         _storageUsedBytes.value = bytes
+    }
+
+    /**
+     * Sums the size of everything this app has published under `Downloads/manga-dl/` via
+     * MediaStore — the counterpart to [calculateDirectorySize] for chapters saved with "Save to
+     * public Downloads" on, which live outside [calculateDirectorySize]'s app-private directory.
+     */
+    private fun publicDownloadsBytes(): Long {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) return 0L
+        return runCatching {
+            var total = 0L
+            val resolver = getApplication<Application>().contentResolver
+            resolver.query(
+                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                arrayOf(android.provider.MediaStore.Downloads.SIZE, android.provider.MediaStore.Downloads.RELATIVE_PATH),
+                null, null, null,
+            )?.use { cursor ->
+                val sizeIdx = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Downloads.SIZE)
+                val pathIdx = cursor.getColumnIndexOrThrow(android.provider.MediaStore.Downloads.RELATIVE_PATH)
+                while (cursor.moveToNext()) {
+                    val relPath = cursor.getString(pathIdx) ?: ""
+                    if (relPath.startsWith("${Environment.DIRECTORY_DOWNLOADS}/manga-dl")) {
+                        total += cursor.getLong(sizeIdx)
+                    }
+                }
+            }
+            total
+        }.getOrDefault(0L)
     }
 
     private fun calculateDirectorySize(dir: File): Long {

@@ -78,6 +78,7 @@ fun LibraryScreen(
     gridColumns: String = "Auto",
     showUnreadBadges: Boolean = true,
     showDownloadedBadges: Boolean = true,
+    downloadedOnly: Boolean = false,
 ) {
     var category by rememberState(0)
     var searchActive by rememberState(false)
@@ -86,11 +87,14 @@ fun LibraryScreen(
     var sortBy by rememberSaveable { androidx.compose.runtime.mutableStateOf("title_asc") }
     var filterBy by rememberSaveable { androidx.compose.runtime.mutableStateOf("all") }
 
-    val displayItems = remember(items, sortBy, filterBy, searchQuery) {
+    val displayItems = remember(items, sortBy, filterBy, searchQuery, downloadedOnly) {
         items
             .let { list ->
                 if (searchQuery.isNotEmpty()) list.filter { it.title.contains(searchQuery, ignoreCase = true) }
                 else list
+            }
+            .let { list ->
+                if (downloadedOnly) list.filter { it.downloaded } else list
             }
             .let { list ->
                 when (filterBy) {

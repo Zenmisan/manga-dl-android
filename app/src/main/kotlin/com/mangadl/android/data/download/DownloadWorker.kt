@@ -152,7 +152,7 @@ class DownloadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             }
         }
 
-        if (completedCount > 0) {
+        if (completedCount > 0 && AppPreferences.getInstance(applicationContext).newChapterAlerts.first()) {
             showCompletionNotification("Downloads complete", "$completedCount chapter(s) saved to device")
         }
 

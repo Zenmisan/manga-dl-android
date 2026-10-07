@@ -9,13 +9,22 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.mangadl.android.MangaDlApp
+import com.mangadl.android.data.download.DownloadWorker
+import com.mangadl.android.data.model.DownloadEntry
 import com.mangadl.android.data.model.NewChapterEntry
+import com.mangadl.android.data.prefs.AppPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -29,7 +38,10 @@ class LibraryUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
         val items = db.libraryDao().getAllOnce()
         if (items.isEmpty()) return@withContext Result.success()
 
+        val prefs = AppPreferences.getInstance(applicationContext)
+        val autoDownload = prefs.autoDownloadNew.first()
         val newChapterItems = CopyOnWriteArrayList<Pair<String, Int>>() // title, newCount
+        val queuedAnyDownload = java.util.concurrent.atomic.AtomicBoolean(false)
 
         items.map { manga ->
             async {
@@ -57,13 +69,42 @@ class LibraryUpdateWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
                                 )
                             }
                         if (newest.isNotEmpty()) db.updatesDao().upsert(newest)
+
+                        if (autoDownload && newest.isNotEmpty()) {
+                            newest.forEach { ch ->
+                                db.downloadDao().upsert(
+                                    DownloadEntry(
+                                        id = "${manga.provider}_${manga.id}_${ch.chapterId}".replace(Regex("[^a-zA-Z0-9_]"), "_"),
+                                        mangaId = manga.id,
+                                        mangaTitle = manga.title,
+                                        chapterId = ch.chapterId,
+                                        chapterTitle = ch.chapterTitle,
+                                        provider = manga.provider,
+                                        status = "queued",
+                                    )
+                                )
+                            }
+                            queuedAnyDownload.set(true)
+                        }
                     }
                 }
             }
         }.awaitAll()
 
-        if (newChapterItems.isNotEmpty()) {
+        if (newChapterItems.isNotEmpty() && prefs.newChapterAlerts.first()) {
             postNotification(newChapterItems)
+        }
+
+        if (queuedAnyDownload.get()) {
+            val wifiOnly = prefs.downloadWifiOnly.first()
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
+                .build()
+            WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+                DownloadWorker.WORK_NAME,
+                ExistingWorkPolicy.KEEP,
+                OneTimeWorkRequestBuilder<DownloadWorker>().setConstraints(constraints).build(),
+            )
         }
 
         Result.success()

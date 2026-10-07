@@ -20,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -92,20 +93,24 @@ class MangaDlApp : Application() {
             OneTimeWorkRequestBuilder<DownloadWorker>().setConstraints(networkConstraints).build(),
         )
 
-        // Check library for new chapters every 12 hours
-        wm.enqueueUniquePeriodicWork(
-            LibraryUpdateWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
-            PeriodicWorkRequestBuilder<LibraryUpdateWorker>(12, TimeUnit.HOURS)
-                .setConstraints(networkConstraints)
-                .build(),
-        )
-
-        // Keep backendUrl in sync with user setting
-        val prefs = AppPreferences.getInstance(this)
-        appScope.launch {
-            prefs.backendUrl.collect { url ->
-                if (url.isNotEmpty()) extensionManager.backendUrl = url
+        // Check library for new chapters every 12 hours — respect the user's Background sync /
+        // Wi-Fi only switches (SettingsSystemScreen); KEEP'd blindly here would silently
+        // resurrect the periodic schedule after the user explicitly cancelled it via the switch.
+        appScope.launch(Dispatchers.IO) {
+            val prefs = AppPreferences.getInstance(this@MangaDlApp)
+            val syncEnabled = prefs.backgroundSyncEnabled.first()
+            if (syncEnabled) {
+                val wifiOnly = prefs.syncWifiOnly.first()
+                val syncConstraints = Constraints.Builder()
+                    .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
+                    .build()
+                wm.enqueueUniquePeriodicWork(
+                    LibraryUpdateWorker.WORK_NAME,
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    PeriodicWorkRequestBuilder<LibraryUpdateWorker>(12, TimeUnit.HOURS)
+                        .setConstraints(syncConstraints)
+                        .build(),
+                )
             }
         }
     }

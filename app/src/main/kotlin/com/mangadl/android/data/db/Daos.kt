@@ -49,6 +49,9 @@ interface ProgressDao {
     @Query("SELECT * FROM reading_progress ORDER BY readAt DESC LIMIT :limit")
     fun getRecent(limit: Int = 200): Flow<List<ReadingProgress>>
 
+    @Query("SELECT * FROM reading_progress ORDER BY readAt DESC LIMIT :limit")
+    suspend fun getRecentOnce(limit: Int = 1000): List<ReadingProgress>
+
     @Query("SELECT * FROM reading_progress WHERE mangaId = :mangaId AND chapterId = :chapterId")
     suspend fun get(mangaId: String, chapterId: String): ReadingProgress?
 

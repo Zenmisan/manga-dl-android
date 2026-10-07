@@ -21,13 +21,14 @@ fun ZoomableBox(
     modifier: Modifier = Modifier,
     maxScale: Float = 4.0f,
     enabled: Boolean = true,
-    onTap: (() -> Unit)? = null,
+    /** Fraction (0f..1f) of the box's width where the tap landed, for tap-zone page turning. */
+    onTap: ((Float) -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     if (!enabled) {
         Box(
             modifier = modifier.pointerInput(Unit) {
-                detectTapGestures(onTap = { onTap?.invoke() })
+                detectTapGestures(onTap = { pos -> onTap?.invoke(pos.x / size.width.toFloat()) })
             }
         ) {
             content()
@@ -59,9 +60,7 @@ fun ZoomableBox(
                             }
                         }
                     },
-                    onTap = {
-                        onTap?.invoke()
-                    },
+                    onTap = { pos -> onTap?.invoke(pos.x / size.width.toFloat()) },
                 )
             }
             .pointerInput(Unit) {

@@ -28,8 +28,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     val newChapterAlerts: StateFlow<Boolean> = prefs.newChapterAlerts.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val autoDownloadNew: StateFlow<Boolean> = prefs.autoDownloadNew.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val downloadWifiOnly: StateFlow<Boolean> = prefs.downloadWifiOnly.stateIn(viewModelScope, SharingStarted.Eagerly, true)
-    val backendUrl: StateFlow<String> = prefs.backendUrl.stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val apiKey: StateFlow<String> = prefs.apiKey.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val readerDirection: StateFlow<String> = prefs.readerDirection.stateIn(viewModelScope, SharingStarted.Eagerly, "ltr")
     val dualPageSpread: StateFlow<String> = prefs.dualPageSpread.stateIn(viewModelScope, SharingStarted.Eagerly, "off")
     val cropBorders: StateFlow<Boolean> = prefs.cropBorders.stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -49,6 +47,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     val gridColumns: StateFlow<String> = prefs.gridColumns.stateIn(viewModelScope, SharingStarted.Eagerly, "Auto")
     val showUnreadBadges: StateFlow<Boolean> = prefs.showUnreadBadges.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val showDownloadedBadges: StateFlow<Boolean> = prefs.showDownloadedBadges.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val libraryDownloadedOnly: StateFlow<Boolean> = prefs.libraryDownloadedOnly.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     fun setTheme(v: String) = viewModelScope.launch { prefs.set(PrefKeys.THEME, v) }
     fun setAmbilight(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.AMBILIGHT, v) }
@@ -56,8 +55,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun setNewChapterAlerts(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.NEW_CHAPTER_ALERTS, v) }
     fun setAutoDownloadNew(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.AUTO_DOWNLOAD_NEW, v) }
     fun setDownloadWifiOnly(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.DOWNLOAD_WIFI_ONLY, v) }
-    fun setBackendUrl(v: String) = viewModelScope.launch { prefs.set(PrefKeys.BACKEND_URL, v) }
-    fun setApiKey(v: String) = viewModelScope.launch { prefs.set(PrefKeys.API_KEY, v) }
     fun setReaderDirection(v: String) = viewModelScope.launch { prefs.set(PrefKeys.READER_DIRECTION, v) }
     fun setDualPageSpread(v: String) = viewModelScope.launch { prefs.set(PrefKeys.DUAL_PAGE_SPREAD, v) }
     fun setCropBorders(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.CROP_BORDERS, v) }
@@ -73,6 +70,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun setGridColumns(v: String) = viewModelScope.launch { prefs.set(PrefKeys.GRID_COLUMNS, v) }
     fun setShowUnreadBadges(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.SHOW_UNREAD_BADGES, v) }
     fun setShowDownloadedBadges(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.SHOW_DOWNLOADED_BADGES, v) }
+    fun setLibraryDownloadedOnly(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.LIBRARY_DOWNLOADED_ONLY, v) }
 
     fun setSaveChaptersPublic(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.SAVE_CHAPTERS_PUBLIC, v) }
 

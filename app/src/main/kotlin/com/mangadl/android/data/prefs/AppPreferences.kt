@@ -39,6 +39,7 @@ object PrefKeys {
     val GRID_COLUMNS = stringPreferencesKey("grid_columns") // "Auto" | "2" | "3" | "4"
     val SHOW_UNREAD_BADGES = booleanPreferencesKey("show_unread_badges")
     val SHOW_DOWNLOADED_BADGES = booleanPreferencesKey("show_downloaded_badges")
+    val LIBRARY_DOWNLOADED_ONLY = booleanPreferencesKey("library_downloaded_only")
 
     // Trackers
     val ANILIST_CONNECTED = booleanPreferencesKey("anilist_connected")
@@ -102,6 +103,7 @@ class AppPreferences(private val context: Context) {
     val gridColumns: Flow<String> = context.dataStore.data.map { it[PrefKeys.GRID_COLUMNS] ?: "Auto" }
     val showUnreadBadges: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.SHOW_UNREAD_BADGES] ?: true }
     val showDownloadedBadges: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.SHOW_DOWNLOADED_BADGES] ?: true }
+    val libraryDownloadedOnly: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.LIBRARY_DOWNLOADED_ONLY] ?: false }
     val anilistConnected: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.ANILIST_CONNECTED] ?: false }
     val malConnected: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.MAL_CONNECTED] ?: false }
     val anilistToken: Flow<String> = context.dataStore.data.map { it[PrefKeys.ANILIST_TOKEN] ?: "" }

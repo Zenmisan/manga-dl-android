@@ -18,8 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,13 +38,15 @@ import com.mangadl.android.ui.components.Eyebrow
 import com.mangadl.android.ui.components.MdIcons
 import com.mangadl.android.ui.components.MdSwitch
 import com.mangadl.android.ui.components.SurfaceCard
-import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.theme.MdTheme
 import com.mangadl.android.ui.viewmodels.AuthViewModel
+import com.mangadl.android.ui.viewmodels.DownloadQueueViewModel
+import com.mangadl.android.ui.viewmodels.SettingsViewModel
+import com.mangadl.android.ui.viewmodels.UpdatesViewModel
 
-enum class MoreDestination(val label: String, val icon: ImageVector, val badge: Int = 0) {
-    Downloads("Downloads", MdIcons.Download, 3),
-    Notifications("Notifications", MdIcons.Mail, 2),
+enum class MoreDestination(val label: String, val icon: ImageVector) {
+    Downloads("Downloads", MdIcons.Download),
+    Notifications("Notifications", MdIcons.Mail),
     Statistics("Statistics", MdIcons.Stats),
     Import("Import local files", MdIcons.Upload),
     Backup("Backup & restore", MdIcons.Backup),
@@ -56,8 +58,22 @@ enum class MoreDestination(val label: String, val icon: ImageVector, val badge: 
 @Composable
 fun MoreScreen(onProfile: () -> Unit, onOpen: (MoreDestination) -> Unit) {
     val c = MdTheme.colors
-    var incognito by rememberState(false)
-    var downloadedOnly by rememberState(true)
+    val settingsVm: SettingsViewModel = viewModel()
+    val incognito by settingsVm.incognito.collectAsState()
+    val downloadedOnly by settingsVm.libraryDownloadedOnly.collectAsState()
+
+    val downloadsVm: DownloadQueueViewModel = viewModel()
+    val downloads by downloadsVm.downloads.collectAsState()
+    val activeDownloads = downloads.count { it.status == "queued" || it.status == "downloading" }
+
+    val updatesVm: UpdatesViewModel = viewModel()
+    val newChapters by updatesVm.newChapters.collectAsState()
+
+    val badges = mapOf(
+        MoreDestination.Downloads to activeDownloads,
+        MoreDestination.Notifications to newChapters.size,
+    )
+
     val authVm: AuthViewModel = viewModel()
     val user = authVm.currentUser
     val displayName = run {
@@ -93,8 +109,8 @@ fun MoreScreen(onProfile: () -> Unit, onOpen: (MoreDestination) -> Unit) {
 
         Column {
             Eyebrow("Quick toggles", Modifier.padding(bottom = 4.dp))
-            ToggleRow("Incognito mode", "Hides reading activity", incognito) { incognito = it }
-            ToggleRow("Downloaded only", "Show only saved chapters", downloadedOnly) { downloadedOnly = it }
+            ToggleRow("Incognito mode", "Hides reading activity", incognito) { settingsVm.setIncognito(it) }
+            ToggleRow("Downloaded only", "Show only saved chapters", downloadedOnly) { settingsVm.setLibraryDownloadedOnly(it) }
         }
 
         Column {
@@ -110,7 +126,8 @@ fun MoreScreen(onProfile: () -> Unit, onOpen: (MoreDestination) -> Unit) {
                 ) {
                     Icon(d.icon, null, tint = c.fg.copy(alpha = 0.75f), modifier = Modifier.size(22.dp))
                     BodyText(d.label, Modifier.weight(1f), size = 15.sp, weight = FontWeight.SemiBold)
-                    if (d.badge > 0) CountBadge(d.badge, height = 20.dp)
+                    val badge = badges[d] ?: 0
+                    if (badge > 0) CountBadge(badge, height = 20.dp)
                 }
             }
         }

@@ -4,9 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mangadl.android.ui.components.InputSetting
 import com.mangadl.android.ui.components.SegmentedSetting
 import com.mangadl.android.ui.components.SettingsSection
+import com.mangadl.android.ui.components.SliderSetting
 import com.mangadl.android.ui.components.SwitchSetting
 import com.mangadl.android.ui.viewmodels.SettingsViewModel
 
@@ -45,10 +45,12 @@ fun ReaderSettingsScreen(onBack: () -> Unit) {
                 value = tapZones != "disabled",
                 onValueChange = { vm.setTapZones(if (it) "default" else "disabled") },
             )
-            InputSetting(
-                "Webtoon side padding (%)", "0",
-                "0 to 80",
-                value = sidePadding, onValueChange = { v -> vm.setSidePadding(v.filter { it.isDigit() }.take(2)) },
+            SliderSetting(
+                "Webtoon side padding (%)", 0f,
+                valueRange = 0f..80f,
+                valueLabel = { "${it.toInt()}%" },
+                value = sidePadding.toFloatOrNull() ?: 0f,
+                onValueChange = { v -> vm.setSidePadding(v.toInt().toString()) },
             )
         }
         SettingsSection("Controls") {

@@ -124,6 +124,32 @@ fun SegmentedSetting(
 }
 
 @Composable
+fun SliderSetting(
+    label: String,
+    initial: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    description: String? = null,
+    valueLabel: (Float) -> String = { it.toInt().toString() },
+    value: Float? = null,
+    onValueChange: ((Float) -> Unit)? = null,
+) {
+    // Same local-first pattern as InputSetting: `value` is typically DataStore-backed and lags a
+    // frame behind each drag event, which would otherwise make the thumb visibly snap back.
+    var local by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(value ?: initial) }
+    val actualSet: (Float) -> Unit = { local = it; (onValueChange ?: {})(it) }
+    SettingRow(
+        label,
+        description = description,
+        below = {
+            Column {
+                MdSlider(local, actualSet, valueRange = valueRange)
+                BodyText(valueLabel(local), size = 12.sp, color = MdTheme.colors.fgSubtle)
+            }
+        },
+    )
+}
+
+@Composable
 fun AccentSetting(label: String, initial: Accent, onSelect: (Accent) -> Unit = {}) {
     var value by rememberState(initial)
     SettingRow(label, below = {
@@ -143,10 +169,14 @@ fun InputSetting(
     value: String? = null,
     onValueChange: ((String) -> Unit)? = null,
 ) {
-    var v by rememberState(initial)
-    val actualV = value ?: v
-    val actualSet: (String) -> Unit = onValueChange ?: { v = it }
+    // Seeded once from `value`/`initial`, then purely local: `value` here is typically backed by
+    // an async DataStore Flow, so re-reading it every keystroke would show the stale pre-write
+    // string for a frame and reset the cursor to the start on every character typed. Edits are
+    // still forwarded via onValueChange for persistence; the field itself is the source of truth
+    // for what's on screen.
+    var local by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(value ?: initial) }
+    val actualSet: (String) -> Unit = { local = it; (onValueChange ?: { v -> local = v })(it) }
     SettingRow(label, description = description, below = {
-        MdTextField(actualV, actualSet, isPassword = isPassword, height = 46.dp)
+        MdTextField(local, actualSet, isPassword = isPassword, height = 46.dp)
     })
 }

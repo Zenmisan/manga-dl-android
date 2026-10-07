@@ -4,8 +4,10 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.mangadl.android.MangaDlApp
+import com.mangadl.android.data.prefs.AppPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 sealed class ReaderState {
@@ -65,6 +67,9 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
         chapterNumber: Float = 0f,
     ) {
         viewModelScope.launch {
+            val incognito = AppPreferences.getInstance(getApplication()).incognitoMode.first()
+            if (incognito) return@launch
+
             val isCompleted = page >= total - 1
             progressDao.upsert(
                 com.mangadl.android.data.model.ReadingProgress(
@@ -92,6 +97,16 @@ class ReaderViewModel(app: Application) : AndroidViewModel(app) {
                         isCompleted = true,
                     )
                 }
+            }
+            if (mangaId.isNotEmpty()) {
+                com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncChapterReadAsync(
+                    provider = provider,
+                    mangaId = mangaId,
+                    chapterId = chapterId,
+                    page = page,
+                    totalPages = total,
+                    isCompleted = isCompleted,
+                )
             }
         }
     }

@@ -530,6 +530,7 @@ private fun MainTabs(nav: NavHostController, emptyLibrary: Boolean = false, onSo
     val gridColumns by settingsVm.gridColumns.collectAsState()
     val showUnreadBadges by settingsVm.showUnreadBadges.collectAsState()
     val showDownloadedBadges by settingsVm.showDownloadedBadges.collectAsState()
+    val libraryDownloadedOnly by settingsVm.libraryDownloadedOnly.collectAsState()
 
     val libraryItems by libraryVm.library.collectAsState()
     val newChapters by updatesVm.newChapters.collectAsState()
@@ -562,6 +563,7 @@ private fun MainTabs(nav: NavHostController, emptyLibrary: Boolean = false, onSo
                     gridColumns = gridColumns,
                     showUnreadBadges = showUnreadBadges,
                     showDownloadedBadges = showDownloadedBadges,
+                    downloadedOnly = libraryDownloadedOnly,
                     onOpenManga = { m ->
                         navState.mangaId = m.id
                         navState.sourceId = m.source

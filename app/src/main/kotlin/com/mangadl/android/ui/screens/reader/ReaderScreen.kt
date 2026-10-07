@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -93,6 +94,15 @@ fun ReaderScreen(
     val savedDirection by appPrefs.readerDirection.collectAsState(initial = initialMode.name.lowercase())
     val savedCropBorders by appPrefs.cropBorders.collectAsState(initial = false)
     val keepScreenOnPref by appPrefs.keepScreenOn.collectAsState(initial = true)
+    val savedTapZones by appPrefs.tapZones.collectAsState(initial = "default")
+    val savedShowPageNumber by appPrefs.showPageNumber.collectAsState(initial = true)
+    val savedFullScreen by appPrefs.fullScreen.collectAsState(initial = true)
+    val savedSidePadding by appPrefs.sidePadding.collectAsState(initial = "0")
+    val savedVolumeKeys by appPrefs.volumeKeysTurnPages.collectAsState(initial = true)
+    val savedReaderBackground by appPrefs.readerBackground.collectAsState(initial = "black")
+    val savedHaptic by appPrefs.hapticFeedback.collectAsState(initial = true)
+    val savedDualPage by appPrefs.dualPageSpread.collectAsState(initial = "off")
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
 
     LaunchedEffect(navState.chapterId, navState.isLocalRead) {
         if (navState.isLocalRead && navState.localPages.isNotEmpty()) {
@@ -134,6 +144,20 @@ fun ReaderScreen(
         }
     }
 
+    DisposableEffect(savedFullScreen) {
+        val activity = context as? Activity
+        val window = activity?.window
+        val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
+        if (savedFullScreen && controller != null) {
+            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior =
+                androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+        onDispose {
+            controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
     val onModeChange: (ReadingMode) -> Unit = { newMode ->
         mode = newMode
         scope.launch {
@@ -146,6 +170,26 @@ fun ReaderScreen(
 
     val pager = rememberPagerState(initialPage = 0) { pageCount }
 
+    val onPageTap: (Float) -> Unit = { xFraction ->
+        if (savedTapZones == "disabled") {
+            controls = !controls
+        } else {
+            val forward = if (mode == ReadingMode.RTL) xFraction < 0.3f else xFraction > 0.7f
+            val backward = if (mode == ReadingMode.RTL) xFraction > 0.7f else xFraction < 0.3f
+            when {
+                forward -> {
+                    val target = (pager.currentPage + 1).coerceAtMost(pageCount - 1)
+                    if (target != pager.currentPage) scope.launch { pager.animateScrollToPage(target) }
+                }
+                backward -> {
+                    val target = (pager.currentPage - 1).coerceAtLeast(0)
+                    if (target != pager.currentPage) scope.launch { pager.animateScrollToPage(target) }
+                }
+                else -> controls = !controls
+            }
+        }
+    }
+
     LaunchedEffect(pager.currentPage, pages.size) {
         if (pages.isNotEmpty()) {
             val chNum = navState.chapters.find { it.id == navState.chapterId }?.number ?: 0f
@@ -153,7 +197,35 @@ fun ReaderScreen(
         }
     }
 
-    Box(Modifier.fillMaxSize().background(c.readerBg)) {
+    LaunchedEffect(pager.currentPage) {
+        if (savedHaptic) {
+            haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+        }
+    }
+
+    DisposableEffect(savedVolumeKeys, mode, pageCount) {
+        ReaderKeyEvents.onVolumeKey = { isVolumeUp ->
+            if (!savedVolumeKeys) {
+                false
+            } else {
+                // Volume-up moves "backward" and volume-down "forward" in reading order; reversed
+                // for RTL since the pager's own page order is already reversed there.
+                val forward = if (mode == ReadingMode.RTL) isVolumeUp else !isVolumeUp
+                val target = (pager.currentPage + if (forward) 1 else -1).coerceIn(0, pageCount - 1)
+                if (target != pager.currentPage) scope.launch { pager.animateScrollToPage(target) }
+                true
+            }
+        }
+        onDispose { ReaderKeyEvents.onVolumeKey = null }
+    }
+
+    val readerBg = when (savedReaderBackground) {
+        "gray" -> Color(0xFF1C1C1C)
+        "white" -> Color.White
+        else -> c.readerBg
+    }
+
+    Box(Modifier.fillMaxSize().background(readerBg)) {
         when {
             readerState is ReaderState.Loading -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -166,17 +238,36 @@ fun ReaderScreen(
                 }
             }
             else -> when (mode) {
-                ReadingMode.LTR, ReadingMode.RTL -> HorizontalPager(
-                    state = pager,
-                    reverseLayout = mode == ReadingMode.RTL,
-                    modifier = Modifier.fillMaxSize(),
-                ) { page ->
-                    MangaPage(
-                        url = pages.getOrElse(page) { "" },
+                ReadingMode.LTR, ReadingMode.RTL -> {
+                    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
+                        android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                    val dualPageActive = savedDualPage != "off" && isLandscape
+                    HorizontalPager(
+                        state = pager,
+                        reverseLayout = mode == ReadingMode.RTL,
                         modifier = Modifier.fillMaxSize(),
-                        cropBorders = cropBorders,
-                        onTap = { controls = !controls },
-                    )
+                    ) { page ->
+                        if (dualPageActive && page + 1 < pages.size) {
+                            val order = if (mode == ReadingMode.RTL) listOf(page + 1, page) else listOf(page, page + 1)
+                            Row(Modifier.fillMaxSize()) {
+                                order.forEach { idx ->
+                                    MangaPage(
+                                        url = pages.getOrElse(idx) { "" },
+                                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                                        cropBorders = cropBorders,
+                                        onTap = onPageTap,
+                                    )
+                                }
+                            }
+                        } else {
+                            MangaPage(
+                                url = pages.getOrElse(page) { "" },
+                                modifier = Modifier.fillMaxSize(),
+                                cropBorders = cropBorders,
+                                onTap = onPageTap,
+                            )
+                        }
+                    }
                 }
                 ReadingMode.Vertical -> VerticalPager(
                     state = pager,
@@ -186,20 +277,27 @@ fun ReaderScreen(
                         url = pages.getOrElse(page) { "" },
                         modifier = Modifier.fillMaxSize(),
                         cropBorders = cropBorders,
-                        onTap = { controls = !controls },
+                        onTap = onPageTap,
                     )
                 }
-                ReadingMode.Webtoon -> LazyColumn(
-                    Modifier.fillMaxSize(),
-                ) {
-                    items(pages.size) { i ->
-                        MangaPage(
-                            url = pages[i],
-                            modifier = Modifier.fillMaxWidth(),
-                            webtoon = true,
-                            cropBorders = cropBorders,
-                            onTap = { controls = !controls },
-                        )
+                ReadingMode.Webtoon -> {
+                    val sidePaddingFraction = ((savedSidePadding.toIntOrNull() ?: 0).coerceIn(0, 80) / 100f) / 2f
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                    ) {
+                        items(pages.size) { i ->
+                            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+                                MangaPage(
+                                    url = pages[i],
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = maxWidth * sidePaddingFraction),
+                                    webtoon = true,
+                                    cropBorders = cropBorders,
+                                    onTap = onPageTap,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -268,14 +366,18 @@ fun ReaderScreen(
                         tint = if (hasPrev) c.fg else c.fgMuted,
                         iconSize = 20.dp,
                     )
-                    BodyText("${pager.currentPage + 1}", Modifier.width(24.dp), size = 12.sp, weight = FontWeight.Bold)
+                    if (savedShowPageNumber) {
+                        BodyText("${pager.currentPage + 1}", Modifier.width(24.dp), size = 12.sp, weight = FontWeight.Bold)
+                    }
                     MdSlider(
                         value = (pager.currentPage + 1).toFloat(),
                         onValueChange = { v -> scope.launch { pager.scrollToPage(v.toInt() - 1) } },
                         valueRange = 1f..pageCount.toFloat(),
                         modifier = Modifier.weight(1f),
                     )
-                    BodyText("$pageCount", Modifier.width(24.dp), size = 12.sp, weight = FontWeight.Bold, color = c.fg.copy(alpha = 0.65f))
+                    if (savedShowPageNumber) {
+                        BodyText("$pageCount", Modifier.width(24.dp), size = 12.sp, weight = FontWeight.Bold, color = c.fg.copy(alpha = 0.65f))
+                    }
                     MdIconButton(
                         MdIcons.NextChapter,
                         "Next chapter",
@@ -319,7 +421,7 @@ private fun MangaPage(
     modifier: Modifier = Modifier,
     webtoon: Boolean = false,
     cropBorders: Boolean = false,
-    onTap: (() -> Unit)? = null,
+    onTap: ((Float) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     ZoomableBox(

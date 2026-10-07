@@ -10,6 +10,7 @@ import com.mangadl.android.data.prefs.AppPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.jsoup.Jsoup
 
@@ -66,6 +67,8 @@ class NovelReaderViewModel(app: Application) : AndroidViewModel(app) {
         val pct = (scrollPercent * 100).toInt().coerceIn(0, 100)
         val isCompleted = pct >= 95
         viewModelScope.launch(Dispatchers.IO) {
+            if (prefs.incognitoMode.first()) return@launch
+
             db.progressDao().upsert(
                 ReadingProgress(
                     mangaId = currentMangaId,
@@ -92,6 +95,14 @@ class NovelReaderViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
             }
+            com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncChapterReadAsync(
+                provider = currentProvider,
+                mangaId = currentMangaId,
+                chapterId = currentChapterId,
+                page = pct,
+                totalPages = 100,
+                isCompleted = isCompleted,
+            )
         }
     }
 
