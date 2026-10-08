@@ -258,6 +258,18 @@ private fun ExtensionsTab(
             }
         }
 
+        if (available.isNotEmpty()) {
+            item {
+                BodyText(
+                    "Installs as a separate app, not a manga-dl source yet — it won't show up " +
+                        "here to search or read from after installing.",
+                    Modifier.padding(start = 20.dp, end = 20.dp, bottom = 10.dp),
+                    size = 12.sp,
+                    color = c.fgSubtle,
+                )
+            }
+        }
+
         items(available, key = { "avail_${it.id}" }) { ext ->
             ExtensionRow(ext) {
                 PillButton("Install", { onInstallExtension(ext) })

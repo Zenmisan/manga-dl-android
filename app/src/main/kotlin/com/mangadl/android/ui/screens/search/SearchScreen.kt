@@ -49,6 +49,21 @@ fun GlobalSearchScreen(
     val c = MdTheme.colors
     var query by rememberState(initialQuery)
     var tab by rememberState(0)
+    val filterTabs = listOf("All", "Manga", "Web Novels")
+    val filteredResults = remember(searchResults, tab) {
+        when (tab) {
+            1 -> searchResults.mapNotNull { (source, items) ->
+                val mangaOnly = items.filter { !com.mangadl.android.data.extensions.ExtensionManager.isNovelSource(it.source) }
+                if (mangaOnly.isNotEmpty()) source to mangaOnly else null
+            }
+            2 -> searchResults.mapNotNull { (source, items) ->
+                val novelsOnly = items.filter { com.mangadl.android.data.extensions.ExtensionManager.isNovelSource(it.source) }
+                if (novelsOnly.isNotEmpty()) source to novelsOnly else null
+            }
+            else -> searchResults
+        }
+    }
+
     Screen {
         Row(Modifier.padding(start = 8.dp, end = 16.dp, top = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             MdIconButton(MdIcons.Back, "Back", onBack)
@@ -70,7 +85,7 @@ fun GlobalSearchScreen(
                 }
             }
         }
-        UnderlineTabs(listOf("Manga", "Web Novels", "Readers"), tab, { tab = it }, Modifier.padding(horizontal = 20.dp))
+        UnderlineTabs(filterTabs, tab, { tab = it }, Modifier.padding(horizontal = 20.dp))
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)) {
             if (searchResults.isEmpty() && query.isNotBlank()) {
                 // skeleton while searching
@@ -81,8 +96,14 @@ fun GlobalSearchScreen(
                         }
                     }
                 }
+            } else if (filteredResults.isEmpty() && searchResults.isNotEmpty()) {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                        BodyText("No ${filterTabs[tab].lowercase()} found for \"$query\"", color = c.fgMuted)
+                    }
+                }
             } else {
-                items(searchResults) { (source, results) ->
+                items(filteredResults) { (source, results) ->
                     SearchSection(source, "${results.size} results") {
                         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             items(results) { m -> SearchCover(m) { onOpenManga(m) } }

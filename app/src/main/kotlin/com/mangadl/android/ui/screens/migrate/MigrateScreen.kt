@@ -65,7 +65,6 @@ fun MigrateScreen(onBack: () -> Unit, onMigrate: () -> Unit) {
 
     var pickIdx by rememberState(-1)
     var keepRead by rememberState(true)
-    var keepCats by rememberState(true)
     var deleteOld by rememberState(false)
 
     Screen {
@@ -136,7 +135,6 @@ fun MigrateScreen(onBack: () -> Unit, onMigrate: () -> Unit) {
                 Column {
                     Eyebrow("Bring along", Modifier.padding(bottom = 6.dp), color = c.fgSubtle)
                     MdCheckbox(keepRead, { keepRead = it }, "Read chapters")
-                    MdCheckbox(keepCats, { keepCats = it }, "Categories")
                     MdCheckbox(deleteOld, { deleteOld = it }, "Delete old entry")
                 }
             }
@@ -159,7 +157,7 @@ fun MigrateScreen(onBack: () -> Unit, onMigrate: () -> Unit) {
                     "Migrate",
                     {
                         val m = matches.getOrNull(pickIdx) ?: return@MdButton
-                        vm.migrate(m, keepRead, keepCats, deleteOld, onDone = onMigrate)
+                        vm.migrate(m, keepRead, deleteOld, onDone = onMigrate)
                     },
                     Modifier.weight(2f),
                     height = 52.dp,

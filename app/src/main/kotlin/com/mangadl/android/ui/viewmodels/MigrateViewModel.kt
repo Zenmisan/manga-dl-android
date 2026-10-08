@@ -66,7 +66,6 @@ class MigrateViewModel : ViewModel() {
     fun migrate(
         match: MigrateMatch,
         keepRead: Boolean,
-        keepCategories: Boolean,
         deleteOld: Boolean,
         onDone: () -> Unit,
     ) = viewModelScope.launch {

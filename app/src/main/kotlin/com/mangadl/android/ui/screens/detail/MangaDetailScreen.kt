@@ -1,5 +1,6 @@
 package com.mangadl.android.ui.screens.detail
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,11 +18,13 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,6 +35,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -96,8 +101,137 @@ fun MangaDetailScreen(
             }
     }
 
+    val config = LocalConfiguration.current
+    val isTwoPane = config.orientation == Configuration.ORIENTATION_LANDSCAPE || config.screenWidthDp >= 720
+
     Box(Modifier.fillMaxSize().background(c.bg)) {
-        LazyColumn(Modifier.fillMaxSize().navigationBarsPadding()) {
+        if (isTwoPane) {
+            Row(Modifier.fillMaxSize()) {
+                // Left pane: Manga info & metadata
+                Column(
+                    Modifier
+                        .weight(0.44f)
+                        .fillMaxHeight()
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        MdIconButton(MdIcons.Back, "Back", onBack)
+                        Row {
+                            MdIconButton(MdIcons.Download, "Download chapters", onDownloadAllChapters)
+                            MdIconButton(MdIcons.Globe, "Open in browser", onWebView)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        CoverArt(
+                            manga.cover.copy(red = manga.cover.red * 0.6f, green = manga.cover.green * 0.6f, blue = manga.cover.blue * 0.6f),
+                            Modifier.size(108.dp, 160.dp).border(1.dp, c.border, RoundedCornerShape(10.dp)),
+                            imageUrl = manga.coverUrl,
+                        )
+                        Column(Modifier.align(Alignment.Bottom), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            DisplayText(manga.title, 24.sp, lineHeight = 28.sp)
+                            if (authors.isNotEmpty()) {
+                                BodyText(authors.joinToString(", "), size = 13.sp, color = c.fg.copy(alpha = 0.75f))
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                MangaTag("Ongoing")
+                                MangaTag(manga.source)
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ActionTile(
+                            if (inLibrary) "In library" else "Add to library",
+                            if (inLibrary) MdIcons.BookmarkFilled else MdIcons.Bookmark,
+                            active = inLibrary,
+                            onClick = { inLibrary = !inLibrary; onToggleLibrary() },
+                            modifier = Modifier.weight(1f),
+                        )
+                        ActionTile("Track", MdIcons.Track, onClick = { showTracking = true }, modifier = Modifier.weight(1f))
+                        ActionTile("WebView", MdIcons.Globe, onClick = onWebView, modifier = Modifier.weight(1f))
+                    }
+                    MdButton(resumeLabel, onResume, Modifier.fillMaxWidth(), height = 50.dp, leadingIcon = MdIcons.Play)
+                    if (synopsis.isNotBlank()) {
+                        BodyText(
+                            synopsis,
+                            modifier = Modifier.clickable { synopsisOpen = !synopsisOpen },
+                            color = c.fgMuted,
+                            lineHeight = 21.sp,
+                            maxLines = if (synopsisOpen) Int.MAX_VALUE else 3,
+                        )
+                    }
+                    if (genres.isNotEmpty()) {
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            genres.forEach { g ->
+                                BodyText(
+                                    g,
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .border(1.dp, c.border, CircleShape)
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    size = 12.sp,
+                                    weight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Box(Modifier.width(1.dp).fillMaxHeight().background(c.dividerStrong.copy(alpha = 0.15f)))
+
+                // Right pane: Chapters list
+                Column(
+                    Modifier
+                        .weight(0.56f)
+                        .fillMaxHeight()
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
+                ) {
+                    Row(
+                        Modifier.padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        val filterLabel = if (filterMode != "all") " · ${filterMode.replaceFirstChar { it.uppercaseChar() }}" else ""
+                        val sortLabel = if (sortAscending) " (Asc)" else " (Desc)"
+                        BodyText(
+                            "${displayChapters.size} chapters$filterLabel$sortLabel",
+                            Modifier.weight(1f),
+                            size = 15.sp,
+                            weight = FontWeight.ExtraBold
+                        )
+                        MdIconButton(
+                            MdIcons.Sort,
+                            "Sort ${if (sortAscending) "descending" else "ascending"}",
+                            { sortAscending = !sortAscending },
+                            iconSize = 20.dp
+                        )
+                        MdIconButton(
+                            MdIcons.Filter,
+                            "Filter chapters ($filterMode)",
+                            {
+                                filterMode = when (filterMode) {
+                                    "all" -> "unread"
+                                    "unread" -> "downloaded"
+                                    else -> "all"
+                                }
+                            },
+                            iconSize = 20.dp,
+                            tint = if (filterMode != "all") c.accentLight else c.fg
+                        )
+                    }
+                    Divider(color = c.dividerStrong)
+                    LazyColumn(Modifier.fillMaxSize()) {
+                        items(displayChapters, key = { "${it.number}_${it.title}" }) { ch ->
+                            ChapterRow(ch, { onOpenChapter(ch) }, { onDownloadChapter(ch) })
+                        }
+                    }
+                }
+            }
+        } else {
+            LazyColumn(Modifier.fillMaxSize().navigationBarsPadding()) {
             item {
                 Column(Modifier.fillMaxWidth().background(manga.cover).statusBarsPadding().padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 20.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -204,6 +338,7 @@ fun MangaDetailScreen(
             }
             items(displayChapters, key = { "${it.number}_${it.title}" }) { ch -> ChapterRow(ch, { onOpenChapter(ch) }, { onDownloadChapter(ch) }) }
         }
+    }
 
         TrackingSheet(visible = showTracking, onDismiss = { showTracking = false }, mangaId = manga.id, mangaTitle = manga.title)
     }

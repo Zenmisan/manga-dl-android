@@ -202,6 +202,7 @@ fun NovelReaderScreen(
                 }
             }
         }
+    }
 
         AnimatedVisibility(controls, modifier = Modifier.align(Alignment.TopCenter), enter = fadeIn(), exit = fadeOut()) {
             Column(Modifier.fillMaxWidth().background(c.navBg.copy(alpha = 0.94f)).statusBarsPadding()) {

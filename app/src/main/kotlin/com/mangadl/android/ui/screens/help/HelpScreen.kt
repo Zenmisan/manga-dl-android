@@ -17,7 +17,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -38,32 +37,21 @@ import com.mangadl.android.ui.components.Screen
 import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.theme.MdTheme
 import androidx.compose.foundation.clickable
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HelpScreen(onBack: () -> Unit) {
     val c = MdTheme.colors
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val faqs = listOf(
-        "Where are downloads saved?" to "As CBZ files with ComicInfo.xml. Change the folder in Settings › System › Download location.",
-        "How do I add a source?" to "Open Browse › Extensions and install one, or connect Komga or Suwayomi in Settings › System.",
-        "How does cloud sync work?" to "Sign in and your library, history and progress sync through your backend automatically.",
-        "Why won't a chapter load?" to "The source may be down or rate-limiting. Retry, or open it in WebView to check.",
+        "Where are downloads saved?" to "Downloads are stored as CBZ / EPUB archives in your app's download directory. You can inspect your storage usage in Settings › System.",
+        "How do I add or install extensions?" to "Open Browse › Extensions. You can install native sources or add third-party extension repos like Keiyoushi in Settings.",
+        "How does cloud sync work?" to "Sign in to your account. Your library, bookmarks, and read history will automatically synchronize with your Supabase account across devices.",
+        "Why won't a chapter load?" to "The source website may be experiencing downtime or rate-limiting. Check your internet connection or use WebView to verify the source status.",
     )
     var open by rememberState(0)
     var category by rememberState("Bug Report")
     var message by rememberState("")
-    var sending by rememberState(false)
-    var sent by rememberState(false)
 
     fun openUrl(url: String) {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -113,7 +101,7 @@ fun HelpScreen(onBack: () -> Unit) {
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Eyebrow("Contact support", color = c.fgSubtle)
+                Eyebrow("Report an issue or request a feature", color = c.fgSubtle)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("Bug Report", "Feature Request", "Account", "Source / Extension").forEach {
                         PillChip(it, it == category, { category = it }, fontSize = 12.sp)
@@ -121,34 +109,29 @@ fun HelpScreen(onBack: () -> Unit) {
                 }
                 MdTextField(
                     message, { message = it },
-                    label = "Message",
-                    placeholder = "What happened? Include the source and chapter if it's a loading issue.",
+                    label = "Description",
+                    placeholder = "Describe what happened or what you'd like to see...",
                     multiline = true, height = 110.dp,
                 )
                 MdButton(
-                    if (sent) "Sent!" else if (sending) "Sending…" else "Send Message",
+                    "Submit via GitHub Issues",
                     onClick = {
-                        if (message.isBlank() || sending || sent) return@MdButton
-                        sending = true
-                        scope.launch {
-                            runCatching {
-                                withContext(Dispatchers.IO) {
-                                    val json = JSONObject().apply {
-                                        put("category", category)
-                                        put("message", message)
-                                    }.toString()
-                                    val body = json.toRequestBody("application/json".toMediaType())
-                                    val req = Request.Builder()
-                                        .url("${BuildConfig.BACKEND_URL}/support/ticket")
-                                        .post(body)
-                                        .build()
-                                    OkHttpClient().newCall(req).execute().use { it.isSuccessful }
-                                }
-                            }
-                            sending = false
-                            sent = true
-                            message = ""
-                        }
+                        val firstLine = message.lineSequence().firstOrNull()?.take(50)?.trim().orEmpty()
+                        val titleSummary = if (firstLine.isNotBlank()) " - $firstLine" else ""
+                        val title = Uri.encode("[$category]$titleSummary")
+                        val body = Uri.encode(
+                            """
+                            |### Category
+                            |$category
+                            |
+                            |### Description
+                            |${if (message.isNotBlank()) message else "N/A"}
+                            |
+                            |### App Version
+                            |manga-dl ${BuildConfig.VERSION_NAME} (Android ${android.os.Build.VERSION.RELEASE})
+                            """.trimMargin()
+                        )
+                        openUrl("https://github.com/zenmisan/manga-dl/issues/new?title=$title&body=$body")
                     },
                     modifier = Modifier.fillMaxWidth(),
                     height = 50.dp,

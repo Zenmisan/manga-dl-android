@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -116,35 +117,43 @@ fun SignInScreen(
     }
 
     Screen {
-        Column(
+        Box(
             Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .imePadding()
-                .padding(start = 24.dp, end = 24.dp, top = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(28.dp),
+                .fillMaxWidth(),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            MdIconButton(MdIcons.Back, "Back", onBack, Modifier.offset(x = (-12).dp))
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                DisplayText("Sign in", 52.sp)
-                BodyText("Sync your library, history and backups across devices.", size = 15.sp, color = c.fgMuted, lineHeight = 22.sp)
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                MdTextField(email, { email = it }, label = "Email", placeholder = "you@example.com", keyboardType = KeyboardType.Email)
-                MdTextField(password, { password = it }, label = "Password", placeholder = "Your password", isPassword = true)
-                if (error != null) BodyText(error, size = 13.sp, color = c.errorText)
-                TextLink("Forgot password?", onForgot, Modifier.align(Alignment.End), size = 13.sp)
-                MdButton(
-                    if (loading) "Signing in…" else "Sign In",
-                    { vm.signInWithEmail(email, password, onSignIn) },
-                    Modifier.fillMaxWidth(),
-                    enabled = !loading,
-                )
-            }
-            OrDivider()
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                GoogleSignInButton(onClick = { vm.signInWithGoogle(context, onSignIn) }, enabled = !loading)
-                MdButton("Use Without Account", onUseWithoutAccount, Modifier.fillMaxWidth(), tone = ButtonTone.Ghost)
+            Column(
+                Modifier
+                    .widthIn(max = 440.dp)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .padding(start = 24.dp, end = 24.dp, top = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(28.dp),
+            ) {
+                MdIconButton(MdIcons.Back, "Back", onBack, Modifier.offset(x = (-12).dp))
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    DisplayText("Sign in", 52.sp)
+                    BodyText("Sync your library, history and backups across devices.", size = 15.sp, color = c.fgMuted, lineHeight = 22.sp)
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    MdTextField(email, { email = it }, label = "Email", placeholder = "you@example.com", keyboardType = KeyboardType.Email)
+                    MdTextField(password, { password = it }, label = "Password", placeholder = "Your password", isPassword = true)
+                    if (error != null) BodyText(error, size = 13.sp, color = c.errorText)
+                    TextLink("Forgot password?", onForgot, Modifier.align(Alignment.End), size = 13.sp)
+                    MdButton(
+                        if (loading) "Signing in…" else "Sign In",
+                        { vm.signInWithEmail(email, password, onSignIn) },
+                        Modifier.fillMaxWidth(),
+                        enabled = !loading,
+                    )
+                }
+                OrDivider()
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    GoogleSignInButton(onClick = { vm.signInWithGoogle(context, onSignIn) }, enabled = !loading)
+                    MdButton("Use Without Account", onUseWithoutAccount, Modifier.fillMaxWidth(), tone = ButtonTone.Ghost)
+                }
             }
         }
         Row(

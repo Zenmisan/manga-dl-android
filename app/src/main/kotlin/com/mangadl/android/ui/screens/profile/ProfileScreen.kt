@@ -125,26 +125,21 @@ fun ProfileScreen(onBack: () -> Unit, onEditProfile: () -> Unit) {
                 }
                 Divider(color = c.surfaceHigh)
             }
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Eyebrow("Pinned")
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    val pinned = library.take(3)
-                    val pinnedColors = listOf(Color(0xFF1A2433), Color(0xFF3A1518), Color(0xFF2B1A2E))
-                    pinned.forEachIndexed { i, _ ->
-                        CoverArt(pinnedColors[i % pinnedColors.size], Modifier.weight(1f).aspectRatio(2f / 3f), RoundedCornerShape(8.dp))
+            if (library.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Eyebrow("Recent from library")
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        val recent = library.take(4)
+                        val palette = listOf(Color(0xFF1A2433), Color(0xFF3A1518), Color(0xFF2B1A2E), Color(0xFF13282A))
+                        recent.forEachIndexed { i, m ->
+                            CoverArt(
+                                palette[i % palette.size],
+                                Modifier.weight(1f).aspectRatio(2f / 3f),
+                                RoundedCornerShape(8.dp),
+                                imageUrl = m.coverUrl,
+                            )
+                        }
                     }
-                    repeat((3 - pinned.size).coerceAtLeast(0)) {
-                        CoverArt(Color(0xFF22222A), Modifier.weight(1f).aspectRatio(2f / 3f), RoundedCornerShape(8.dp))
-                    }
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .aspectRatio(2f / 3f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .border(1.dp, c.fg.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
-                            .clickable(role = Role.Button) {},
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(MdIcons.Plus, "Pin a manga", tint = c.fgSubtle, modifier = Modifier.size(22.dp)) }
                 }
             }
             val ch = chaptersRead

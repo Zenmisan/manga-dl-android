@@ -13,9 +13,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,8 +45,17 @@ fun DownloadsScreen(
     onItemAction: (DownloadItem) -> Unit = {},
 ) {
     val c = MdTheme.colors
+    val context = LocalContext.current
+    val (totalStorageBytes, freeStorageBytes) = remember {
+        runCatching {
+            val stat = android.os.StatFs(context.filesDir.absolutePath)
+            stat.totalBytes to stat.availableBytes
+        }.getOrDefault((64L * 1024 * 1024 * 1024) to (32L * 1024 * 1024 * 1024))
+    }
     val formattedStorage = formatBytes(storageBytes)
-    val storageFraction = (storageBytes.toFloat() / (5L * 1024 * 1024 * 1024)).coerceIn(0f, 1f)
+    val storageFraction = if (totalStorageBytes > 0) {
+        (storageBytes.toFloat() / totalStorageBytes.toFloat()).coerceIn(0f, 1f)
+    } else 0f
 
     Screen {
         BackHeader("Downloads", onBack) {
@@ -78,7 +89,7 @@ fun DownloadsScreen(
             ) {
                 Row {
                     BodyText("Device storage used by manga-dl", Modifier.weight(1f), size = 13.sp, color = c.fg.copy(alpha = 0.7f))
-                    BodyText(formattedStorage, size = 13.sp, weight = FontWeight.Bold)
+                    BodyText("$formattedStorage (${formatBytes(freeStorageBytes)} free)", size = 13.sp, weight = FontWeight.Bold)
                 }
                 ProgressBar(storageFraction, color = c.fg, height = 6.dp)
             }

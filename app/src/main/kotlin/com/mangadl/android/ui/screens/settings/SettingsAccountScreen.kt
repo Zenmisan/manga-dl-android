@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -79,10 +80,15 @@ fun AccountSettingsScreen(onBack: () -> Unit, onSignOut: () -> Unit, onDeleteAcc
     val saveStatus by vm.saveStatus.collectAsState()
     Screen {
         BackHeader("Account", onBack, Modifier.padding(bottom = 0.dp))
-        Column(
-            Modifier.verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            Column(
+                Modifier
+                    .widthIn(max = 760.dp)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
             val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Box(Modifier.size(64.dp).clip(CircleShape).background(Color(0xFF3A1518)), contentAlignment = Alignment.Center) {
@@ -213,4 +219,5 @@ fun AccountSettingsScreen(onBack: () -> Unit, onSignOut: () -> Unit, onDeleteAcc
             }
         }
     }
+}
 }

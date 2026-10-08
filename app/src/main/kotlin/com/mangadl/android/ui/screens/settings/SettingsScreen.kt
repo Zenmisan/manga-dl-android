@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -45,26 +46,34 @@ fun SettingsScreen(onBack: () -> Unit, onOpen: (SettingsPage) -> Unit) {
     val c = MdTheme.colors
     Screen {
         BackHeader("Settings", onBack)
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp)) {
-            SettingsPage.entries.forEach { page ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 68.dp)
-                        .clickable(role = Role.Button) { onOpen(page) },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(c.surfaceRaised), contentAlignment = Alignment.Center) {
-                        Icon(page.icon, null, tint = c.fg, modifier = Modifier.size(20.dp))
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            Column(
+                Modifier
+                    .widthIn(max = 760.dp)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
+            ) {
+                SettingsPage.entries.forEach { page ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 68.dp)
+                            .clickable(role = Role.Button) { onOpen(page) },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(c.surfaceRaised), contentAlignment = Alignment.Center) {
+                            Icon(page.icon, null, tint = c.fg, modifier = Modifier.size(20.dp))
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            BodyText(page.label, size = 15.sp, weight = FontWeight.Bold)
+                            BodyText(page.description, size = 12.sp, color = c.fgSubtle)
+                        }
+                        Icon(MdIcons.ChevronRight, null, tint = c.fgFaint, modifier = Modifier.size(18.dp))
                     }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        BodyText(page.label, size = 15.sp, weight = FontWeight.Bold)
-                        BodyText(page.description, size = 12.sp, color = c.fgSubtle)
-                    }
-                    Icon(MdIcons.ChevronRight, null, tint = c.fgFaint, modifier = Modifier.size(18.dp))
+                    Divider()
                 }
-                Divider()
             }
         }
         BodyText("manga-dl ${BuildConfig.VERSION_NAME} · Android", Modifier.padding(20.dp), size = 12.sp, color = c.fgFaint)

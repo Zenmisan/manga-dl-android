@@ -1,12 +1,14 @@
 package com.mangadl.android.ui.screens.auth
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -56,34 +58,42 @@ fun CreateAccountScreen(onBack: () -> Unit, onCreate: () -> Unit, onSignIn: () -
     }
 
     Screen {
-        Column(
+        Box(
             Modifier
                 .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .imePadding()
-                .padding(start = 24.dp, end = 24.dp, top = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(22.dp),
+                .fillMaxWidth(),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            MdIconButton(MdIcons.Back, "Back", onBack, Modifier.offset(x = (-12).dp))
-            DisplayText("Create account", 44.sp)
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                MdTextField(username, { username = it }, label = "Username")
-                MdTextField(email, { email = it }, label = "Email", keyboardType = KeyboardType.Email)
-                MdTextField(password, { password = it }, label = "Password", isPassword = true)
-                MdTextField(confirm, { confirm = it }, label = "Confirm password", isPassword = true, isError = mismatch)
-                if (mismatch) BodyText("Passwords don't match.", size = 13.sp, weight = FontWeight.SemiBold, color = c.errorText)
-                if (error != null) BodyText(error, size = 13.sp, color = c.errorText)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    MdCheckbox(agreed, { agreed = it }, "I agree to the")
-                    TextLink("Terms", onTerms)
+            Column(
+                Modifier
+                    .widthIn(max = 440.dp)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .padding(start = 24.dp, end = 24.dp, top = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(22.dp),
+            ) {
+                MdIconButton(MdIcons.Back, "Back", onBack, Modifier.offset(x = (-12).dp))
+                DisplayText("Create account", 44.sp)
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    MdTextField(username, { username = it }, label = "Username")
+                    MdTextField(email, { email = it }, label = "Email", keyboardType = KeyboardType.Email)
+                    MdTextField(password, { password = it }, label = "Password", isPassword = true)
+                    MdTextField(confirm, { confirm = it }, label = "Confirm password", isPassword = true, isError = mismatch)
+                    if (mismatch) BodyText("Passwords don't match.", size = 13.sp, weight = FontWeight.SemiBold, color = c.errorText)
+                    if (error != null) BodyText(error, size = 13.sp, color = c.errorText)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        MdCheckbox(agreed, { agreed = it }, "I agree to the")
+                        TextLink("Terms", onTerms)
+                    }
                 }
+                MdButton(
+                    if (loading) "Creating…" else "Create Account",
+                    { vm.createAccount(username, email, password, onCreate) },
+                    Modifier.fillMaxWidth(),
+                    enabled = valid && !loading,
+                )
             }
-            MdButton(
-                if (loading) "Creating…" else "Create Account",
-                { vm.createAccount(username, email, password, onCreate) },
-                Modifier.fillMaxWidth(),
-                enabled = valid && !loading,
-            )
         }
         Row(
             Modifier.fillMaxWidth().padding(bottom = 20.dp),
