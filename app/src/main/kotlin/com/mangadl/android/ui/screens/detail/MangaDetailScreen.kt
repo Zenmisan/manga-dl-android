@@ -91,6 +91,7 @@ fun MangaDetailScreen(
     var inLibrary by rememberState(manga.inLibrary)
     var showTracking by rememberState(initiallyTracking)
     var showShelvesSheet by rememberState(false)
+    var showCommentsSheet by rememberState(false)
     var synopsisOpen by rememberState(false)
 
     var sortAscending by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }

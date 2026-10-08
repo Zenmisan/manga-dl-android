@@ -122,6 +122,7 @@ object Routes {
     const val Trackers = "settings/trackers"
     const val System = "settings/system"
     const val Sources = "sources"
+    const val Leaderboard = "leaderboard"
 }
 
 @Composable
@@ -497,7 +498,14 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
             )
         }
         composable(Routes.Stats) { StatsScreen(onBack = back) }
-        composable(Routes.Profile) { ProfileScreen(onBack = back, onEditProfile = { nav.navigate(Routes.Account) }) }
+        composable(Routes.Profile) {
+            ProfileScreen(
+                onBack = back,
+                onEditProfile = { nav.navigate(Routes.Account) },
+                onOpenLeaderboard = { nav.navigate(Routes.Leaderboard) },
+            )
+        }
+        composable(Routes.Leaderboard) { com.mangadl.android.ui.screens.leaderboard.LeaderboardScreen(onBack = back) }
         composable(Routes.Help) { HelpScreen(onBack = back) }
 
         composable(Routes.Settings) {
@@ -700,6 +708,7 @@ private fun MainTabs(nav: NavHostController, emptyLibrary: Boolean = false, onSo
                             when (d) {
                                 MoreDestination.Downloads -> Routes.Downloads
                                 MoreDestination.Notifications -> Routes.Notifications
+                                MoreDestination.Leaderboard -> Routes.Leaderboard
                                 MoreDestination.Statistics -> Routes.Stats
                                 MoreDestination.Import -> Routes.Local
                                 MoreDestination.Backup -> Routes.System

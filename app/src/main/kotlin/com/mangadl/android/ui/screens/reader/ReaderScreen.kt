@@ -130,6 +130,7 @@ fun ReaderScreen(
     var cropBorders by rememberState(false)
     var bookmarked by rememberState(false)
     var showMoreOptions by rememberState(false)
+    var showCommentsSheet by rememberState(false)
     var brightness by rememberState(1f)
 
     LaunchedEffect(savedDirection) {
@@ -386,6 +387,7 @@ fun ReaderScreen(
                         { bookmarked = !bookmarked },
                         tint = if (bookmarked) c.accentLight else c.fg,
                     )
+                    MdIconButton(MdIcons.Chat, "Chapter comments", { showCommentsSheet = true })
                     MdIconButton(MdIcons.More, "More options", { showMoreOptions = true })
                 }
                 Box(Modifier.fillMaxWidth().height(1.dp).background(c.dividerStrong))
@@ -494,6 +496,17 @@ fun ReaderScreen(
                     ToolButton(MdIcons.Sliders, "Settings", Modifier.weight(1f), onOpenSettings)
                 }
             }
+        }
+
+        if (showCommentsSheet) {
+            com.mangadl.android.ui.screens.comments.CommentSheet(
+                provider = navState.sourceId,
+                mangaId = navState.mangaId,
+                chapterId = navState.chapterId,
+                title = "Chapter Comments",
+                subtitle = "${navState.mangaTitle} • ${navState.chapterLabel}",
+                onDismiss = { showCommentsSheet = false },
+            )
         }
     }
 }
