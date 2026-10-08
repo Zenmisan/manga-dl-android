@@ -47,6 +47,7 @@ import com.mangadl.android.ui.viewmodels.UpdatesViewModel
 enum class MoreDestination(val label: String, val icon: ImageVector) {
     Downloads("Downloads", MdIcons.Download),
     Notifications("Notifications", MdIcons.Mail),
+    Leaderboard("Guild Leaderboard", MdIcons.Trophy),
     Statistics("Statistics", MdIcons.Stats),
     Import("Import local files", MdIcons.Upload),
     Backup("Backup & restore", MdIcons.Backup),

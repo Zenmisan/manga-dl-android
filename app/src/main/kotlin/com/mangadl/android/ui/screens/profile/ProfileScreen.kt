@@ -65,7 +65,11 @@ import java.text.NumberFormat
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onEditProfile: () -> Unit) {
+fun ProfileScreen(
+    onBack: () -> Unit,
+    onEditProfile: () -> Unit,
+    onOpenLeaderboard: () -> Unit = {},
+) {
     val c = MdTheme.colors
     val authVm: AuthViewModel = viewModel()
     val profileVm: ProfileViewModel = viewModel()
@@ -237,6 +241,39 @@ fun ProfileScreen(onBack: () -> Unit, onEditProfile: () -> Unit) {
                 state = hunterState,
                 onViewMilestones = { showMilestonesModal = true }
             )
+
+            // ── Guild Leaderboard Action Tile ──
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(c.surface)
+                    .border(1.dp, c.surfaceHigh, RoundedCornerShape(14.dp))
+                    .clickable(onClick = onOpenLeaderboard)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFF59E0B).copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = MdIcons.Trophy,
+                        contentDescription = null,
+                        tint = Color(0xFFF59E0B),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    BodyText("Global Hunter Leaderboard", size = 14.sp, weight = FontWeight.Bold)
+                    BodyText("See how your reading rank compares worldwide", size = 11.sp, color = c.fgMuted)
+                }
+                Icon(MdIcons.ChevronRight, null, tint = c.fgMuted, modifier = Modifier.size(18.dp))
+            }
 
             // ── Pinned Showcase Badges ──
             PinnedBadgesSection(
