@@ -158,6 +158,17 @@ class AppPreferences(private val context: Context) {
         return added
     }
 
+    suspend fun togglePinnedSource(sourceId: String) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[PrefKeys.PINNED_SOURCES] ?: emptySet()
+            if (sourceId in current) {
+                prefs[PrefKeys.PINNED_SOURCES] = current - sourceId
+            } else {
+                prefs[PrefKeys.PINNED_SOURCES] = current + sourceId
+            }
+        }
+    }
+
     suspend fun set(key: Preferences.Key<String>, value: String) {
         context.dataStore.edit { it[key] = value }
     }
