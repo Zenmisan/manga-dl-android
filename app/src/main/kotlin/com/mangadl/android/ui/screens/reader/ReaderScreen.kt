@@ -270,6 +270,12 @@ fun ReaderScreen(
     }
 
     Box(Modifier.fillMaxSize().background(readerBg)) {
+        val currentPageUrl = pages.getOrNull(currentDisplayPage)
+        AmbientBackdrop(
+            imageUrl = currentPageUrl,
+            enabled = ambilightEnabled,
+        )
+
         when {
             readerState is ReaderState.Loading -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -395,6 +401,10 @@ fun ReaderScreen(
             },
             brightness = brightness,
             onBrightnessChange = { brightness = it },
+            ambilightEnabled = ambilightEnabled,
+            onAmbilightChange = { enabled ->
+                scope.launch { appPrefs.set(PrefKeys.AMBILIGHT, enabled) }
+            },
             onDismiss = { showMoreOptions = false },
         )
 
