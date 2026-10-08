@@ -141,6 +141,7 @@ class BackupEngineTest {
                     url = "/manga/solo-leveling",
                     totalChapters = 200,
                     readCount = 150,
+                    type = "manga",
                 )
             ),
             progress = listOf(
@@ -151,9 +152,20 @@ class BackupEngineTest {
                     page = 30,
                     totalPages = 30,
                     completed = true,
+                    chapterNumber = 150.0,
                 )
             ),
             categories = listOf("Manhwa", "Favorites"),
+            trackerBinds = listOf(
+                BackupTrackerBindEntry(
+                    provider = "asurascans",
+                    mangaId = "solo-leveling",
+                    tracker = "AniList",
+                    remoteId = 105398,
+                    remoteTitle = "Solo Leveling",
+                    lastChapterRead = 150.0,
+                )
+            ),
         )
 
         val encoded = json.encodeToString(original)
@@ -162,9 +174,14 @@ class BackupEngineTest {
         assertEquals("manga-dl", decoded.app)
         assertEquals(1, decoded.library.size)
         assertEquals("Solo Leveling", decoded.library[0].title)
+        assertEquals("manga", decoded.library[0].type)
         assertEquals(1, decoded.progress.size)
         assertTrue(decoded.progress[0].completed)
+        assertEquals(150.0, decoded.progress[0].chapterNumber, 0.001)
         assertEquals(2, decoded.categories.size)
+        assertEquals(1, decoded.trackerBinds.size)
+        assertEquals("AniList", decoded.trackerBinds[0].tracker)
+        assertEquals(105398, decoded.trackerBinds[0].remoteId)
     }
 
     @Test

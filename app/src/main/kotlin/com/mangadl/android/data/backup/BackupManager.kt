@@ -44,6 +44,7 @@ class BackupManager(
                 coverUrl = m.coverUrl,
                 provider = m.provider,
                 url = m.url,
+                type = if (com.mangadl.android.data.source.SourceManager.NOVEL_SOURCE_IDS.contains(m.provider.lowercase())) "novel" else "manga",
                 addedAt = m.addedAt,
                 lastReadChapterId = m.lastReadChapterId,
                 lastReadAt = m.lastReadAt,
@@ -53,6 +54,7 @@ class BackupManager(
         }
 
         val backupProgress = progressEntries.map { p ->
+            val num = extractChapterNumber(p.chapterId)
             BackupProgressEntry(
                 mangaId = p.mangaId,
                 chapterId = p.chapterId,
@@ -61,6 +63,7 @@ class BackupManager(
                 totalPages = p.totalPages,
                 readAt = p.readAt,
                 completed = p.completed,
+                chapterNumber = num,
             )
         }
 
@@ -75,7 +78,7 @@ class BackupManager(
         val jsonString = json.encodeToString(backup)
         val timestamp = SimpleDateFormat("yyyy-MM-dd_HHmmss", Locale.US).format(Date())
         val backupDir = File(context.cacheDir, "backups").apply { mkdirs() }
-        val backupFile = File(backupDir, "manga-dl-backup-$timestamp.json")
+        val backupFile = File(backupDir, "manga-dl-backup-$timestamp.mangadl")
         backupFile.writeText(jsonString, Charsets.UTF_8)
         backupFile
     }
@@ -155,10 +158,11 @@ class BackupManager(
 
                 return@withContext BackupRestoreResult(
                     success = true,
-                    sourceFormat = "Manga-DL JSON",
+                    sourceFormat = "Manga-DL (.mangadl / JSON)",
                     restoredMangaCount = mangaCount,
                     restoredProgressCount = progressCount,
                     restoredCategoriesCount = backup.categories.size,
+                    restoredTrackerBindsCount = backup.trackerBinds.size,
                 )
             }
 
@@ -247,10 +251,16 @@ class BackupManager(
             file,
         )
         return Intent(Intent.ACTION_SEND).apply {
-            type = "application/json"
+            type = "application/octet-stream"
             putExtra(Intent.EXTRA_STREAM, uri)
             putExtra(Intent.EXTRA_SUBJECT, "manga-dl Backup")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
+    }
+
+    private fun extractChapterNumber(chapterId: String): Double {
+        val match = Regex("""(?:chapter|ch)[-_ ]*(\d+(?:\.\d+)?)""", RegexOption.IGNORE_CASE).find(chapterId)
+            ?: Regex("""(\d+(?:\.\d+)?)""").find(chapterId)
+        return match?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
     }
 }

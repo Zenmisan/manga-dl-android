@@ -4,7 +4,8 @@ import kotlinx.serialization.Serializable
 
 /**
  * Universal Manga-DL backup schema.
- * Represents complete library, reading history, and category associations.
+ * Represents complete library, reading history, categories, and tracker bindings
+ * matching both desktop (manga-dl-windows) and web.
  */
 @Serializable
 data class MangaDlBackup(
@@ -15,6 +16,7 @@ data class MangaDlBackup(
     val progress: List<BackupProgressEntry> = emptyList(),
     val categories: List<String> = emptyList(),
     val mangaCategories: Map<String, List<String>> = emptyMap(),
+    val trackerBinds: List<BackupTrackerBindEntry> = emptyList(),
 )
 
 @Serializable
@@ -24,6 +26,7 @@ data class BackupMangaEntry(
     val coverUrl: String = "",
     val provider: String,
     val url: String = "",
+    val type: String = "manga", // "manga" | "novel"
     val addedAt: Long = System.currentTimeMillis(),
     val lastReadChapterId: String? = null,
     val lastReadAt: Long? = null,
@@ -41,6 +44,19 @@ data class BackupProgressEntry(
     val totalPages: Int = 0,
     val readAt: Long = System.currentTimeMillis(),
     val completed: Boolean = false,
+    val chapterNumber: Double = 0.0,
+)
+
+@Serializable
+data class BackupTrackerBindEntry(
+    val provider: String = "",
+    val mangaId: String = "",
+    val tracker: String = "", // "AniList" | "MyAnimeList"
+    val remoteId: Int = 0,
+    val remoteTitle: String? = null,
+    val lastChapterRead: Double = 0.0,
+    val score: Double = 0.0,
+    val status: String? = null,
 )
 
 /**
@@ -48,9 +64,10 @@ data class BackupProgressEntry(
  */
 data class BackupRestoreResult(
     val success: Boolean,
-    val sourceFormat: String, // "Manga-DL JSON", "Tachiyomi Protobuf (.tachibk)", "Tachiyomi JSON"
+    val sourceFormat: String, // "Manga-DL (.mangadl / JSON)", "Tachiyomi Protobuf (.tachibk)", "Tachiyomi JSON"
     val restoredMangaCount: Int,
     val restoredProgressCount: Int,
     val restoredCategoriesCount: Int,
+    val restoredTrackerBindsCount: Int = 0,
     val errorMessage: String? = null,
 )
