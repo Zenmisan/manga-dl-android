@@ -79,6 +79,10 @@ object MdIcons {
     val Feather by lazy { stroke("Feather", "M20.2 12.2a6 6 0 0 0-8.5-8.5L5 10.5V19h8.5z", "M16 8L2 22", "M17.5 15H9") }
     val Scroll by lazy { stroke("Scroll", "M8 21h12a2 2 0 0 0 2-2v-2H10v2a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v3h4", "M19 17V5a2 2 0 0 0-2-2H4") }
     val InfinityIcon by lazy { stroke("Infinity", "M18.2 8c5.1 0 5.1 8 0 8-2.7 0-4.8-2.6-6.2-4-1.4 1.4-3.5 4-6.2 4-5.1 0-5.1-8 0-8 2.7 0 4.8 2.6 6.2 4 1.4-1.4 3.5-4 6.2-4z") }
+    val Chat by lazy { stroke("Chat", "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z") }
+    val Heart by lazy { stroke("Heart", "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z") }
+    val HeartFilled by lazy { fill("HeartFilled", "M12 21.23l-1.06-1.06a5.5 5.5 0 0 1-7.78-7.78l1.06-1.06L12 5.67l7.78 5.66 1.06 1.06a5.5 5.5 0 0 1-7.78 7.78L12 21.23z") }
+    val Send by lazy { stroke("Send", "M22 2L11 13", "M22 2l-7 20-4-9-9-4 20-7z") }
 
     private fun stroke(name: String, vararg paths: String, width: Float = 2f): ImageVector =
         ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply {
