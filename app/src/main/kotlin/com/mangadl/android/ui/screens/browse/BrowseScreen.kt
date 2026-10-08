@@ -113,12 +113,33 @@ private fun SourcesTab(
     onTogglePin: (String) -> Unit,
 ) {
     val c = MdTheme.colors
-    val pinned = sources.filter { it.id in pinnedSources }
-    val unpinned = sources.filter { it.id !in pinnedSources }
+    var typeFilter by rememberState(0) // 0: All, 1: Manga, 2: Novels
+
+    val mangaSources = remember(sources) { sources.filter { !com.mangadl.android.data.extensions.ExtensionManager.isNovelSource(it.id) } }
+    val novelSources = remember(sources) { sources.filter { com.mangadl.android.data.extensions.ExtensionManager.isNovelSource(it.id) } }
+
+    val filteredSources = remember(sources, typeFilter) {
+        when (typeFilter) {
+            1 -> mangaSources
+            2 -> novelSources
+            else -> sources
+        }
+    }
+
+    val pinned = filteredSources.filter { it.id in pinnedSources }
+    val unpinned = filteredSources.filter { it.id !in pinnedSources }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+        item {
+            Row(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PillChip("All (${sources.size})", typeFilter == 0, { typeFilter = 0 }, height = 34.dp, fontSize = 12.sp)
+                PillChip("Manga (${mangaSources.size})", typeFilter == 1, { typeFilter = 1 }, height = 34.dp, fontSize = 12.sp)
+                PillChip("Novels (${novelSources.size})", typeFilter == 2, { typeFilter = 2 }, height = 34.dp, fontSize = 12.sp)
+            }
+        }
+
         if (pinned.isNotEmpty()) {
-            item { Eyebrow("Pinned (${pinned.size})", Modifier.padding(start = 20.dp, top = 10.dp, bottom = 6.dp), color = c.accentLight) }
+            item { Eyebrow("Pinned (${pinned.size})", Modifier.padding(start = 20.dp, top = 6.dp, bottom = 6.dp), color = c.accentLight) }
             items(pinned, key = { "pinned_${it.id}" }) { src ->
                 SourceRow(
                     source = src,
@@ -129,7 +150,7 @@ private fun SourcesTab(
             }
         }
 
-        item { Eyebrow("All sources (${unpinned.size})", Modifier.padding(start = 20.dp, top = if (pinned.isNotEmpty()) 16.dp else 10.dp, bottom = 6.dp), color = c.fgSubtle) }
+        item { Eyebrow(if (pinned.isNotEmpty()) "All sources (${unpinned.size})" else "Active sources (${unpinned.size})", Modifier.padding(start = 20.dp, top = if (pinned.isNotEmpty()) 12.dp else 6.dp, bottom = 6.dp), color = c.fgSubtle) }
         items(unpinned, key = { "all_${it.id}" }) { src ->
             SourceRow(
                 source = src,
@@ -149,6 +170,7 @@ private fun SourceRow(
     onTogglePin: () -> Unit,
 ) {
     val c = MdTheme.colors
+    val isNovel = com.mangadl.android.data.extensions.ExtensionManager.isNovelSource(source.id)
     Row(
         Modifier
             .fillMaxWidth()
@@ -159,7 +181,17 @@ private fun SourceRow(
     ) {
         LogoTile(source.initial, source.color)
         Column(Modifier.weight(1f)) {
-            BodyText(source.name, size = 15.sp, weight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                BodyText(source.name, size = 15.sp, weight = FontWeight.Bold)
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(if (isNovel) c.accentFaint else c.surfaceHigh)
+                        .padding(horizontal = 5.dp, vertical = 1.dp),
+                ) {
+                    BodyText(if (isNovel) "Novel" else "Manga", size = 10.sp, color = if (isNovel) c.accentSoft else c.fgSubtle, weight = FontWeight.Bold)
+                }
+            }
             BodyText(source.meta, size = 12.sp, color = c.fgSubtle)
         }
         PillButton("Latest", { onOpen(source) })
@@ -188,52 +220,56 @@ private fun ExtensionsTab(
     }
 
     val c = MdTheme.colors
-    var lang by rememberState("English")
-    var adult by rememberState(false)
+    var typeFilter by rememberState(0) // 0: All, 1: Manga, 2: Novels
 
-    val filtered = remember(extensions, lang, adult) {
-        extensions.filter { ext ->
-            val langMatches = if (lang == "English") {
-                ext.lang.equals("en", ignoreCase = true) || ext.lang.equals("all", ignoreCase = true)
-            } else true
+    val mangaExtensions = remember(extensions) { extensions.filter { !com.mangadl.android.data.extensions.ExtensionManager.isNovelSource(it.id) } }
+    val novelExtensions = remember(extensions) { extensions.filter { com.mangadl.android.data.extensions.ExtensionManager.isNovelSource(it.id) } }
 
-            val nsfwMatches = if (!adult) !ext.isNsfw else true
-            langMatches && nsfwMatches
+    val filtered = remember(extensions, typeFilter) {
+        when (typeFilter) {
+            1 -> mangaExtensions
+            2 -> novelExtensions
+            else -> extensions
         }
     }
 
-    val updates = remember(filtered) { filtered.filter { it.state == ExtensionState.UpdateAvailable } }
-    val installed = remember(filtered) { filtered.filter { it.state == ExtensionState.Installed } }
-    val available = remember(filtered) { filtered.filter { it.state == ExtensionState.Available } }
-
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
-            Row(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PillChip("English", lang == "English", { lang = "English" }, height = 34.dp, fontSize = 12.sp)
-                PillChip("All languages", lang == "All", { lang = "All" }, height = 34.dp, fontSize = 12.sp)
-                PillChip("Show 18+", adult, { adult = !adult }, height = 34.dp, fontSize = 12.sp)
-            }
-        }
-
-        if (updates.isNotEmpty()) {
-            item {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 6.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(c.surfaceRaised)
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Eyebrow("Updates pending · ${updates.size}", Modifier.weight(1f))
-                    PillButton("Update All", { updates.forEach(onUpdateExtension) }, tone = ButtonTone.Primary)
+                    Icon(MdIcons.Sparkles, contentDescription = null, tint = c.accent, modifier = Modifier.size(16.dp))
+                    BodyText("Native Kotlin Sources Engine", size = 14.sp, weight = FontWeight.Bold, color = c.accentLight)
                 }
-            }
-            items(updates, key = { "upd_${it.id}" }) { ext ->
-                ExtensionRow(ext) {
-                    PillButton("Update", { onUpdateExtension(ext) }, tone = ButtonTone.Soft)
-                }
+                BodyText(
+                    "All 24 sources (9 Manga + 15 Web Novels) run directly in-app on native Kotlin scrapers with zero external APK downloads required.",
+                    size = 12.sp,
+                    color = c.fgSubtle,
+                    lineHeight = 17.sp,
+                )
             }
         }
 
-        item { Eyebrow("Installed (${installed.size})", Modifier.padding(start = 20.dp, top = 16.dp, bottom = 6.dp), color = c.fgSubtle) }
-        items(installed, key = { "inst_${it.id}" }) { ext ->
+        item {
+            Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PillChip("All (${extensions.size})", typeFilter == 0, { typeFilter = 0 }, height = 34.dp, fontSize = 12.sp)
+                PillChip("Manga (${mangaExtensions.size})", typeFilter == 1, { typeFilter = 1 }, height = 34.dp, fontSize = 12.sp)
+                PillChip("Novels (${novelExtensions.size})", typeFilter == 2, { typeFilter = 2 }, height = 34.dp, fontSize = 12.sp)
+            }
+        }
+
+        item { Eyebrow("Installed Sources (${filtered.size})", Modifier.padding(start = 20.dp, top = 12.dp, bottom = 6.dp), color = c.fgSubtle) }
+        items(filtered, key = { "inst_${it.id}" }) { ext ->
             ExtensionRow(ext) {
                 val isEnabled = ext.id !in disabledSources
                 MdSwitch(isEnabled, { v ->
@@ -241,38 +277,6 @@ private fun ExtensionsTab(
                     disabledSources = updated
                     prefs.edit().putStringSet("disabled_sources", updated).apply()
                 })
-            }
-        }
-
-        item {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 16.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Eyebrow("Available · Keiyoushi index (${available.size})", Modifier.weight(1f), color = c.fgSubtle)
-                if (isRepoLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = c.accent)
-                } else {
-                    PillButton("Refresh", onRefreshRepo, tone = ButtonTone.Ghost)
-                }
-            }
-        }
-
-        if (available.isNotEmpty()) {
-            item {
-                BodyText(
-                    "Installs as a separate app, not a manga-dl source yet — it won't show up " +
-                        "here to search or read from after installing.",
-                    Modifier.padding(start = 20.dp, end = 20.dp, bottom = 10.dp),
-                    size = 12.sp,
-                    color = c.fgSubtle,
-                )
-            }
-        }
-
-        items(available, key = { "avail_${it.id}" }) { ext ->
-            ExtensionRow(ext) {
-                PillButton("Install", { onInstallExtension(ext) })
             }
         }
     }

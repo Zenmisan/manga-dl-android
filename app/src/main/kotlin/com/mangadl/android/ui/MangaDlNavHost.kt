@@ -121,6 +121,7 @@ object Routes {
     const val LibrarySettings = "settings/library"
     const val Trackers = "settings/trackers"
     const val System = "settings/system"
+    const val Sources = "sources"
 }
 
 @Composable
@@ -523,6 +524,7 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
         composable(Routes.Trackers) { TrackerSettingsScreen(onBack = back) }
 
         composable(Routes.System) { SystemSettingsScreen(onBack = back) }
+        composable(Routes.Sources) { com.mangadl.android.ui.screens.sources.SourcesScreen(onBack = back) }
     }
 }
 
