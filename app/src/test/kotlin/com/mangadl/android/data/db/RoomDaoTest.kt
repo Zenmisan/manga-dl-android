@@ -2,7 +2,9 @@ package com.mangadl.android.data.db
 
 import android.content.Context
 import androidx.room.Room
+import com.mangadl.android.data.model.CategoryEntity
 import com.mangadl.android.data.model.DownloadEntry
+import com.mangadl.android.data.model.LibraryCategoryEntity
 import com.mangadl.android.data.model.LibraryManga
 import com.mangadl.android.data.model.NewChapterEntry
 import com.mangadl.android.data.model.ReadingProgress
@@ -28,6 +30,7 @@ class RoomDaoTest {
     private lateinit var progressDao: ProgressDao
     private lateinit var downloadDao: DownloadDao
     private lateinit var updatesDao: UpdatesDao
+    private lateinit var categoryDao: CategoryDao
 
     @Before
     fun setup() {
@@ -41,6 +44,7 @@ class RoomDaoTest {
         progressDao = db.progressDao()
         downloadDao = db.downloadDao()
         updatesDao = db.updatesDao()
+        categoryDao = db.categoryDao()
     }
 
     @After
@@ -253,5 +257,41 @@ class RoomDaoTest {
         val remaining = updatesDao.getAll().first()
         assertEquals(1, remaining.size)
         assertEquals("m2:c1", remaining[0].id)
+    }
+
+    // ── CategoryDao Tests ─────────────────────────────────────────────────────
+
+    @Test
+    fun testCategoryDao_crudAndAssociations() = runTest {
+        val cat1 = CategoryEntity(id = "favorites", name = "Favorites", sortOrder = 1)
+        val cat2 = CategoryEntity(id = "reading", name = "Currently Reading", sortOrder = 2)
+        categoryDao.upsert(cat1)
+        categoryDao.upsert(cat2)
+
+        val allCategories = categoryDao.getAll().first()
+        assertEquals(2, allCategories.size)
+        assertEquals("favorites", allCategories[0].id)
+        assertEquals("reading", allCategories[1].id)
+
+        // Assign manga m1 to both categories
+        categoryDao.setMangaCategories("m1", listOf("favorites", "reading"))
+        val m1Cats = categoryDao.getCategoriesForManga("m1").first()
+        assertEquals(2, m1Cats.size)
+        assertTrue(m1Cats.contains("favorites"))
+        assertTrue(m1Cats.contains("reading"))
+
+        // Update manga m1 to only favorites
+        categoryDao.setMangaCategories("m1", listOf("favorites"))
+        val m1CatsUpdated = categoryDao.getCategoriesForManga("m1").first()
+        assertEquals(listOf("favorites"), m1CatsUpdated)
+
+        // Delete category "favorites" and verify cascade association deletion
+        categoryDao.deleteCategory("favorites")
+        val remainingCats = categoryDao.getAll().first()
+        assertEquals(1, remainingCats.size)
+        assertEquals("reading", remainingCats[0].id)
+
+        val m1CatsAfterDelete = categoryDao.getCategoriesForManga("m1").first()
+        assertTrue(m1CatsAfterDelete.isEmpty())
     }
 }

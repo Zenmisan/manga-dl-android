@@ -1,7 +1,9 @@
 package com.mangadl.android.data.db
 
 import androidx.room.*
+import com.mangadl.android.data.model.CategoryEntity
 import com.mangadl.android.data.model.DownloadEntry
+import com.mangadl.android.data.model.LibraryCategoryEntity
 import com.mangadl.android.data.model.LibraryManga
 import com.mangadl.android.data.model.NewChapterEntry
 import com.mangadl.android.data.model.ReadingProgress
@@ -114,4 +116,71 @@ interface UpdatesDao {
 
     @Query("DELETE FROM new_chapters")
     suspend fun deleteAll()
+}
+
+@Dao
+interface CategoryDao {
+    @Query("SELECT * FROM categories ORDER BY sortOrder ASC, name ASC")
+    fun getAll(): Flow<List<CategoryEntity>>
+
+    @Query("SELECT * FROM categories ORDER BY sortOrder ASC, name ASC")
+    suspend fun getAllOnce(): List<CategoryEntity>
+
+    @Upsert
+    suspend fun upsert(category: CategoryEntity)
+
+    @Upsert
+    suspend fun upsertAll(categories: List<CategoryEntity>)
+
+    @Query("DELETE FROM categories WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Query("DELETE FROM library_categories WHERE categoryId = :categoryId")
+    suspend fun deleteAssociationsForCategory(categoryId: String)
+
+    @Transaction
+    suspend fun deleteCategory(id: String) {
+        deleteAssociationsForCategory(id)
+        delete(id)
+    }
+
+    @Query("SELECT categoryId FROM library_categories WHERE mangaId = :mangaId")
+    fun getCategoriesForManga(mangaId: String): Flow<List<String>>
+
+    @Query("SELECT categoryId FROM library_categories WHERE mangaId = :mangaId")
+    suspend fun getCategoriesForMangaOnce(mangaId: String): List<String>
+
+    @Query("SELECT * FROM library_categories")
+    fun getAllMangaCategories(): Flow<List<LibraryCategoryEntity>>
+
+    @Query("SELECT * FROM library_categories")
+    suspend fun getAllMangaCategoriesOnce(): List<LibraryCategoryEntity>
+
+    @Upsert
+    suspend fun upsertMangaCategory(entity: LibraryCategoryEntity)
+
+    @Upsert
+    suspend fun upsertMangaCategories(entities: List<LibraryCategoryEntity>)
+
+    @Query("DELETE FROM library_categories WHERE mangaId = :mangaId")
+    suspend fun clearCategoriesForManga(mangaId: String)
+
+    @Transaction
+    suspend fun setMangaCategories(mangaId: String, categoryIds: List<String>) {
+        clearCategoriesForManga(mangaId)
+        val entities = categoryIds.map { LibraryCategoryEntity(mangaId, it) }
+        upsertMangaCategories(entities)
+    }
+
+    @Query("DELETE FROM categories")
+    suspend fun deleteAllCategories()
+
+    @Query("DELETE FROM library_categories")
+    suspend fun deleteAllLibraryCategories()
+
+    @Transaction
+    suspend fun deleteAll() {
+        deleteAllLibraryCategories()
+        deleteAllCategories()
+    }
 }
