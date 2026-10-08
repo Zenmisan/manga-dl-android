@@ -90,3 +90,18 @@ data class NewChapterEntry(
     val chapterNumber: Float,
     val detectedAt: Long = System.currentTimeMillis(),
 )
+
+/** User custom category/shelf for organizing the library. */
+@Entity(tableName = "categories")
+data class CategoryEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val sortOrder: Int = 0,
+)
+
+/** Many-to-many association between a library manga and a custom category. */
+@Entity(tableName = "library_categories", primaryKeys = ["mangaId", "categoryId"])
+data class LibraryCategoryEntity(
+    val mangaId: String,
+    val categoryId: String,
+)
