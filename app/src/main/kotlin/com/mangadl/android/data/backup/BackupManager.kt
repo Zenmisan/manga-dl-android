@@ -36,6 +36,9 @@ class BackupManager(
     suspend fun exportBackup(context: Context): File = withContext(Dispatchers.IO) {
         val libraryEntries = db.libraryDao().getAllOnce()
         val progressEntries = db.progressDao().getRecent(10000).first()
+        val categories = db.categoryDao().getAllOnce()
+        val mangaCategoriesEntities = db.categoryDao().getAllMangaCategoriesOnce()
+        val mangaCategoriesMap = mangaCategoriesEntities.groupBy({ it.mangaId }, { it.categoryId })
 
         val backupLibrary = libraryEntries.map { m ->
             BackupMangaEntry(
@@ -50,6 +53,7 @@ class BackupManager(
                 lastReadAt = m.lastReadAt,
                 totalChapters = m.totalChapters,
                 readCount = m.readCount,
+                categories = mangaCategoriesMap[m.id] ?: emptyList(),
             )
         }
 
@@ -73,6 +77,8 @@ class BackupManager(
             exportedAt = System.currentTimeMillis(),
             library = backupLibrary,
             progress = backupProgress,
+            categories = categories.map { it.name },
+            mangaCategories = mangaCategoriesMap,
         )
 
         val jsonString = json.encodeToString(backup)
@@ -152,6 +158,22 @@ class BackupManager(
                     progressCount++
                 }
 
+                var restoredCats = 0
+                for ((index, catName) in backup.categories.withIndex()) {
+                    if (catName.isNotBlank()) {
+                        val slug = catName.trim().lowercase().replace("[^a-z0-9]+".toRegex(), "-").trim('-').ifEmpty { "shelf-$index" }
+                        db.categoryDao().upsert(
+                            com.mangadl.android.data.model.CategoryEntity(id = slug, name = catName.trim(), sortOrder = index)
+                        )
+                        restoredCats++
+                    }
+                }
+                for ((mangaId, catSlugs) in backup.mangaCategories) {
+                    if (catSlugs.isNotEmpty()) {
+                        db.categoryDao().setMangaCategories(mangaId, catSlugs)
+                    }
+                }
+
                 if (mangaCount > 0 || progressCount > 0) {
                     com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncAllAsync()
                 }
@@ -161,7 +183,7 @@ class BackupManager(
                     sourceFormat = "Manga-DL (.mangadl / JSON)",
                     restoredMangaCount = mangaCount,
                     restoredProgressCount = progressCount,
-                    restoredCategoriesCount = backup.categories.size,
+                    restoredCategoriesCount = restoredCats,
                     restoredTrackerBindsCount = backup.trackerBinds.size,
                 )
             }
@@ -170,6 +192,20 @@ class BackupManager(
             val parsed = TachiyomiBackupDecoder.decode(rawBytes, fileName ?: "")
             var restoredManga = 0
             var restoredProgress = 0
+
+            var restoredTachiCats = 0
+            val catIndexToSlug = mutableMapOf<Int, String>()
+            parsed.categories.forEachIndexed { idx, catName ->
+                if (catName.isNotBlank()) {
+                    val slug = catName.trim().lowercase().replace("[^a-z0-9]+".toRegex(), "-").trim('-').ifEmpty { "shelf-$idx" }
+                    db.categoryDao().upsert(
+                        com.mangadl.android.data.model.CategoryEntity(id = slug, name = catName.trim(), sortOrder = idx)
+                    )
+                    catIndexToSlug[idx] = slug
+                    catIndexToSlug[idx + 1] = slug // Support 1-based indexing
+                    restoredTachiCats++
+                }
+            }
 
             for (m in parsed.manga) {
                 if (m.title.isBlank()) continue
@@ -197,6 +233,13 @@ class BackupManager(
                     )
                 )
                 restoredManga++
+
+                if (m.categories.isNotEmpty()) {
+                    val assignedSlugs = m.categories.mapNotNull { catIndexToSlug[it] }.distinct()
+                    if (assignedSlugs.isNotEmpty()) {
+                        db.categoryDao().setMangaCategories(mangaId, assignedSlugs)
+                    }
+                }
 
                 for (ch in readChapters) {
                     val chapterId = TachiyomiBackupDecoder.cleanChapterId(ch.url, ch.chapterNumber)
@@ -227,7 +270,7 @@ class BackupManager(
                 sourceFormat = formatName,
                 restoredMangaCount = restoredManga,
                 restoredProgressCount = restoredProgress,
-                restoredCategoriesCount = parsed.categories.size,
+                restoredCategoriesCount = restoredTachiCats,
             )
         } catch (e: Exception) {
             return@withContext BackupRestoreResult(

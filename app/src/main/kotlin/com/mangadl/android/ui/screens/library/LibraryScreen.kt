@@ -56,6 +56,7 @@ import com.mangadl.android.ui.components.InLibraryTag
 import com.mangadl.android.ui.components.MdButton
 import com.mangadl.android.ui.components.MdIconButton
 import com.mangadl.android.ui.components.MdIcons
+import com.mangadl.android.ui.components.MdTextField
 import com.mangadl.android.ui.components.PillChip
 import com.mangadl.android.ui.components.ProgressBar
 import com.mangadl.android.ui.components.SurfaceCard
@@ -74,21 +75,35 @@ fun LibraryScreen(
     onBrowse: () -> Unit,
     onImport: () -> Unit,
     modifier: Modifier = Modifier,
-    categories: List<String> = listOf("All"),
+    categories: List<com.mangadl.android.data.model.CategoryEntity> = emptyList(),
+    selectedCategoryId: String? = null,
+    onSelectCategory: (String?) -> Unit = {},
+    onCreateCategory: (String) -> Unit = {},
+    onDeleteCategory: (String) -> Unit = {},
+    onRenameCategory: (String, String) -> Unit = { _, _ -> },
+    mangaCategoryMap: Map<String, List<String>> = emptyMap(),
     gridColumns: String = "Auto",
     showUnreadBadges: Boolean = true,
     showDownloadedBadges: Boolean = true,
     downloadedOnly: Boolean = false,
 ) {
-    var category by rememberState(0)
     var searchActive by rememberState(false)
     var searchQuery by rememberState("")
     var showFilter by rememberState(false)
+    var showManageShelves by rememberState(false)
     var sortBy by rememberSaveable { androidx.compose.runtime.mutableStateOf("title_asc") }
     var filterBy by rememberSaveable { androidx.compose.runtime.mutableStateOf("all") }
 
-    val displayItems = remember(items, sortBy, filterBy, searchQuery, downloadedOnly) {
+    val displayItems = remember(items, sortBy, filterBy, searchQuery, downloadedOnly, selectedCategoryId, mangaCategoryMap) {
         items
+            .let { list ->
+                if (selectedCategoryId != null) {
+                    list.filter { m ->
+                        val cats = mangaCategoryMap[m.id] ?: emptyList()
+                        cats.contains(selectedCategoryId)
+                    }
+                } else list
+            }
             .let { list ->
                 if (searchQuery.isNotEmpty()) list.filter { it.title.contains(searchQuery, ignoreCase = true) }
                 else list
@@ -111,6 +126,8 @@ fun LibraryScreen(
                 }
             }
     }
+
+    val c = MdTheme.colors
 
     Box(modifier.fillMaxSize()) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -152,8 +169,24 @@ fun LibraryScreen(
                     .horizontalScroll(rememberScrollState())
                     .padding(start = side, end = side, top = 4.dp, bottom = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                categories.forEachIndexed { i, label -> PillChip(label, i == category, { category = i }) }
+                PillChip("All", selectedCategoryId == null, { onSelectCategory(null) })
+                categories.forEach { cat ->
+                    PillChip(cat.name, selectedCategoryId == cat.id, { onSelectCategory(cat.id) })
+                }
+                Row(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(c.surfaceHigh.copy(alpha = 0.6f))
+                        .clickable { showManageShelves = true }
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(MdIcons.Plus, "Manage Shelves", tint = c.fgMuted, modifier = Modifier.size(13.dp))
+                    BodyText("Shelves", size = 12.sp, color = c.fgMuted, weight = FontWeight.SemiBold)
+                }
             }
             LazyVerticalGrid(
                 columns = GridCells.Fixed(columns),
@@ -184,6 +217,14 @@ fun LibraryScreen(
         filterBy = filterBy,
         onFilterChange = { filterBy = it },
         onDismiss = { showFilter = false },
+    )
+    ManageShelvesSheet(
+        visible = showManageShelves,
+        categories = categories,
+        mangaCategoryMap = mangaCategoryMap,
+        onCreateCategory = onCreateCategory,
+        onDeleteCategory = onDeleteCategory,
+        onDismiss = { showManageShelves = false },
     )
     } // Box
 }
@@ -272,6 +313,117 @@ private fun FilterSortSheet(
                             if (filterBy == key) Icon(MdIcons.Check, null, tint = c.accentSoft, modifier = Modifier.size(16.dp))
                         }
                         Divider(color = c.surfaceHigh)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ManageShelvesSheet(
+    visible: Boolean,
+    categories: List<com.mangadl.android.data.model.CategoryEntity>,
+    mangaCategoryMap: Map<String, List<String>>,
+    onCreateCategory: (String) -> Unit,
+    onDeleteCategory: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val c = MdTheme.colors
+    var newShelfName by rememberState("")
+    val interactionSource = remember { MutableInteractionSource() }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(),
+        exit = fadeOut(),
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f))
+                .clickable(interactionSource = interactionSource, indication = null, onClick = onDismiss),
+        )
+    }
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically { it },
+        exit = slideOutVertically { it },
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .background(c.sheet)
+                    .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BodyText("Library Shelves", size = 18.sp, weight = FontWeight.Bold)
+                    MdIconButton(MdIcons.Close, "Close", onDismiss, size = 36.dp, iconSize = 16.dp)
+                }
+
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MdTextField(
+                        value = newShelfName,
+                        onValueChange = { newShelfName = it },
+                        placeholder = "New shelf name (e.g. Favorites)…",
+                        modifier = Modifier.weight(1f),
+                        height = 44.dp,
+                    )
+                    MdButton(
+                        text = "Add",
+                        onClick = {
+                            if (newShelfName.isNotBlank()) {
+                                onCreateCategory(newShelfName)
+                                newShelfName = ""
+                            }
+                        },
+                        height = 44.dp,
+                        fontSize = 13.sp,
+                    )
+                }
+
+                Divider(color = c.surfaceHigh)
+
+                if (categories.isEmpty()) {
+                    BodyText("No custom shelves yet. Create one above!", size = 13.sp, color = c.fgMuted)
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        categories.forEach { cat ->
+                            val count = mangaCategoryMap.values.count { it.contains(cat.id) }
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(c.surfaceHigh.copy(alpha = 0.35f))
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    BodyText(cat.name, size = 14.sp, weight = FontWeight.SemiBold)
+                                    BodyText("$count title${if (count == 1) "" else "s"}", size = 12.sp, color = c.fgMuted)
+                                }
+                                MdIconButton(
+                                    icon = MdIcons.Trash,
+                                    contentDescription = "Delete ${cat.name}",
+                                    onClick = { onDeleteCategory(cat.id) },
+                                    size = 36.dp,
+                                    iconSize = 16.dp,
+                                    tint = c.danger,
+                                )
+                            }
+                        }
                     }
                 }
             }
