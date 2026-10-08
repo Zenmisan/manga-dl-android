@@ -116,7 +116,7 @@ fun BrowseSourceScreen(
                     BodyText(if (isSearching) "No matches found" else "No results", color = c.fgSubtle, size = 14.sp)
                 }
                 else -> LazyVerticalGrid(
-                    GridCells.Fixed(3),
+                    GridCells.Adaptive(minSize = 130.dp),
                     state = gridState,
                     contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 96.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),

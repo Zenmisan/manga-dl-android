@@ -9,6 +9,7 @@ interface BaseSource {
     val baseUrl: String
     val lang: String get() = "en"
     val isNovel: Boolean get() = false
+    val nsfw: Boolean get() = false
 
     suspend fun search(query: String, page: Int = 1): List<MangaSearchResult>
     suspend fun getPopular(page: Int = 1): List<MangaSearchResult>

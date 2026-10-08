@@ -162,7 +162,7 @@ fun LibraryScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                if (continueItem != null && !wide) {
+                if (continueItem != null) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         ContinueCard(continueItem, { onResume(continueItem.manga) }, Modifier.padding(bottom = 4.dp))
                     }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -153,15 +154,21 @@ fun NovelReaderScreen(
                 }
             }
             else -> {
-                Column(
+                Box(
                     Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState)
-                        .clickable(remember { MutableInteractionSource() }, indication = null) { controls = !controls }
-                        .statusBarsPadding()
-                        .padding(start = 24.dp, end = 24.dp, top = 84.dp, bottom = 320.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                        .clickable(remember { MutableInteractionSource() }, indication = null) { controls = !controls },
+                    contentAlignment = Alignment.TopCenter,
                 ) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = 680.dp)
+                            .statusBarsPadding()
+                            .padding(start = 24.dp, end = 24.dp, top = 84.dp, bottom = 320.dp),
+                        verticalArrangement = Arrangement.spacedBy(18.dp),
+                    ) {
                     BodyText(chapterLabel.uppercase(), size = 13.sp, weight = FontWeight.ExtraBold, color = theme.fg.copy(alpha = 0.6f))
                     paragraphs.forEach { paragraph ->
                         androidx.compose.material3.Text(paragraph, style = bodyStyle)

@@ -25,22 +25,28 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlin.math.ceil
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -168,7 +174,27 @@ fun ReaderScreen(
     val pages = (readerState as? ReaderState.Success)?.pages ?: emptyList()
     val pageCount = pages.size.coerceAtLeast(1)
 
-    val pager = rememberPagerState(initialPage = 0) { pageCount }
+    val config = androidx.compose.ui.platform.LocalConfiguration.current
+    val isLandscape = config.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val isWideTablet = config.screenWidthDp >= 720
+    val dualPageEligible = (isLandscape || isWideTablet) && mode != ReadingMode.Webtoon && mode != ReadingMode.Vertical
+    val dualPageActive = savedDualPage != "off" && dualPageEligible
+
+    val spreadCount = if (dualPageActive) ceil(pages.size / 2f).toInt().coerceAtLeast(1) else pageCount
+    val pager = rememberPagerState(initialPage = 0) { spreadCount }
+
+    val webtoonListState = rememberLazyListState()
+    val webtoonVisibleIndex by remember {
+        derivedStateOf {
+            webtoonListState.layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0
+        }
+    }
+
+    val currentDisplayPage = when {
+        mode == ReadingMode.Webtoon -> webtoonVisibleIndex
+        dualPageActive -> (pager.currentPage * 2).coerceAtMost(pageCount - 1)
+        else -> pager.currentPage
+    }
 
     val onPageTap: (Float) -> Unit = { xFraction ->
         if (savedTapZones == "disabled") {
@@ -178,41 +204,54 @@ fun ReaderScreen(
             val backward = if (mode == ReadingMode.RTL) xFraction > 0.7f else xFraction < 0.3f
             when {
                 forward -> {
-                    val target = (pager.currentPage + 1).coerceAtMost(pageCount - 1)
-                    if (target != pager.currentPage) scope.launch { pager.animateScrollToPage(target) }
+                    if (mode == ReadingMode.Webtoon) {
+                        val target = (webtoonVisibleIndex + 1).coerceAtMost(pageCount - 1)
+                        if (target != webtoonVisibleIndex) scope.launch { webtoonListState.animateScrollToItem(target) }
+                    } else {
+                        val target = (pager.currentPage + 1).coerceAtMost(spreadCount - 1)
+                        if (target != pager.currentPage) scope.launch { pager.animateScrollToPage(target) }
+                    }
                 }
                 backward -> {
-                    val target = (pager.currentPage - 1).coerceAtLeast(0)
-                    if (target != pager.currentPage) scope.launch { pager.animateScrollToPage(target) }
+                    if (mode == ReadingMode.Webtoon) {
+                        val target = (webtoonVisibleIndex - 1).coerceAtLeast(0)
+                        if (target != webtoonVisibleIndex) scope.launch { webtoonListState.animateScrollToItem(target) }
+                    } else {
+                        val target = (pager.currentPage - 1).coerceAtLeast(0)
+                        if (target != pager.currentPage) scope.launch { pager.animateScrollToPage(target) }
+                    }
                 }
                 else -> controls = !controls
             }
         }
     }
 
-    LaunchedEffect(pager.currentPage, pages.size) {
+    LaunchedEffect(currentDisplayPage, pages.size) {
         if (pages.isNotEmpty()) {
             val chNum = navState.chapters.find { it.id == navState.chapterId }?.number ?: 0f
-            vm.saveProgress(navState.mangaId, navState.chapterId, navState.sourceId, pager.currentPage, pages.size, chNum)
+            vm.saveProgress(navState.mangaId, navState.chapterId, navState.sourceId, currentDisplayPage, pages.size, chNum)
         }
     }
 
-    LaunchedEffect(pager.currentPage) {
+    LaunchedEffect(currentDisplayPage) {
         if (savedHaptic) {
             haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
         }
     }
 
-    DisposableEffect(savedVolumeKeys, mode, pageCount) {
+    DisposableEffect(savedVolumeKeys, mode, spreadCount, pageCount) {
         ReaderKeyEvents.onVolumeKey = { isVolumeUp ->
             if (!savedVolumeKeys) {
                 false
             } else {
-                // Volume-up moves "backward" and volume-down "forward" in reading order; reversed
-                // for RTL since the pager's own page order is already reversed there.
                 val forward = if (mode == ReadingMode.RTL) isVolumeUp else !isVolumeUp
-                val target = (pager.currentPage + if (forward) 1 else -1).coerceIn(0, pageCount - 1)
-                if (target != pager.currentPage) scope.launch { pager.animateScrollToPage(target) }
+                if (mode == ReadingMode.Webtoon) {
+                    val target = (webtoonVisibleIndex + if (forward) 1 else -1).coerceIn(0, pageCount - 1)
+                    if (target != webtoonVisibleIndex) scope.launch { webtoonListState.animateScrollToItem(target) }
+                } else {
+                    val target = (pager.currentPage + if (forward) 1 else -1).coerceIn(0, spreadCount - 1)
+                    if (target != pager.currentPage) scope.launch { pager.animateScrollToPage(target) }
+                }
                 true
             }
         }
@@ -239,21 +278,31 @@ fun ReaderScreen(
             }
             else -> when (mode) {
                 ReadingMode.LTR, ReadingMode.RTL -> {
-                    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
-                        android.content.res.Configuration.ORIENTATION_LANDSCAPE
-                    val dualPageActive = savedDualPage != "off" && isLandscape
                     HorizontalPager(
                         state = pager,
                         reverseLayout = mode == ReadingMode.RTL,
                         modifier = Modifier.fillMaxSize(),
-                    ) { page ->
-                        if (dualPageActive && page + 1 < pages.size) {
-                            val order = if (mode == ReadingMode.RTL) listOf(page + 1, page) else listOf(page, page + 1)
-                            Row(Modifier.fillMaxSize()) {
-                                order.forEach { idx ->
+                    ) { spreadIndex ->
+                        if (dualPageActive) {
+                            val first = spreadIndex * 2
+                            val second = first + 1
+                            if (second < pages.size) {
+                                val order = if (mode == ReadingMode.RTL) listOf(second, first) else listOf(first, second)
+                                Row(Modifier.fillMaxSize()) {
+                                    order.forEach { idx ->
+                                        MangaPage(
+                                            url = pages.getOrElse(idx) { "" },
+                                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                                            cropBorders = cropBorders,
+                                            onTap = onPageTap,
+                                        )
+                                    }
+                                }
+                            } else {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     MangaPage(
-                                        url = pages.getOrElse(idx) { "" },
-                                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                                        url = pages.getOrElse(first) { "" },
+                                        modifier = Modifier.fillMaxHeight(),
                                         cropBorders = cropBorders,
                                         onTap = onPageTap,
                                     )
@@ -261,7 +310,7 @@ fun ReaderScreen(
                             }
                         } else {
                             MangaPage(
-                                url = pages.getOrElse(page) { "" },
+                                url = pages.getOrElse(spreadIndex) { "" },
                                 modifier = Modifier.fillMaxSize(),
                                 cropBorders = cropBorders,
                                 onTap = onPageTap,
@@ -283,7 +332,8 @@ fun ReaderScreen(
                 ReadingMode.Webtoon -> {
                     val sidePaddingFraction = ((savedSidePadding.toIntOrNull() ?: 0).coerceIn(0, 80) / 100f) / 2f
                     LazyColumn(
-                        Modifier.fillMaxSize(),
+                        state = webtoonListState,
+                        modifier = Modifier.fillMaxSize(),
                     ) {
                         items(pages.size) { i ->
                             androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -367,16 +417,34 @@ fun ReaderScreen(
                         iconSize = 20.dp,
                     )
                     if (savedShowPageNumber) {
-                        BodyText("${pager.currentPage + 1}", Modifier.width(24.dp), size = 12.sp, weight = FontWeight.Bold)
+                        val displayPageText = if (dualPageActive && mode != ReadingMode.Webtoon && mode != ReadingMode.Vertical) {
+                            val first = pager.currentPage * 2 + 1
+                            val second = first + 1
+                            if (second <= pages.size) "$first-$second" else "$first"
+                        } else {
+                            "${currentDisplayPage + 1}"
+                        }
+                        BodyText(displayPageText, Modifier.widthIn(min = 24.dp), size = 12.sp, weight = FontWeight.Bold)
                     }
                     MdSlider(
-                        value = (pager.currentPage + 1).toFloat(),
-                        onValueChange = { v -> scope.launch { pager.scrollToPage(v.toInt() - 1) } },
+                        value = (currentDisplayPage + 1).toFloat(),
+                        onValueChange = { v ->
+                            val target = (v.toInt() - 1).coerceIn(0, pageCount - 1)
+                            scope.launch {
+                                if (mode == ReadingMode.Webtoon) {
+                                    webtoonListState.scrollToItem(target)
+                                } else if (dualPageActive) {
+                                    pager.scrollToPage(target / 2)
+                                } else {
+                                    pager.scrollToPage(target)
+                                }
+                            }
+                        },
                         valueRange = 1f..pageCount.toFloat(),
                         modifier = Modifier.weight(1f),
                     )
                     if (savedShowPageNumber) {
-                        BodyText("$pageCount", Modifier.width(24.dp), size = 12.sp, weight = FontWeight.Bold, color = c.fg.copy(alpha = 0.65f))
+                        BodyText("$pageCount", Modifier.widthIn(min = 24.dp), size = 12.sp, weight = FontWeight.Bold, color = c.fg.copy(alpha = 0.65f))
                     }
                     MdIconButton(
                         MdIcons.NextChapter,
@@ -477,8 +545,10 @@ private fun ReaderMoreOptionsPanel(
             Column(
                 Modifier
                     .fillMaxWidth()
+                    .fillMaxHeight(0.9f)
                     .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
                     .background(c.sheet)
+                    .verticalScroll(rememberScrollState())
                     .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 32.dp)
                     .navigationBarsPadding(),
                 verticalArrangement = Arrangement.spacedBy(18.dp),

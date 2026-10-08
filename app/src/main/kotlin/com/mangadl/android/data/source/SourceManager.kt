@@ -35,6 +35,9 @@ class SourceManager(
         registerSource(com.mangadl.android.data.source.manga.MangaKatanaSource(client))
         registerSource(com.mangadl.android.data.source.manga.ManganatoSource(client))
         registerSource(com.mangadl.android.data.source.manga.OmegaScansSource(client))
+        registerSource(com.mangadl.android.data.source.manga.TcbScansSource(client))
+        registerSource(com.mangadl.android.data.source.manga.WebtoonsSource(client))
+        registerSource(com.mangadl.android.data.source.manga.YaoiScanSource(client))
 
         // Native Novel Sources
         registerSource(NovelBinSource(client))
