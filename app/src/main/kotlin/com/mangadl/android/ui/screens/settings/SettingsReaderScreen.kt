@@ -23,6 +23,7 @@ fun ReaderSettingsScreen(onBack: () -> Unit) {
     val sidePadding by vm.sidePadding.collectAsState()
     val volumeKeysTurnPages by vm.volumeKeysTurnPages.collectAsState()
     val readerBackground by vm.readerBackground.collectAsState()
+    val ambilight by vm.ambilight.collectAsState()
 
     SettingsFrame("Reader", onBack) {
         SettingsSection("Reading") {
@@ -76,6 +77,10 @@ fun ReaderSettingsScreen(onBack: () -> Unit) {
                 "Background", listOf("Black", "Gray", "White"), "Black",
                 value = when (readerBackground) { "gray" -> "Gray"; "white" -> "White"; else -> "Black" },
                 onValueChange = { vm.setReaderBackground(it.lowercase()) },
+            )
+            SwitchSetting(
+                "Ambient lighting (Ambilight)", false, "Cast soft atmospheric glow around active pages",
+                value = ambilight, onValueChange = { vm.setAmbilight(it) },
             )
         }
     }

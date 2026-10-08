@@ -543,6 +543,8 @@ private fun ReaderMoreOptionsPanel(
     onModeChange: (ReadingMode) -> Unit,
     brightness: Float,
     onBrightnessChange: (Float) -> Unit,
+    ambilightEnabled: Boolean,
+    onAmbilightChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val c = MdTheme.colors
@@ -600,8 +602,70 @@ private fun ReaderMoreOptionsPanel(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Eyebrow("Display")
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { onAmbilightChange(!ambilightEnabled) }
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            BodyText("Ambient lighting", size = 14.sp, weight = FontWeight.SemiBold)
+                            BodyText("Atmospheric halo glow around active page", size = 12.sp, color = c.fg.copy(alpha = 0.65f))
+                        }
+                        com.mangadl.android.ui.components.MdSwitch(
+                            checked = ambilightEnabled,
+                            onCheckedChange = onAmbilightChange,
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun AmbientBackdrop(
+    imageUrl: String?,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    if (!enabled || imageUrl.isNullOrBlank()) return
+
+    val context = LocalContext.current
+    Box(modifier = modifier.fillMaxSize()) {
+        SubcomposeAsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(imageUrl)
+                .addHeader("Referer", imageUrl.substringBefore("/", "").let {
+                    if (imageUrl.startsWith("http")) imageUrl.split("/").take(3).joinToString("/") + "/" else ""
+                })
+                .crossfade(true)
+                .build(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxSize()
+                .scale(1.25f)
+                .blur(56.dp)
+                .alpha(0.50f),
+        )
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.40f),
+                            Color.Black.copy(alpha = 0.85f),
+                        )
+                    )
+                )
+        )
     }
 }
 
