@@ -38,3 +38,16 @@ data class SupabaseReadingProgressRecord(
     @SerialName("chapter_title") val chapterTitle: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
 )
+
+@Serializable
+data class SupabaseSubscriptionRecord(
+    @SerialName("id") val id: String, // "$provider/$mangaId"
+    @SerialName("user_id") val userId: String,
+    @SerialName("provider") val provider: String,
+    @SerialName("manga_id") val mangaId: String,
+    @SerialName("title") val title: String,
+    @SerialName("cover_url") val coverUrl: String? = null,
+    @SerialName("type") val type: String = "manga",
+    @SerialName("added_at") val addedAt: String? = null,
+)
+

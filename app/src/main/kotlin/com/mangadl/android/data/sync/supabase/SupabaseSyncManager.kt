@@ -134,6 +134,30 @@ object SupabaseSyncManager {
         val userId = user.id
 
         runCatching {
+            val subId = "${manga.provider}/${manga.id}"
+            if (subscribed) {
+                val type = if (com.mangadl.android.data.extensions.ExtensionManager.isNovelSource(manga.provider)) "novel" else "manga"
+                val subRecord = SupabaseSubscriptionRecord(
+                    id = subId,
+                    userId = userId,
+                    provider = manga.provider,
+                    mangaId = manga.id,
+                    title = manga.title,
+                    coverUrl = manga.coverUrl.ifEmpty { null },
+                    type = type,
+                    addedAt = currentIsoTime(),
+                )
+                supabase.from("subscriptions").upsert(subRecord)
+            } else {
+                supabase.from("subscriptions").delete {
+                    filter {
+                        eq("user_id", userId)
+                        eq("id", subId)
+                    }
+                }
+            }
+
+            // Also keep legacy manga table synced as fallback
             val recordId = "${manga.provider}:${manga.id}:$userId"
             val record = SupabaseMangaRecord(
                 id = recordId,
@@ -146,7 +170,8 @@ object SupabaseSyncManager {
                 userId = userId,
                 lastSynced = currentIsoTime(),
             )
-            supabase.from("manga").upsert(record)
+            runCatching { supabase.from("manga").upsert(record) }
+
             Log.d(TAG, "Synced subscription for ${manga.title} (subscribed=$subscribed)")
         }.onFailure { e ->
             Log.w(TAG, "Failed to sync subscription for ${manga.title}: ${e.message}")
@@ -220,27 +245,57 @@ object SupabaseSyncManager {
     }
 
     private suspend fun pullLibrary(userId: String) {
-        val remoteManga = supabase.from("manga")
-            .select {
-                filter {
-                    eq("user_id", userId)
-                    eq("subscribed", true)
+        val remoteSubscriptions = runCatching {
+            supabase.from("subscriptions")
+                .select {
+                    filter {
+                        eq("user_id", userId)
+                    }
+                }
+                .decodeList<SupabaseSubscriptionRecord>()
+        }.getOrNull()
+
+        if (!remoteSubscriptions.isNullOrEmpty()) {
+            for (remote in remoteSubscriptions) {
+                val existing = libraryDao.getById(remote.mangaId)
+                if (existing == null) {
+                    libraryDao.upsert(
+                        LibraryManga(
+                            id = remote.mangaId,
+                            title = remote.title,
+                            coverUrl = remote.coverUrl ?: "",
+                            provider = remote.provider,
+                            url = "",
+                        )
+                    )
                 }
             }
-            .decodeList<SupabaseMangaRecord>()
+        } else {
+            // Fallback to legacy "manga" table if subscriptions was empty or not populated
+            val remoteManga = runCatching {
+                supabase.from("manga")
+                    .select {
+                        filter {
+                            eq("user_id", userId)
+                            eq("subscribed", true)
+                        }
+                    }
+                    .decodeList<SupabaseMangaRecord>()
+            }.getOrDefault(emptyList())
 
-        for (remote in remoteManga) {
-            val existing = libraryDao.getById(remote.providerMangaId)
-            if (existing == null) {
-                libraryDao.upsert(
-                    LibraryManga(
-                        id = remote.providerMangaId,
-                        title = remote.title,
-                        coverUrl = remote.coverUrl ?: "",
-                        provider = remote.provider,
-                        url = remote.url,
+            for (remote in remoteManga) {
+                val existing = libraryDao.getById(remote.providerMangaId)
+                if (existing == null) {
+                    libraryDao.upsert(
+                        LibraryManga(
+                            id = remote.providerMangaId,
+                            title = remote.title,
+                            coverUrl = remote.coverUrl ?: "",
+                            provider = remote.provider,
+                            url = remote.url,
+                        )
                     )
-                )
+                }
             }
         }
     }
@@ -277,6 +332,23 @@ object SupabaseSyncManager {
         val localList = libraryDao.getAllOnce()
         val now = currentIsoTime()
         for (local in localList) {
+            val subId = "${local.provider}/${local.id}"
+            val type = if (com.mangadl.android.data.extensions.ExtensionManager.isNovelSource(local.provider)) "novel" else "manga"
+            val subRecord = SupabaseSubscriptionRecord(
+                id = subId,
+                userId = userId,
+                provider = local.provider,
+                mangaId = local.id,
+                title = local.title,
+                coverUrl = local.coverUrl.ifEmpty { null },
+                type = type,
+                addedAt = now,
+            )
+            runCatching {
+                supabase.from("subscriptions").upsert(subRecord)
+            }
+
+            // Also keep legacy manga table synced
             val recordId = "${local.provider}:${local.id}:$userId"
             val record = SupabaseMangaRecord(
                 id = recordId,

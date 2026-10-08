@@ -22,7 +22,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mangadl.android.ui.components.BodyText
 import com.mangadl.android.ui.components.ButtonTone
 import com.mangadl.android.ui.components.Divider
-import com.mangadl.android.ui.components.InputSetting
 import com.mangadl.android.ui.components.LogoTile
 import com.mangadl.android.ui.components.PillButton
 import com.mangadl.android.ui.components.SettingsSection
@@ -35,10 +34,8 @@ fun TrackerSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val vm: TrackerViewModel = viewModel()
     val anilistConnected by vm.anilistConnected.collectAsState()
-    val anilistClientId by vm.anilistClientId.collectAsState()
     val anilistUsername by vm.anilistUsername.collectAsState()
     val malConnected by vm.malConnected.collectAsState()
-    val malClientId by vm.malClientId.collectAsState()
     val malUsername by vm.malUsername.collectAsState()
     val autoSync by vm.autoSyncTrackers.collectAsState()
     val markCompleted by vm.markCompletedOnFinish.collectAsState()
@@ -58,15 +55,6 @@ fun TrackerSettingsScreen(onBack: () -> Unit) {
                 },
                 onDisconnect = { vm.disconnectAnilist() },
             )
-            if (!anilistConnected) {
-                InputSetting(
-                    label = "AniList Client ID",
-                    initial = anilistClientId,
-                    description = "Create at anilist.co/settings/developer · redirect: mangadl://anilist-callback",
-                    value = anilistClientId,
-                    onValueChange = { vm.setAnilistClientId(it) },
-                )
-            }
 
             Divider()
 
@@ -82,15 +70,6 @@ fun TrackerSettingsScreen(onBack: () -> Unit) {
                 },
                 onDisconnect = { vm.disconnectMal() },
             )
-            if (!malConnected) {
-                InputSetting(
-                    label = "MAL Client ID",
-                    initial = malClientId,
-                    description = "Create at myanimelist.net/apiconfig · redirect: mangadl://mal-callback",
-                    value = malClientId,
-                    onValueChange = { vm.setMalClientId(it) },
-                )
-            }
         }
         SettingsSection("Sync") {
             SwitchSetting(

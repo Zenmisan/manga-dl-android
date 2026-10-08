@@ -22,12 +22,10 @@ class TrackerViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = AppPreferences.getInstance(app)
 
     val anilistToken: StateFlow<String> = prefs.anilistToken.stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val anilistClientId: StateFlow<String> = prefs.anilistClientId.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val anilistConnected: StateFlow<Boolean> = prefs.anilistConnected.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val anilistUsername: StateFlow<String> = prefs.anilistUsername.stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     val malToken: StateFlow<String> = prefs.malToken.stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val malClientId: StateFlow<String> = prefs.malClientId.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     val malConnected: StateFlow<Boolean> = prefs.malConnected.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val malUsername: StateFlow<String> = prefs.malUsername.stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
@@ -35,14 +33,12 @@ class TrackerViewModel(app: Application) : AndroidViewModel(app) {
     val markCompletedOnFinish: StateFlow<Boolean> = prefs.markTrackerCompletedOnFinish.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val askBeforeScoreChange: StateFlow<Boolean> = prefs.askBeforeScoreChange.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
-    fun setAnilistClientId(id: String) = viewModelScope.launch { prefs.set(PrefKeys.ANILIST_CLIENT_ID, id) }
-    fun setMalClientId(id: String) = viewModelScope.launch { prefs.set(PrefKeys.MAL_CLIENT_ID, id) }
     fun setAutoSync(enabled: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.AUTO_SYNC_TRACKERS, enabled) }
     fun setMarkCompletedOnFinish(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.MARK_TRACKER_COMPLETED_ON_FINISH, v) }
     fun setAskBeforeScoreChange(v: Boolean) = viewModelScope.launch { prefs.set(PrefKeys.ASK_BEFORE_SCORE_CHANGE, v) }
 
-    private fun effectiveAnilistClientId() = anilistClientId.value.ifEmpty { BuildConfig.ANILIST_CLIENT_ID }
-    private fun effectiveMalClientId() = malClientId.value.ifEmpty { BuildConfig.MAL_CLIENT_ID }
+    private fun effectiveAnilistClientId() = BuildConfig.ANILIST_CLIENT_ID
+    private fun effectiveMalClientId() = BuildConfig.MAL_CLIENT_ID
 
     /** Build the AniList OAuth URL for implicit flow. Call from UI to open in Custom Tab. */
     fun anilistAuthUrl(): String {
