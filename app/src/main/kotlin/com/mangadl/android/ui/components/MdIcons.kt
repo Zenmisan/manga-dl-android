@@ -64,6 +64,22 @@ object MdIcons {
     val Edit by lazy { stroke("Edit", "M4 20h4L19 9l-4-4L4 16zM14 6l4 4") }
     val Plus by lazy { stroke("Plus", "M12 5v14M5 12h14") }
 
+    // Gamification & Milestones
+    val Shield by lazy { stroke("Shield", "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z") }
+    val Crown by lazy { stroke("Crown", "M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z", "M3 20h18") }
+    val Trophy by lazy { stroke("Trophy", "M6 9H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2", "M18 9h2a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2", "M4 22h16", "M12 15a6 6 0 0 0 6-6V3H6v6a6 6 0 0 0 6 6z", "M12 15v7") }
+    val Flame by lazy { stroke("Flame", "M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z") }
+    val BookOpen by lazy { stroke("BookOpen", "M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z", "M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z") }
+    val Sparkles by lazy { stroke("Sparkles", "M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z") }
+    val Zap by lazy { stroke("Zap", "M13 2L3 14h9l-1 8 10-12h-9l1-8z") }
+    val Star by lazy { stroke("Star", "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z") }
+    val Award by lazy { stroke("Award", "M12 15a7 7 0 1 0 0-14 7 7 0 0 0 0 14z", "M8.2 13.9L7 23l5-3 5 3-1.2-9.1") }
+    val Lock by lazy { stroke("Lock", "M5 11h14v10H5z", "M8 11V7a4 4 0 0 1 8 0v4") }
+    val Compass by lazy { stroke("Compass", "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z", "M16.2 7.8l-2.1 6.4-6.4 2.1 2.1-6.4 6.4-2.1z") }
+    val Feather by lazy { stroke("Feather", "M20.2 12.2a6 6 0 0 0-8.5-8.5L5 10.5V19h8.5z", "M16 8L2 22", "M17.5 15H9") }
+    val Scroll by lazy { stroke("Scroll", "M8 21h12a2 2 0 0 0 2-2v-2H10v2a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v3h4", "M19 17V5a2 2 0 0 0-2-2H4") }
+    val InfinityIcon by lazy { stroke("Infinity", "M18.2 8c5.1 0 5.1 8 0 8-2.7 0-4.8-2.6-6.2-4-1.4 1.4-3.5 4-6.2 4-5.1 0-5.1-8 0-8 2.7 0 4.8 2.6 6.2 4 1.4-1.4 3.5-4 6.2-4z") }
+
     private fun stroke(name: String, vararg paths: String, width: Float = 2f): ImageVector =
         ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).apply {
             paths.forEach { d ->

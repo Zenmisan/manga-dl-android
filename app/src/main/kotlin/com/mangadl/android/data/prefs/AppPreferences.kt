@@ -62,6 +62,7 @@ object PrefKeys {
     // Extensions & Sources
     val EXTENSION_REPO_URL = stringPreferencesKey("extension_repo_url")
     val PINNED_SOURCES = stringSetPreferencesKey("pinned_sources")
+    val PINNED_BADGES = stringSetPreferencesKey("pinned_badges")
     val SAVE_CHAPTERS_PUBLIC = booleanPreferencesKey("save_chapters_public")
     val AUTO_BACKUP_WEEKLY = booleanPreferencesKey("auto_backup_weekly")
 
@@ -137,6 +138,24 @@ class AppPreferences(private val context: Context) {
     }
     val pinnedSources: Flow<Set<String>> = context.dataStore.data.map {
         it[PrefKeys.PINNED_SOURCES] ?: emptySet()
+    }
+    val pinnedBadges: Flow<Set<String>> = context.dataStore.data.map {
+        it[PrefKeys.PINNED_BADGES] ?: emptySet()
+    }
+
+    suspend fun togglePinnedBadge(badgeId: String, maxCount: Int = 4): Boolean {
+        var added = false
+        context.dataStore.edit { prefs ->
+            val current = prefs[PrefKeys.PINNED_BADGES] ?: emptySet()
+            if (badgeId in current) {
+                prefs[PrefKeys.PINNED_BADGES] = current - badgeId
+                added = false
+            } else if (current.size < maxCount) {
+                prefs[PrefKeys.PINNED_BADGES] = current + badgeId
+                added = true
+            }
+        }
+        return added
     }
 
     suspend fun set(key: Preferences.Key<String>, value: String) {
