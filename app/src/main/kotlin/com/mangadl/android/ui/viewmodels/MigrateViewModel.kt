@@ -83,7 +83,11 @@ class MigrateViewModel : ViewModel() {
             lastReadChapterId = if (keepRead) src.lastReadChapterId else null,
         )
         db.libraryDao().upsert(newEntry)
-        if (deleteOld) db.libraryDao().delete(src.id)
+        com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncMangaSubscriptionAsync(newEntry, subscribed = true)
+        if (deleteOld) {
+            db.libraryDao().delete(src.id)
+            com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncMangaSubscriptionAsync(src, subscribed = false)
+        }
         onDone()
     }
 
@@ -100,6 +104,7 @@ class MigrateViewModel : ViewModel() {
             totalChapters = src.totalChapters,
         )
         db.libraryDao().upsert(newEntry)
+        com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncMangaSubscriptionAsync(newEntry, subscribed = true)
         onDone()
     }
 }

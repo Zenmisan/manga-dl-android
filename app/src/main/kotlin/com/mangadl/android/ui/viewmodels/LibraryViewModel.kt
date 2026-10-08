@@ -18,7 +18,13 @@ class LibraryViewModel : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun delete(id: String) {
-        viewModelScope.launch { db.libraryDao().delete(id) }
+        viewModelScope.launch {
+            val existing = db.libraryDao().getById(id)
+            db.libraryDao().delete(id)
+            if (existing != null) {
+                com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncMangaSubscriptionAsync(existing, subscribed = false)
+            }
+        }
     }
 
     fun markAllRead(id: String, totalChapters: Int) {

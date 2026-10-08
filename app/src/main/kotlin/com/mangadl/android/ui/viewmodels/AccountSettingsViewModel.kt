@@ -71,6 +71,7 @@ class AccountSettingsViewModel(app: Application) : AndroidViewModel(app) {
                 ?: return@launch
             val items = Json.decodeFromString<List<LibraryManga>>(json)
             items.forEach { db.libraryDao().upsert(it) }
+            com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncAllAsync()
             _importStatus.value = "Imported ${items.size} titles"
         } catch (e: Exception) {
             _importStatus.value = "Import failed: ${e.message}"

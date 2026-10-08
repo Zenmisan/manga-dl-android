@@ -149,6 +149,10 @@ class BackupManager(
                     progressCount++
                 }
 
+                if (mangaCount > 0 || progressCount > 0) {
+                    com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncAllAsync()
+                }
+
                 return@withContext BackupRestoreResult(
                     success = true,
                     sourceFormat = "Manga-DL JSON",
@@ -209,6 +213,10 @@ class BackupManager(
 
             val isBinary = rawBytes.size >= 2 && rawBytes[0] == 0x1f.toByte()
             val formatName = if (isBinary) "Tachiyomi Protobuf (.tachibk)" else "Tachiyomi JSON"
+
+            if (restoredManga > 0 || restoredProgress > 0) {
+                com.mangadl.android.data.sync.supabase.SupabaseSyncManager.syncAllAsync()
+            }
 
             return@withContext BackupRestoreResult(
                 success = true,
