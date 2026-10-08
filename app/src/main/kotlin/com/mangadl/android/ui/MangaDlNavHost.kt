@@ -172,6 +172,8 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
             val dlQueueVm: com.mangadl.android.ui.viewmodels.DownloadQueueViewModel = viewModel()
             val detailState by detailVm.state.collectAsState()
             val inLibrary by detailVm.inLibrary.collectAsState()
+            val allCategories by detailVm.allCategories.collectAsState()
+            val mangaCategories by detailVm.mangaCategories.collectAsState()
 
             LaunchedEffect(navState.mangaId, navState.sourceId) {
                 if (navState.mangaId.isNotEmpty()) detailVm.load(navState.sourceId, navState.mangaId)
@@ -214,6 +216,10 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
                                 meta = ch.publishedAt,
                             )
                         },
+                        categories = allCategories,
+                        assignedCategoryIds = mangaCategories,
+                        onUpdateCategories = { detailVm.setCategories(it) },
+                        onCreateCategory = { detailVm.createCategory(it) },
                         onBack = back,
                         onResume = {
                             firstUnread?.let { ch ->
