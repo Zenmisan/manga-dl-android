@@ -1,9 +1,15 @@
 package com.mangadl.android.ui.screens.detail
 
 import android.content.res.Configuration
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -52,6 +58,7 @@ import com.mangadl.android.ui.components.Divider
 import com.mangadl.android.ui.components.MdButton
 import com.mangadl.android.ui.components.MdIconButton
 import com.mangadl.android.ui.components.MdIcons
+import com.mangadl.android.ui.components.MdTextField
 import com.mangadl.android.ui.components.VSpace
 import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.screens.tracking.TrackingSheet
@@ -74,10 +81,15 @@ fun MangaDetailScreen(
     synopsis: String = "",
     authors: List<String> = emptyList(),
     resumeLabel: String = "Start Reading",
+    categories: List<com.mangadl.android.data.model.CategoryEntity> = emptyList(),
+    assignedCategoryIds: List<String> = emptyList(),
+    onUpdateCategories: (List<String>) -> Unit = {},
+    onCreateCategory: (String) -> Unit = {},
 ) {
     val c = MdTheme.colors
     var inLibrary by rememberState(manga.inLibrary)
     var showTracking by rememberState(initiallyTracking)
+    var showShelvesSheet by rememberState(false)
     var synopsisOpen by rememberState(false)
 
     var sortAscending by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
@@ -148,6 +160,19 @@ fun MangaDetailScreen(
                             if (inLibrary) MdIcons.BookmarkFilled else MdIcons.Bookmark,
                             active = inLibrary,
                             onClick = { inLibrary = !inLibrary; onToggleLibrary() },
+                            modifier = Modifier.weight(1f),
+                        )
+                        ActionTile(
+                            "Shelves",
+                            MdIcons.Library,
+                            active = assignedCategoryIds.isNotEmpty(),
+                            onClick = {
+                                if (!inLibrary) {
+                                    inLibrary = true
+                                    onToggleLibrary()
+                                }
+                                showShelvesSheet = true
+                            },
                             modifier = Modifier.weight(1f),
                         )
                         ActionTile("Track", MdIcons.Track, onClick = { showTracking = true }, modifier = Modifier.weight(1f))
