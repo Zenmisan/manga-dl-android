@@ -178,6 +178,7 @@ fun MangaDetailScreen(
                             modifier = Modifier.weight(1f),
                         )
                         ActionTile("Track", MdIcons.Track, onClick = { showTracking = true }, modifier = Modifier.weight(1f))
+                        ActionTile("Comments", MdIcons.Chat, onClick = { showCommentsSheet = true }, modifier = Modifier.weight(1f))
                         ActionTile("WebView", MdIcons.Globe, onClick = onWebView, modifier = Modifier.weight(1f))
                     }
                     MdButton(resumeLabel, onResume, Modifier.fillMaxWidth(), height = 50.dp, leadingIcon = MdIcons.Play)
@@ -312,6 +313,7 @@ fun MangaDetailScreen(
                             modifier = Modifier.weight(1f),
                         )
                         ActionTile("Track", MdIcons.Track, onClick = { showTracking = true }, modifier = Modifier.weight(1f))
+                        ActionTile("Comments", MdIcons.Chat, onClick = { showCommentsSheet = true }, modifier = Modifier.weight(1f))
                         ActionTile("WebView", MdIcons.Globe, onClick = onWebView, modifier = Modifier.weight(1f))
                     }
                     MdButton(resumeLabel, onResume, Modifier.fillMaxWidth(), height = 52.dp, leadingIcon = MdIcons.Play)
@@ -396,6 +398,17 @@ fun MangaDetailScreen(
             onCreateCategory = onCreateCategory,
             onDismiss = { showShelvesSheet = false },
         )
+
+        if (showCommentsSheet) {
+            com.mangadl.android.ui.screens.comments.CommentSheet(
+                provider = manga.sourceId,
+                mangaId = manga.id,
+                chapterId = null,
+                title = "Series Comments",
+                subtitle = manga.title,
+                onDismiss = { showCommentsSheet = false },
+            )
+        }
     }
 }
 
