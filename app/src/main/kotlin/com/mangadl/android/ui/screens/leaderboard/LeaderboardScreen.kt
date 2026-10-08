@@ -88,7 +88,7 @@ fun LeaderboardScreen(
         ) {
             MdIconButton(MdIcons.Back, "Back", onBack)
             Column(Modifier.weight(1f).padding(start = 4.dp)) {
-                DisplayText("Guild Leaderboard", size = 20.sp, weight = FontWeight.ExtraBold)
+                DisplayText("Guild Leaderboard", size = 20.sp)
                 BodyText("Global Reader Hall of Fame", size = 12.sp, color = c.fgMuted)
             }
             MdIconButton(MdIcons.Refresh, "Refresh", { vm.loadLeaderboard() })
@@ -217,7 +217,7 @@ private fun UserStandingBanner(
                     BodyText(rank.name, size = 12.sp, color = rank.color)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    DisplayText("${numFmt.format(score)} EXP", size = 16.sp, weight = FontWeight.ExtraBold, color = rank.color)
+                    DisplayText("${numFmt.format(score)} EXP", size = 16.sp, color = rank.color)
                     BodyText(rank.tag, size = 11.sp, color = c.fgMuted)
                 }
             }

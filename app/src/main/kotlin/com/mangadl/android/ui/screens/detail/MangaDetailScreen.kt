@@ -401,7 +401,7 @@ fun MangaDetailScreen(
 
         if (showCommentsSheet) {
             com.mangadl.android.ui.screens.comments.CommentSheet(
-                provider = manga.sourceId,
+                provider = manga.source,
                 mangaId = manga.id,
                 chapterId = null,
                 title = "Series Comments",

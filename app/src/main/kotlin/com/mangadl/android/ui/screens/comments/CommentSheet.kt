@@ -143,7 +143,6 @@ fun CommentSheet(
                                         "Be the first to share your thoughts on this chapter!",
                                         size = 13.sp,
                                         color = c.fgMuted,
-                                        textAlign = TextAlign.Center
                                     )
                                 }
                             }
@@ -243,7 +242,6 @@ fun CommentSheet(
                     },
                     background = if (commentText.isNotBlank()) c.accent else c.surfaceHigh,
                     tint = if (commentText.isNotBlank()) Color.White else c.fgMuted,
-                    enabled = commentText.isNotBlank() && !isPosting,
                 )
             }
         }
