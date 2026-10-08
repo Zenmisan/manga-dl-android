@@ -7,8 +7,20 @@ import com.mangadl.android.data.model.MangaSearchResult
 import com.mangadl.android.data.source.manga.AsuraScansSource
 import com.mangadl.android.data.source.manga.MangaDexSource
 import com.mangadl.android.data.source.manga.MangaKakalotSource
+import com.mangadl.android.data.source.novel.AsiaNovelSource
+import com.mangadl.android.data.source.novel.BrightNovelSource
+import com.mangadl.android.data.source.novel.ChrysanthemumGardenSource
+import com.mangadl.android.data.source.novel.ComradeMaoSource
+import com.mangadl.android.data.source.novel.FreeWebNovelSource
+import com.mangadl.android.data.source.novel.LibReadSource
+import com.mangadl.android.data.source.novel.LightNovelWorldSource
 import com.mangadl.android.data.source.novel.NovelBinSource
+import com.mangadl.android.data.source.novel.NovelBuddySource
+import com.mangadl.android.data.source.novel.NovelFireSource
+import com.mangadl.android.data.source.novel.NovelFullSource
 import com.mangadl.android.data.source.novel.RanobesSource
+import com.mangadl.android.data.source.novel.ReadHiveSource
+import com.mangadl.android.data.source.novel.ReadNovelFullSource
 import com.mangadl.android.data.source.novel.RoyalRoadSource
 import okhttp3.OkHttpClient
 import java.util.concurrent.ConcurrentHashMap
@@ -43,6 +55,18 @@ class SourceManager(
         registerSource(NovelBinSource(client))
         registerSource(RanobesSource(client))
         registerSource(RoyalRoadSource(client))
+        registerSource(LightNovelWorldSource(client))
+        registerSource(NovelFireSource(client))
+        registerSource(FreeWebNovelSource(client))
+        registerSource(NovelFullSource(client))
+        registerSource(ReadNovelFullSource(client))
+        registerSource(ChrysanthemumGardenSource(client))
+        registerSource(ComradeMaoSource(client))
+        registerSource(AsiaNovelSource(client))
+        registerSource(ReadHiveSource(client))
+        registerSource(LibReadSource(client))
+        registerSource(BrightNovelSource(client))
+        registerSource(NovelBuddySource(client))
     }
 
     fun registerSource(source: BaseSource) {
@@ -59,7 +83,7 @@ class SourceManager(
 
     fun isNovelSource(sourceId: String): Boolean {
         val src = getSource(sourceId)
-        return src?.isNovel ?: false
+        return src?.isNovel ?: NOVEL_SOURCE_IDS.contains(sourceId.lowercase())
     }
 
     suspend fun search(sourceId: String, query: String, page: Int = 1): List<MangaSearchResult> {
@@ -90,5 +114,16 @@ class SourceManager(
     suspend fun getChapterText(sourceId: String, chapterId: String): String {
         val src = getSource(sourceId) as? NovelSource ?: return ""
         return src.getChapterText(chapterId)
+    }
+
+    companion object {
+        // Mirrors registerBuiltInSources()'s novel half — a plain id set so novel/manga
+        // classification is checkable (ExtensionManager.isNovelSource, plain JUnit tests) without
+        // needing a live SourceManager instance or Android Context.
+        val NOVEL_SOURCE_IDS = setOf(
+            "novelbin", "ranobes", "royalroad", "lightnovelworld", "novelfire", "freewebnovel",
+            "novelfull", "readnovelfull", "chrysanthemumgarden", "comrademao", "asianovel",
+            "readhive", "libread", "brightnovel", "novelbuddy",
+        )
     }
 }

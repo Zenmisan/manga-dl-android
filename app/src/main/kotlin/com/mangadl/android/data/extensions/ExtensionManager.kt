@@ -1,513 +1,54 @@
 package com.mangadl.android.data.extensions
 
-import android.content.Context
-import android.util.Log
-import com.dokar.quickjs.QuickJs
-import com.dokar.quickjs.binding.asyncFunction
-import com.dokar.quickjs.binding.define
-import com.dokar.quickjs.binding.function
-import com.mangadl.android.data.model.Chapter
 import com.mangadl.android.data.model.MangaDetail
 import com.mangadl.android.data.model.MangaSearchResult
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONArray
-import org.json.JSONObject
-import org.jsoup.Jsoup
-import org.jsoup.nodes.Element
-import java.util.concurrent.ConcurrentHashMap
+import com.mangadl.android.data.source.MangaSource
+import com.mangadl.android.data.source.NovelSource
+import com.mangadl.android.data.source.SourceManager
 
-private val DOM_SHIM = """
-(function() {
-  function mkElement(d) {
-    if (!d) return null;
-    var el = {
-      tagName: (d.tag || '').toUpperCase(),
-      nodeName: (d.tag || '').toUpperCase(),
-      textContent: d.text || '',
-      innerHTML: d.innerHtml || '',
-      outerHTML: d.outerHtml || '',
-      _html: d.innerHtml || '',
-      _attrs: d.attrs || {},
-      getAttribute: function(n) {
-        var v = el._attrs[n];
-        return v !== undefined ? v : null;
-      },
-      hasAttribute: function(n) { return el._attrs[n] !== undefined; },
-      querySelectorAll: function(sel) {
-        var json = __jsoupSelectAll(el._html, sel);
-        var arr = JSON.parse(json || '[]');
-        var result = arr.map(mkElement);
-        result.forEach = Array.prototype.forEach.bind(result);
-        return result;
-      },
-      querySelector: function(sel) {
-        var json = __jsoupSelectOne(el._html, sel);
-        if (!json) return null;
-        try { return mkElement(JSON.parse(json)); } catch(e) { return null; }
-      },
-      closest: function(sel) {
-        var json = __jsoupClosest(el._html, sel);
-        if (!json) return null;
-        try { return mkElement(JSON.parse(json)); } catch(e) { return null; }
-      },
-      get parentElement() {
-        var json = __jsoupParent(el._html);
-        if (!json) return null;
-        try { return mkElement(JSON.parse(json)); } catch(e) { return null; }
-      },
-      get href() { return el.getAttribute('href') || ''; },
-      get src() { return el.getAttribute('src') || el.getAttribute('data-src') || ''; },
-    };
-    return el;
-  }
-
-  function Document(html) { this._html = html; }
-  Document.prototype.querySelectorAll = function(sel) {
-    var json = __jsoupSelectAll(this._html, sel);
-    var arr = JSON.parse(json || '[]');
-    var result = arr.map(mkElement);
-    result.forEach = Array.prototype.forEach.bind(result);
-    return result;
-  };
-  Document.prototype.querySelector = function(sel) {
-    var json = __jsoupSelectOne(this._html, sel);
-    if (!json) return null;
-    try { return mkElement(JSON.parse(json)); } catch(e) { return null; }
-  };
-
-  globalThis.DOMParser = function() {};
-  globalThis.DOMParser.prototype.parseFromString = function(html) {
-    return new Document(html);
-  };
-})();
-""".trimIndent()
-
+/**
+ * Thin facade over [SourceManager] kept for the many existing call sites (`listExtensions()`,
+ * `isNovelSource()`) that predate the pure-Kotlin source migration — every source is now a
+ * native `BaseSource`, there is no more QuickJS/`assets/extensions` scraper underneath this.
+ */
 class ExtensionManager(
-    private val context: Context,
-    private val httpClient: OkHttpClient,
+    var sourceManager: SourceManager? = null,
 ) {
-    var backendUrl: String = ""
-    var sourceManager: com.mangadl.android.data.source.SourceManager? = null
+    fun listExtensions(): List<ExtensionMeta> =
+        sourceManager?.listSources()
+            ?.map { ExtensionMeta(id = it.id, name = it.name, lang = it.lang, nsfw = it.nsfw) }
+            ?: emptyList()
 
-    private val extensions = mutableMapOf<String, ExtensionMeta>()
+    suspend fun search(extensionId: String, query: String, page: Int = 1): List<MangaSearchResult> =
+        sourceManager?.getSource(extensionId)?.search(query, page) ?: emptyList()
 
-    private data class JsContext(val js: QuickJs, val mutex: Mutex)
-    private val jsContexts = ConcurrentHashMap<String, JsContext>()
+    suspend fun getPopular(extensionId: String, page: Int = 1): List<MangaSearchResult> =
+        sourceManager?.getSource(extensionId)?.getPopular(page) ?: emptyList()
 
-    // Caps how many extension scripts (one per source) run at once device-wide. Each evaluation
-    // does real CPU work (QuickJS execution + Jsoup HTML parsing), and a global search fans out
-    // to every enabled source in parallel — on a low-end device, 30+ unbounded concurrent
-    // evaluations starve the main thread of CPU scheduling time even though none of this runs
-    // *on* the main thread, producing multi-hundred-ms frame drops during typing/scrolling.
-    private val evalConcurrency = Semaphore(4)
+    suspend fun getLatest(extensionId: String, page: Int = 1): List<MangaSearchResult> =
+        sourceManager?.getSource(extensionId)?.getLatest(page) ?: emptyList()
 
-    fun loadAll() {
-        val assetFiles = context.assets.list("extensions") ?: return
-        for (file in assetFiles) {
-            if (!file.endsWith(".js")) continue
-            val id = file.removeSuffix(".js")
-            try {
-                val script = context.assets.open("extensions/$file")
-                    .bufferedReader().readText()
-                val meta = parseMetaComment(id, script)
-                extensions[id] = ExtensionMeta(id, file, script, meta)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to load extension: $file", e)
-            }
-        }
-        Log.d(TAG, "Extensions ready. Loaded: ${extensions.size} sources")
-    }
+    suspend fun getMangaDetail(extensionId: String, mangaId: String): MangaDetail =
+        sourceManager?.getSource(extensionId)?.getMangaDetail(mangaId) ?: MangaDetail(id = mangaId, provider = extensionId)
 
-    fun listExtensions(): List<ExtensionMeta> = extensions.values.toList()
+    suspend fun getPages(extensionId: String, chapterId: String): List<String> =
+        (sourceManager?.getSource(extensionId) as? MangaSource)?.getPages(chapterId) ?: emptyList()
 
-    fun getExtension(id: String): ExtensionMeta? = extensions[id]
-
-    suspend fun search(extensionId: String, query: String, page: Int = 1): List<MangaSearchResult> {
-        val nativeSrc = sourceManager?.getSource(extensionId)
-        if (nativeSrc != null) {
-            return nativeSrc.search(query, page)
-        }
-        val result = evalWithContext(extensionId) { js ->
-            js.evaluate<String>(
-                "JSON.stringify(await __ext.search(${jsString(query)}, $page))"
-            )
-        }
-        return parseSearchResults(result)
-    }
-
-    suspend fun getPopular(extensionId: String, page: Int = 1): List<MangaSearchResult> {
-        val nativeSrc = sourceManager?.getSource(extensionId)
-        if (nativeSrc != null) {
-            return nativeSrc.getPopular(page)
-        }
-        val result = evalWithContext(extensionId) { js ->
-            js.evaluate<String>(
-                "JSON.stringify(await (typeof __ext.getPopular === 'function' ? __ext.getPopular($page) : __ext.search('', $page)))"
-            )
-        }
-        return parseSearchResults(result)
-    }
-
-    suspend fun getLatest(extensionId: String, page: Int = 1): List<MangaSearchResult> {
-        val nativeSrc = sourceManager?.getSource(extensionId)
-        if (nativeSrc != null) {
-            return nativeSrc.getLatest(page)
-        }
-        val result = evalWithContext(extensionId) { js ->
-            js.evaluate<String>(
-                "JSON.stringify(await (typeof __ext.getLatest === 'function' ? __ext.getLatest($page) : " +
-                "typeof __ext.getPopular === 'function' ? __ext.getPopular($page) : __ext.search('', $page)))"
-            )
-        }
-        return parseSearchResults(result)
-    }
-
-    suspend fun getMangaDetail(extensionId: String, mangaId: String): MangaDetail {
-        val nativeSrc = sourceManager?.getSource(extensionId)
-        if (nativeSrc != null) {
-            return nativeSrc.getMangaDetail(mangaId)
-        }
-        val result = evalWithContext(extensionId) { js ->
-            js.evaluate<String>(
-                "JSON.stringify(await __ext.getMangaDetail(${jsString(mangaId)}))"
-            )
-        }
-        return parseMangaDetail(result)
-    }
-
-    suspend fun getPages(extensionId: String, chapterId: String): List<String> {
-        val nativeSrc = sourceManager?.getSource(extensionId) as? com.mangadl.android.data.source.MangaSource
-        if (nativeSrc != null) {
-            return nativeSrc.getPages(chapterId)
-        }
-        val result = evalWithContext(extensionId) { js ->
-            js.evaluate<String>(
-                "JSON.stringify(await __ext.getPages(${jsString(chapterId)}))"
-            )
-        }
-        return parsePages(result)
-    }
-
-    suspend fun getChapterText(extensionId: String, chapterId: String): String {
-        val nativeSrc = sourceManager?.getSource(extensionId) as? com.mangadl.android.data.source.NovelSource
-        if (nativeSrc != null) {
-            return nativeSrc.getChapterText(chapterId)
-        }
-        val result = evalWithContext(extensionId) { js ->
-            js.evaluate<String>(
-                "typeof __ext.getChapterText !== 'function' ? JSON.stringify({content:'',format:'plain'}) : " +
-                "JSON.stringify(await __ext.getChapterText(${jsString(chapterId)}))"
-            )
-        }
-        return try {
-            val obj = org.json.JSONObject(result ?: "{}")
-            obj.optString("content", "")
-        } catch (_: Exception) { result ?: "" }
-    }
-
-    private suspend fun <T> evalWithContext(id: String, block: suspend (QuickJs) -> T): T {
-        val ctx = jsContexts.getOrPut(id) {
-            val script = extensions[id]?.script ?: error("Unknown extension: $id")
-            val js = QuickJs.create(Dispatchers.IO)
-            withContext(Dispatchers.IO) {
-                js.define("console") {
-                    asyncFunction("log") { args: Array<Any?> -> Log.d("JS[$id]", args.joinToString(" ")) }
-                    asyncFunction("error") { args: Array<Any?> -> Log.e("JS[$id]", args.joinToString(" ")) }
-                    asyncFunction("warn") { args: Array<Any?> -> Log.w("JS[$id]", args.joinToString(" ")) }
-                }
-                js.asyncFunction("apiFetch") { args: Array<Any?> ->
-                    val url = args.getOrNull(0) as? String ?: return@asyncFunction null
-                    apiFetch(url, args.getOrNull(1))
-                }
-                // Synchronous Jsoup bindings for DOM operations
-                js.function("__jsoupSelectAll") { args: Array<Any?> ->
-                    val html = args.getOrNull(0) as? String ?: return@function "[]"
-                    val selector = args.getOrNull(1) as? String ?: return@function "[]"
-                    try {
-                        val doc = Jsoup.parse(html)
-                        val elements = doc.select(selector)
-                        val arr = JSONArray()
-                        for (el in elements) arr.put(serializeElement(el))
-                        arr.toString()
-                    } catch (e: Exception) {
-                        Log.e(TAG, "jsoupSelectAll error: selector=$selector", e)
-                        "[]"
-                    }
-                }
-                js.function("__jsoupSelectOne") { args: Array<Any?> ->
-                    val html = args.getOrNull(0) as? String ?: return@function null
-                    val selector = args.getOrNull(1) as? String ?: return@function null
-                    try {
-                        val doc = Jsoup.parse(html)
-                        val el = doc.selectFirst(selector) ?: return@function null
-                        serializeElement(el).toString()
-                    } catch (e: Exception) {
-                        Log.e(TAG, "jsoupSelectOne error: selector=$selector", e)
-                        null
-                    }
-                }
-                js.function("__jsoupClosest") { args: Array<Any?> ->
-                    val html = args.getOrNull(0) as? String ?: return@function null
-                    val selector = args.getOrNull(1) as? String ?: return@function null
-                    try {
-                        val doc = Jsoup.parse(html)
-                        val el = doc.body().children().firstOrNull() ?: return@function null
-                        val match = el.parents().firstOrNull { it.`is`(selector) }
-                            ?: if (el.`is`(selector)) el else null
-                            ?: return@function null
-                        serializeElement(match).toString()
-                    } catch (_: Exception) {
-                        null
-                    }
-                }
-                js.function("__jsoupParent") { args: Array<Any?> ->
-                    val html = args.getOrNull(0) as? String ?: return@function null
-                    try {
-                        val doc = Jsoup.parse(html)
-                        val el = doc.body().children().firstOrNull() ?: return@function null
-                        val parent = el.parent() ?: return@function null
-                        if (parent.tagName().equals("body", ignoreCase = true)) return@function null
-                        serializeElement(parent).toString()
-                    } catch (_: Exception) {
-                        null
-                    }
-                }
-                // Inject DOM shim, then extension script
-                js.evaluate<Any?>(DOM_SHIM)
-                js.evaluate<Any?>("const __ext = (() => { $script; return extension; })();")
-            }
-            JsContext(js, Mutex())
-        }
-        return evalConcurrency.withPermit {
-            ctx.mutex.withLock {
-                withContext(Dispatchers.IO) {
-                    block(ctx.js)
-                }
-            }
-        }
-    }
-
-    fun closeAll() {
-        jsContexts.values.forEach { it.js.close() }
-        jsContexts.clear()
-    }
-
-    // Direct HTTP — no Render backend. Proxy patterns are resolved locally:
-    //   /manga/proxy/html?url=X → fetch X, return {html, url}
-    internal suspend fun apiFetch(url: String, options: Any? = null): Any? {
-        return withContext(Dispatchers.IO) {
-            val proxyHtml = url.startsWith("/manga/proxy/html")
-            val proxyJson = url.startsWith("/manga/proxy/json")
-            val resolvedUrl = when {
-                proxyHtml || proxyJson -> {
-                    val paramIdx = url.indexOf("?url=")
-                    if (paramIdx >= 0) java.net.URLDecoder.decode(url.substring(paramIdx + 5), "UTF-8")
-                    else url
-                }
-                url.startsWith("/") -> backendUrl.trimEnd('/') + url
-                else -> url
-            }
-
-            val optsMap = options as? Map<*, *>
-            val method = optsMap?.get("method") as? String ?: "GET"
-            @Suppress("UNCHECKED_CAST")
-            val headers = optsMap?.get("headers") as? Map<String, String> ?: emptyMap()
-            val body = optsMap?.get("body") as? String
-
-            val requestBuilder = Request.Builder().url(resolvedUrl)
-            headers.forEach { (k, v) -> requestBuilder.header(k, v) }
-
-            if (method.uppercase() == "POST" && body != null) {
-                val ct = headers["Content-Type"] ?: "application/json"
-                requestBuilder.post(body.toRequestBody(ct.toMediaType()))
-            }
-
-            try {
-                val response = httpClient.newCall(requestBuilder.build()).execute()
-                val responseBody = response.body?.string() ?: ""
-                if (!response.isSuccessful) {
-                    try { Log.w(TAG, "apiFetch HTTP ${response.code}: $resolvedUrl") } catch (_: Throwable) {}
-                    return@withContext null
-                }
-                if (proxyHtml) mapOf("html" to responseBody, "url" to resolvedUrl)
-                else jsonToKotlin(responseBody)
-            } catch (e: Exception) {
-                try { Log.e(TAG, "apiFetch error: $resolvedUrl", e) } catch (_: Throwable) {}
-                null
-            }
-        }
-    }
-
-    // Recursively convert JSON string / JSONObject / JSONArray to Kotlin Map/List
-    // so QuickJS can receive it without "Cannot convert java type" errors.
-    private fun jsonToKotlin(raw: Any?): Any? = when (raw) {
-        is String -> {
-            val trimmed = raw.trim()
-            when {
-                trimmed.startsWith("{") -> try { jsonToKotlin(JSONObject(trimmed)) } catch (_: Exception) { raw }
-                trimmed.startsWith("[") -> try { jsonToKotlin(JSONArray(trimmed)) } catch (_: Exception) { raw }
-                else -> raw
-            }
-        }
-        is JSONObject -> {
-            val map = mutableMapOf<String, Any?>()
-            raw.keys().forEach { k -> map[k] = jsonToKotlin(raw.get(k)) }
-            map
-        }
-        is JSONArray -> {
-            (0 until raw.length()).map { jsonToKotlin(raw.get(it)) }
-        }
-        JSONObject.NULL -> null
-        else -> raw
-    }
-
-    private fun serializeElement(el: Element): JSONObject {
-        val attrsObj = JSONObject()
-        for (attr in el.attributes()) {
-            attrsObj.put(attr.key, attr.value)
-        }
-        return JSONObject().apply {
-            put("tag", el.tagName())
-            put("text", el.text())
-            put("innerHtml", el.html())
-            put("outerHtml", el.outerHtml())
-            put("attrs", attrsObj)
-        }
-    }
-
-    private fun jsString(value: String): String = JSONObject.quote(value)
+    suspend fun getChapterText(extensionId: String, chapterId: String): String =
+        (sourceManager?.getSource(extensionId) as? NovelSource)?.getChapterText(chapterId) ?: ""
 
     companion object {
-        private const val TAG = "ExtensionManager"
-
-        val NOVEL_EXTENSION_IDS = setOf(
-            "royalroad", "novelbin", "novelfull", "freewebnovel", "novelfire", "allnovel",
-            "novelphoenix", "readnovelfull", "libread", "brightnovel", "chrysanthemumgarden",
-            "comrademao", "lightnoveltranslations", "bestlightnovel", "asianovel", "novelbuddy",
-            "readlightnovel", "scribblehub", "lightnovelworld", "wuxiaworld", "ranobes",
-            "novelsonline", "readhive"
-        )
-
+        // Static id-set check — no Context/Application instance needed, so this stays callable
+        // from plain (non-Robolectric) unit tests and any call site without a live SourceManager.
         fun isNovelSource(extensionId: String): Boolean =
-            extensionId.lowercase() in NOVEL_EXTENSION_IDS
-
-        internal fun parseSearchResults(json: String?): List<MangaSearchResult> {
-            if (json.isNullOrBlank()) return emptyList()
-            return try {
-                val arr = JSONArray(json)
-                val backendBase = com.mangadl.android.BuildConfig.BACKEND_URL.trimEnd('/')
-                (0 until arr.length()).map { i ->
-                    val obj = arr.getJSONObject(i)
-                    val rawCover = obj.optString("cover_url").ifEmpty { obj.optString("coverUrl") }
-                    val resolvedCover = when {
-                        rawCover.startsWith("http://") || rawCover.startsWith("https://") -> rawCover
-                        rawCover.startsWith("/api/") -> "$backendBase$rawCover"
-                        rawCover.startsWith("/") -> "$backendBase/api$rawCover"
-                        else -> rawCover
-                    }
-                    MangaSearchResult(
-                        id = obj.optString("id"),
-                        title = obj.optString("title"),
-                        coverUrl = resolvedCover,
-                        provider = obj.optString("provider"),
-                        url = obj.optString("url"),
-                    )
-                }
-            } catch (e: Exception) {
-                try { Log.e(TAG, "Parse search error", e) } catch (_: Throwable) {}
-                emptyList()
-            }
-        }
-
-        internal fun parseMangaDetail(json: String?): MangaDetail {
-            if (json.isNullOrBlank()) return MangaDetail()
-            return try {
-                val obj = JSONObject(json)
-                val chaptersArr = obj.optJSONArray("chapters")
-                val chapters = if (chaptersArr != null) {
-                    (0 until chaptersArr.length()).map { i ->
-                        val c = chaptersArr.getJSONObject(i)
-                        Chapter(
-                            id = c.optString("id"),
-                            title = c.optString("title"),
-                            number = c.optDouble("number", 0.0).toFloat(),
-                            publishedAt = c.optString("published_at"),
-                        )
-                    }
-                } else emptyList()
-
-                MangaDetail(
-                    id = obj.optString("id"),
-                    title = obj.optString("title"),
-                    coverUrl = obj.optString("cover_url"),
-                    description = obj.optString("description"),
-                    status = obj.optString("status"),
-                    genres = obj.optJSONArray("genres")?.let { g ->
-                        (0 until g.length()).map { g.optString(it) }
-                    } ?: emptyList(),
-                    authors = obj.optJSONArray("authors")?.let { a ->
-                        (0 until a.length()).map { a.optString(it) }
-                    } ?: emptyList(),
-                    provider = obj.optString("provider"),
-                    url = obj.optString("url"),
-                    chapters = chapters,
-                )
-            } catch (e: Exception) {
-                try { Log.e(TAG, "Parse detail error", e) } catch (_: Throwable) {}
-                MangaDetail()
-            }
-        }
-
-        internal fun parsePages(json: String?): List<String> {
-            if (json.isNullOrBlank()) return emptyList()
-            return try {
-                val arr = JSONArray(json)
-                val backendBase = com.mangadl.android.BuildConfig.BACKEND_URL.trimEnd('/')
-                (0 until arr.length()).map { i ->
-                    val raw = arr.optString(i)
-                    when {
-                        raw.startsWith("http://") || raw.startsWith("https://") -> raw
-                        raw.startsWith("/api/") -> "$backendBase$raw"
-                        raw.startsWith("/") -> "$backendBase/api$raw"
-                        else -> raw
-                    }
-                }
-            } catch (e: Exception) {
-                try { Log.e(TAG, "Parse pages error", e) } catch (_: Throwable) {}
-                emptyList()
-            }
-        }
-
-        internal fun parseMetaComment(id: String, script: String): Map<String, String> {
-            val meta = mutableMapOf<String, String>("id" to id)
-            val metaBlock = Regex("""// ==Extension==\n(.*?)// ==/Extension==""", RegexOption.DOT_MATCHES_ALL)
-                .find(script)?.groupValues?.get(1) ?: return meta
-            Regex("""// @(\w+)\s+(.+)""").findAll(metaBlock).forEach { m ->
-                meta[m.groupValues[1]] = m.groupValues[2].trim()
-            }
-            return meta
-        }
+            SourceManager.NOVEL_SOURCE_IDS.contains(extensionId.lowercase())
     }
 }
 
 data class ExtensionMeta(
     val id: String,
-    val file: String,
-    val script: String,
-    val meta: Map<String, String>,
-) {
-    val name: String get() = meta["name"] ?: id
-    val lang: String get() = meta["lang"] ?: "en"
-    val version: String get() = meta["version"] ?: "1.0.0"
-    val nsfw: Boolean get() = meta["nsfw"] == "true"
-    val iconUrl: String get() = meta["icon"] ?: ""
-}
+    val name: String,
+    val lang: String = "en",
+    val nsfw: Boolean = false,
+    val version: String = "1.0.0",
+)

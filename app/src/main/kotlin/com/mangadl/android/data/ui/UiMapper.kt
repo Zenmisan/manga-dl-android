@@ -50,7 +50,7 @@ fun ExtensionMeta.toUiSource(): UiSource {
     return UiSource(
         id = id,
         name = name,
-        meta = "$lang · v$version",
+        meta = lang.uppercase(),
         initial = name.firstOrNull()?.uppercase() ?: "?",
         color = COVER_PALETTE[colorIdx],
     )
@@ -61,7 +61,7 @@ fun ExtensionMeta.toUiExtension(state: ExtensionState = ExtensionState.Installed
     return UiExtension(
         id = id,
         name = name,
-        meta = "$lang · v$version",
+        meta = lang.uppercase(),
         initial = name.firstOrNull()?.uppercase() ?: "?",
         color = COVER_PALETTE[colorIdx],
         state = state,

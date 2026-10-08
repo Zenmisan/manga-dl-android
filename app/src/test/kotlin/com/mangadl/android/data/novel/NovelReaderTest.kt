@@ -16,14 +16,14 @@ class NovelReaderTest {
         assertTrue(ExtensionManager.isNovelSource("novelbin"))
         assertTrue(ExtensionManager.isNovelSource("freewebnovel"))
         assertTrue(ExtensionManager.isNovelSource("novelfull"))
-        assertTrue(ExtensionManager.isNovelSource("scribblehub"))
-        assertTrue(ExtensionManager.isNovelSource("wuxiaworld"))
+        assertTrue(ExtensionManager.isNovelSource("readhive"))
+        assertTrue(ExtensionManager.isNovelSource("lightnovelworld"))
 
         // Manga sources
         assertFalse(ExtensionManager.isNovelSource("mangadex"))
-        assertFalse(ExtensionManager.isNovelSource("asura"))
-        assertFalse(ExtensionManager.isNovelSource("flamecomics"))
-        assertFalse(ExtensionManager.isNovelSource("mangabat"))
+        assertFalse(ExtensionManager.isNovelSource("asurascans"))
+        assertFalse(ExtensionManager.isNovelSource("tcbscans"))
+        assertFalse(ExtensionManager.isNovelSource("yaoiscan"))
     }
 
     @Test

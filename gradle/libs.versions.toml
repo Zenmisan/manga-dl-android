@@ -11,7 +11,6 @@ room = "2.6.1"
 okhttp = "4.12.0"
 jsoup = "1.18.3"
 coil = "2.7.0"
-quickjs = "1.0.0-alpha13"
 kotlinxSerializationJson = "1.7.3"
 kotlinxCoroutines = "1.9.0"
 datastorePreferences = "1.1.1"
@@ -47,7 +46,6 @@ okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor",
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 androidx-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts" }
-quickjs-android = { group = "io.github.dokar3", name = "quickjs-kt-android", version.ref = "quickjs" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }

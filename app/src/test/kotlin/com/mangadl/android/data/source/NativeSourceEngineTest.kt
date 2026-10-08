@@ -41,20 +41,30 @@ class NativeSourceEngineTest {
 
     @Test
     fun testSourceManagerRegistration() {
-        assertNotNull(sourceManager.getSource("mangadex"))
-        assertNotNull(sourceManager.getSource("asurascans"))
-        assertNotNull(sourceManager.getSource("mangakakalot"))
-        assertNotNull(sourceManager.getSource("novelbin"))
-        assertNotNull(sourceManager.getSource("ranobes"))
-        assertNotNull(sourceManager.getSource("royalroad"))
+        val mangaSources = listOf(
+            "mangadex", "asurascans", "mangakakalot", "mangakatana",
+            "omegascans", "manganato", "tcbscans", "webtoons", "yaoiscan"
+        )
+        val novelSources = listOf(
+            "novelbin", "ranobes", "royalroad", "lightnovelworld",
+            "novelfire", "freewebnovel", "novelfull", "readnovelfull",
+            "chrysanthemumgarden", "comrademao", "asianovel", "readhive",
+            "libread", "brightnovel", "novelbuddy"
+        )
 
-        assertTrue(sourceManager.isNovelSource("novelbin"))
-        assertTrue(sourceManager.isNovelSource("ranobes"))
-        assertTrue(sourceManager.isNovelSource("royalroad"))
+        for (id in mangaSources) {
+            assertNotNull("Manga source $id should be registered", sourceManager.getSource(id))
+            assertFalse("Source $id should not be a novel source", sourceManager.isNovelSource(id))
+        }
 
-        assertFalse(sourceManager.isNovelSource("mangadex"))
-        assertFalse(sourceManager.isNovelSource("asurascans"))
-        assertFalse(sourceManager.isNovelSource("mangakakalot"))
+        for (id in novelSources) {
+            assertNotNull("Novel source $id should be registered", sourceManager.getSource(id))
+            assertTrue("Source $id should be a novel source", sourceManager.isNovelSource(id))
+        }
+
+        assertEquals(mangaSources.size, sourceManager.listMangaSources().size)
+        assertEquals(novelSources.size, sourceManager.listNovelSources().size)
+        assertEquals(mangaSources.size + novelSources.size, sourceManager.listSources().size)
     }
 
     @Test

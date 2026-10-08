@@ -71,17 +71,9 @@ class MangaDlApp : Application() {
         googleAuthHelper = GoogleAuthHelper(this)
 
         sourceManager = com.mangadl.android.data.source.SourceManager(this, httpClient)
-        extensionManager = ExtensionManager(this, httpClient)
-        extensionManager.sourceManager = sourceManager
-        extensionManager.backendUrl = BuildConfig.BACKEND_URL
+        extensionManager = ExtensionManager(sourceManager)
         extensionRepoManager = com.mangadl.android.data.extensions.repo.ExtensionRepoManager(this, httpClient)
-        // loadAll() synchronously reads and parses all 39 bundled extension .js files from
-        // assets; doing that on Application.onCreate() (main thread) blocks the first frame.
-        // Moved off-thread; screens that read listExtensions() before this completes will
-        // briefly see an empty list (true for the first composition regardless of where this
-        // runs, since it was never actually synchronous-safe for Compose to depend on).
         appScope.launch(Dispatchers.IO) {
-            extensionManager.loadAll()
             extensionRepoManager.refresh()
         }
 
