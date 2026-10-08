@@ -542,6 +542,9 @@ private fun MainTabs(nav: NavHostController, emptyLibrary: Boolean = false, onSo
     val libraryDownloadedOnly by settingsVm.libraryDownloadedOnly.collectAsState()
 
     val libraryItems by libraryVm.library.collectAsState()
+    val categories by libraryVm.categories.collectAsState()
+    val selectedCategoryId by libraryVm.selectedCategoryId.collectAsState()
+    val mangaCategoryMap by libraryVm.mangaCategoryMap.collectAsState()
     val newChapters by updatesVm.newChapters.collectAsState()
     val lastChecked by updatesVm.lastChecked.collectAsState()
     val historyProgress by historyVm.allProgress.collectAsState()
@@ -591,6 +594,13 @@ private fun MainTabs(nav: NavHostController, emptyLibrary: Boolean = false, onSo
                     showUnreadBadges = showUnreadBadges,
                     showDownloadedBadges = showDownloadedBadges,
                     downloadedOnly = libraryDownloadedOnly,
+                    categories = categories,
+                    selectedCategoryId = selectedCategoryId,
+                    onSelectCategory = { libraryVm.selectCategory(it) },
+                    onCreateCategory = { libraryVm.createCategory(it) },
+                    onDeleteCategory = { libraryVm.deleteCategory(it) },
+                    onRenameCategory = { id, name -> libraryVm.renameCategory(id, name) },
+                    mangaCategoryMap = mangaCategoryMap,
                     onOpenManga = { m ->
                         navState.mangaId = m.id
                         navState.sourceId = m.source

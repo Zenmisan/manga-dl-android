@@ -296,6 +296,19 @@ fun MangaDetailScreen(
                             onClick = { inLibrary = !inLibrary; onToggleLibrary() },
                             modifier = Modifier.weight(1f),
                         )
+                        ActionTile(
+                            "Shelves",
+                            MdIcons.Library,
+                            active = assignedCategoryIds.isNotEmpty(),
+                            onClick = {
+                                if (!inLibrary) {
+                                    inLibrary = true
+                                    onToggleLibrary()
+                                }
+                                showShelvesSheet = true
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
                         ActionTile("Track", MdIcons.Track, onClick = { showTracking = true }, modifier = Modifier.weight(1f))
                         ActionTile("WebView", MdIcons.Globe, onClick = onWebView, modifier = Modifier.weight(1f))
                     }
@@ -366,6 +379,123 @@ fun MangaDetailScreen(
     }
 
         TrackingSheet(visible = showTracking, onDismiss = { showTracking = false }, mangaId = manga.id, mangaTitle = manga.title)
+        CategoryAssignmentSheet(
+            visible = showShelvesSheet,
+            categories = categories,
+            assignedCategoryIds = assignedCategoryIds,
+            onToggleCategory = { catId ->
+                val updated = if (assignedCategoryIds.contains(catId)) {
+                    assignedCategoryIds - catId
+                } else {
+                    assignedCategoryIds + catId
+                }
+                onUpdateCategories(updated)
+            },
+            onCreateCategory = onCreateCategory,
+            onDismiss = { showShelvesSheet = false },
+        )
+    }
+}
+
+@Composable
+private fun CategoryAssignmentSheet(
+    visible: Boolean,
+    categories: List<com.mangadl.android.data.model.CategoryEntity>,
+    assignedCategoryIds: List<String>,
+    onToggleCategory: (String) -> Unit,
+    onCreateCategory: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val c = MdTheme.colors
+    var newCategoryName by rememberState("")
+    val interactionSource = remember { MutableInteractionSource() }
+
+    AnimatedVisibility(visible = visible, enter = fadeIn(), exit = fadeOut()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f))
+                .clickable(interactionSource = interactionSource, indication = null, onClick = onDismiss)
+        )
+    }
+    AnimatedVisibility(visible = visible, enter = slideInVertically { it }, exit = slideOutVertically { it }) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .background(c.sheet)
+                    .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BodyText("Select Shelves", size = 18.sp, weight = FontWeight.Bold)
+                    MdIconButton(MdIcons.Close, "Close", onDismiss, size = 36.dp, iconSize = 16.dp)
+                }
+
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MdTextField(
+                        value = newCategoryName,
+                        onValueChange = { newCategoryName = it },
+                        placeholder = "New shelf…",
+                        modifier = Modifier.weight(1f),
+                        height = 44.dp,
+                    )
+                    MdButton(
+                        text = "Add",
+                        onClick = {
+                            if (newCategoryName.isNotBlank()) {
+                                onCreateCategory(newCategoryName)
+                                newCategoryName = ""
+                            }
+                        },
+                        height = 44.dp,
+                        fontSize = 13.sp,
+                    )
+                }
+
+                Divider(color = c.surfaceHigh)
+
+                if (categories.isEmpty()) {
+                    BodyText("No custom shelves created yet. Add one above!", size = 13.sp, color = c.fgMuted)
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        categories.forEach { cat ->
+                            val isAssigned = assignedCategoryIds.contains(cat.id)
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isAssigned) c.accentFaint else Color.Transparent)
+                                    .clickable { onToggleCategory(cat.id) }
+                                    .padding(horizontal = 12.dp, vertical = 11.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                BodyText(
+                                    cat.name,
+                                    Modifier.weight(1f),
+                                    size = 14.sp,
+                                    weight = if (isAssigned) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isAssigned) c.accentSoft else c.fg,
+                                )
+                                if (isAssigned) {
+                                    Icon(MdIcons.Check, "Assigned", tint = c.accentSoft, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            Divider(color = c.surfaceHigh)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
