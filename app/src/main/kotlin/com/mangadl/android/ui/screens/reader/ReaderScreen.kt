@@ -112,6 +112,7 @@ fun ReaderScreen(
     val savedReaderBackground by appPrefs.readerBackground.collectAsState(initial = "black")
     val savedHaptic by appPrefs.hapticFeedback.collectAsState(initial = true)
     val savedDualPage by appPrefs.dualPageSpread.collectAsState(initial = "off")
+    val ambilightEnabled by appPrefs.ambilight.collectAsState(initial = false)
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
 
     LaunchedEffect(navState.chapterId, navState.isLocalRead) {
