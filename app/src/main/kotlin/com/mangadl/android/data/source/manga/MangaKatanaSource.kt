@@ -35,7 +35,8 @@ class MangaKatanaSource(private val client: OkHttpClient) : MangaSource {
         return doc.select("#book_list .item, .manga_list-sbs .item, .item").mapNotNull { item ->
             val a = item.selectFirst("h3.title a, .text h3 a, .title a, .text .title a, .info .title a, h3 a")
                 ?: item.selectFirst("a[href*=/manga/]")
-            val href = a?.attr("href").orEmpty()
+                ?: return@mapNotNull null
+            val href = a.attr("href")
             if (!href.contains("/manga/")) return@mapNotNull null
             val slug = href.trimEnd('/').substringAfterLast('/')
             if (slug.isEmpty() || !seen.add(slug)) return@mapNotNull null

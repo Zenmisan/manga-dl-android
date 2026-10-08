@@ -58,6 +58,10 @@ object PrefKeys {
     // System
     val SYNC_WIFI_ONLY = booleanPreferencesKey("sync_wifi_only")
     val BACKGROUND_SYNC_ENABLED = booleanPreferencesKey("background_sync_enabled")
+
+    // Extensions & Sources
+    val EXTENSION_REPO_URL = stringPreferencesKey("extension_repo_url")
+    val PINNED_SOURCES = stringSetPreferencesKey("pinned_sources")
     val SAVE_CHAPTERS_PUBLIC = booleanPreferencesKey("save_chapters_public")
     val AUTO_BACKUP_WEEKLY = booleanPreferencesKey("auto_backup_weekly")
 
@@ -128,6 +132,12 @@ class AppPreferences(private val context: Context) {
     val novelSerif: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.NOVEL_SERIF] ?: true }
     val hapticFeedback: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.HAPTIC_FEEDBACK] ?: true }
     val biometricLock: Flow<Boolean> = context.dataStore.data.map { it[PrefKeys.BIOMETRIC_LOCK] ?: false }
+    val extensionRepoUrl: Flow<String> = context.dataStore.data.map {
+        it[PrefKeys.EXTENSION_REPO_URL] ?: "https://raw.githubusercontent.com/keiyoushi/extensions/repo"
+    }
+    val pinnedSources: Flow<Set<String>> = context.dataStore.data.map {
+        it[PrefKeys.PINNED_SOURCES] ?: emptySet()
+    }
 
     suspend fun set(key: Preferences.Key<String>, value: String) {
         context.dataStore.edit { it[key] = value }
@@ -139,6 +149,9 @@ class AppPreferences(private val context: Context) {
         context.dataStore.edit { it[key] = value }
     }
     suspend fun set(key: Preferences.Key<Float>, value: Float) {
+        context.dataStore.edit { it[key] = value }
+    }
+    suspend fun set(key: Preferences.Key<Set<String>>, value: Set<String>) {
         context.dataStore.edit { it[key] = value }
     }
 

@@ -19,11 +19,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -538,10 +541,28 @@ private fun MainTabs(nav: NavHostController, emptyLibrary: Boolean = false, onSo
     val historyProgress by historyVm.allProgress.collectAsState()
     val historyLibrary by historyVm.library.collectAsState()
 
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val appPrefs = remember { com.mangadl.android.data.prefs.AppPreferences.getInstance(context) }
+    val pinnedSources by appPrefs.pinnedSources.collectAsState(emptySet())
+
     val extMgr = remember { MangaDlApp.instance.extensionManager }
+    val repoMgr = remember { MangaDlApp.instance.extensionRepoManager }
+    val isRepoLoading by repoMgr.isLoading.collectAsState()
+    val rawRepoExtensions by repoMgr.repoExtensions.collectAsState()
+
     val extensions = remember { extMgr.listExtensions() }
     val uiSources = remember(extensions) { extensions.map { it.toUiSource() } }
-    val uiExtensions = remember(extensions) { extensions.map { it.toUiExtension() } }
+    val installedExtensions = remember(extensions) { extensions.map { it.toUiExtension() } }
+
+    var availableRepoExtensions by remember { mutableStateOf<List<com.mangadl.android.data.ui.UiExtension>>(emptyList()) }
+    LaunchedEffect(rawRepoExtensions, installedExtensions) {
+        availableRepoExtensions = repoMgr.getAvailableExtensions(installedExtensions)
+    }
+
+    val allExtensions = remember(installedExtensions, availableRepoExtensions) {
+        installedExtensions + availableRepoExtensions
+    }
 
     val uiLibrary = remember(libraryItems) { libraryItems.map { it.toUiManga() } }
     val continueItem = remember(libraryItems) {
@@ -629,7 +650,30 @@ private fun MainTabs(nav: NavHostController, emptyLibrary: Boolean = false, onSo
                     onSearch = { nav.navigate(Routes.Search) },
                     onMigrate = { nav.navigate(Routes.Migrate) },
                     sources = uiSources,
-                    extensions = uiExtensions,
+                    extensions = allExtensions,
+                    pinnedSources = pinnedSources,
+                    onTogglePin = { srcId ->
+                        val updated = if (srcId in pinnedSources) pinnedSources - srcId else pinnedSources + srcId
+                        coroutineScope.launch {
+                            appPrefs.set(com.mangadl.android.data.prefs.PrefKeys.PINNED_SOURCES, updated)
+                        }
+                    },
+                    onInstallExtension = { ext ->
+                        coroutineScope.launch {
+                            repoMgr.installExtension(context, ext)
+                        }
+                    },
+                    onUpdateExtension = { ext ->
+                        coroutineScope.launch {
+                            repoMgr.installExtension(context, ext)
+                        }
+                    },
+                    onRefreshRepo = {
+                        coroutineScope.launch {
+                            repoMgr.refresh()
+                        }
+                    },
+                    isRepoLoading = isRepoLoading,
                 )
                 MainTab.More -> MoreScreen(
                     onProfile = { nav.navigate(Routes.Profile) },

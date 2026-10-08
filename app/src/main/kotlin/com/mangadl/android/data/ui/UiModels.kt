@@ -43,7 +43,20 @@ data class DownloadItem(val id: String, val manga: Manga, val chapter: String, v
 data class UiSource(val id: String, val name: String, val meta: String, val initial: String, val color: Color)
 
 enum class ExtensionState { UpdateAvailable, Installed, Available }
-data class UiExtension(val id: String = "", val name: String, val meta: String, val initial: String, val color: Color, val state: ExtensionState)
+data class UiExtension(
+    val id: String = "",
+    val name: String,
+    val meta: String,
+    val initial: String,
+    val color: Color,
+    val state: ExtensionState,
+    val lang: String = "en",
+    val isNsfw: Boolean = false,
+    val apkUrl: String? = null,
+    val pkgName: String? = null,
+    val versionName: String = "1.0.0",
+    val versionCode: Long = 0L,
+)
 
 data class UiTracker(val name: String, val short: String, val color: Color, val connected: Boolean = false)
 
