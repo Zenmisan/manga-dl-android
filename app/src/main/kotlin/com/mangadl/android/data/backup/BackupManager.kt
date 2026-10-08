@@ -194,15 +194,12 @@ class BackupManager(
             var restoredProgress = 0
 
             var restoredTachiCats = 0
-            val catIndexToSlug = mutableMapOf<Int, String>()
-            parsed.categories.forEachIndexed { idx, catName ->
-                if (catName.isNotBlank()) {
-                    val slug = catName.trim().lowercase().replace("[^a-z0-9]+".toRegex(), "-").trim('-').ifEmpty { "shelf-$idx" }
+            parsed.categories.forEachIndexed { idx, cat ->
+                if (cat.name.isNotBlank()) {
+                    val slug = cat.name.trim().lowercase().replace("[^a-z0-9]+".toRegex(), "-").trim('-').ifEmpty { "shelf-$idx" }
                     db.categoryDao().upsert(
-                        com.mangadl.android.data.model.CategoryEntity(id = slug, name = catName.trim(), sortOrder = idx)
+                        com.mangadl.android.data.model.CategoryEntity(id = slug, name = cat.name.trim(), sortOrder = cat.order.toInt())
                     )
-                    catIndexToSlug[idx] = slug
-                    catIndexToSlug[idx + 1] = slug // Support 1-based indexing
                     restoredTachiCats++
                 }
             }
@@ -234,8 +231,10 @@ class BackupManager(
                 )
                 restoredManga++
 
-                if (m.categories.isNotEmpty()) {
-                    val assignedSlugs = m.categories.mapNotNull { catIndexToSlug[it] }.distinct()
+                if (m.categoryNames.isNotEmpty()) {
+                    val assignedSlugs = m.categoryNames.map { name ->
+                        name.trim().lowercase().replace("[^a-z0-9]+".toRegex(), "-").trim('-')
+                    }.filter { it.isNotBlank() }.distinct()
                     if (assignedSlugs.isNotEmpty()) {
                         db.categoryDao().setMangaCategories(mangaId, assignedSlugs)
                     }

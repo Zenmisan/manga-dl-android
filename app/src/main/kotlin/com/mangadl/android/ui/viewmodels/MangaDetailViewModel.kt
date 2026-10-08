@@ -7,7 +7,10 @@ import com.mangadl.android.MangaDlApp
 import com.mangadl.android.data.model.MangaDetail
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 sealed class DetailState {
@@ -29,7 +32,8 @@ class MangaDetailViewModel(app: Application) : AndroidViewModel(app) {
     val inLibrary: StateFlow<Boolean> = _inLibrary
 
     val allCategories: StateFlow<List<com.mangadl.android.data.model.CategoryEntity>> = db.categoryDao().getAll()
-        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), emptyList())
+        .catch { emit(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _mangaCategories = MutableStateFlow<List<String>>(emptyList())
     val mangaCategories: StateFlow<List<String>> = _mangaCategories
