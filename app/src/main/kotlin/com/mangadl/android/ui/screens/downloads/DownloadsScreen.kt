@@ -3,20 +3,25 @@ package com.mangadl.android.ui.screens.downloads
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,39 +64,135 @@ fun DownloadsScreen(
 
     Screen {
         BackHeader("Downloads", onBack) {
-            PillButton(
-                if (isPaused) "Resume All" else "Pause All",
-                onTogglePauseAll,
-                tone = ButtonTone.Primary,
-                height = 40.dp
-            )
-        }
-        BodyText(
-            "${items.size} in queue · Wi-Fi only",
-            Modifier.padding(start = 20.dp, bottom = 12.dp),
-            size = 13.sp,
-            color = c.fg.copy(alpha = 0.65f)
-        )
-        LazyColumn(
-            Modifier.weight(1f),
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(items) { d ->
-                DownloadCard(d, onAction = { onItemAction(d) })
+            if (items.isNotEmpty()) {
+                PillButton(
+                    if (isPaused) "Resume All" else "Pause All",
+                    onTogglePauseAll,
+                    tone = ButtonTone.Primary,
+                    height = 36.dp
+                )
             }
         }
-        Column(Modifier.fillMaxWidth()) {
-            Divider(color = c.surfaceHigh)
-            Column(
-                Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Storage Breakdown Card matching Stitch Mobile blueprint
+            com.mangadl.android.ui.components.SurfaceCard(
+                Modifier.fillMaxWidth(),
+                radius = 14.dp,
+                background = Color.White.copy(alpha = 0.05f),
+                borderColor = Color.White.copy(alpha = 0.10f),
+                padding = PaddingValues(14.dp)
             ) {
-                Row {
-                    BodyText("Device storage used by manga-dl", Modifier.weight(1f), size = 13.sp, color = c.fg.copy(alpha = 0.7f))
-                    BodyText("$formattedStorage (${formatBytes(freeStorageBytes)} free)", size = 13.sp, weight = FontWeight.Bold)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            BodyText("STORAGE BREAKDOWN", size = 10.sp, weight = FontWeight.Black, color = c.fgSubtle)
+                            BodyText("$formattedStorage Used", size = 15.sp, weight = FontWeight.Bold)
+                        }
+                        BodyText("${formatBytes(freeStorageBytes)} free", size = 12.sp, color = c.fgMuted)
+                    }
+
+                    // Multi-segment storage bar
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(c.surfaceHigh)
+                    ) {
+                        val mangaWeight = storageFraction.coerceAtLeast(0.01f)
+                        val remainingWeight = (1f - mangaWeight).coerceAtLeast(0.01f)
+                        Box(
+                            Modifier
+                                .weight(mangaWeight)
+                                .fillMaxSize()
+                                .background(c.accent)
+                        )
+                        Box(
+                            Modifier
+                                .weight(remainingWeight)
+                                .fillMaxSize()
+                                .background(Color.White.copy(alpha = 0.12f))
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(Modifier.size(8.dp).clip(CircleShape).background(c.accent))
+                            BodyText("Manga & Novels", size = 11.sp, color = c.fgSubtle)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(Modifier.size(8.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.25f)))
+                            BodyText("Free Space", size = 11.sp, color = c.fgSubtle)
+                        }
+                    }
                 }
-                ProgressBar(storageFraction, color = c.fg, height = 6.dp)
+            }
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BodyText(
+                    if (items.isNotEmpty()) "DOWNLOADING (${items.size})" else "DOWNLOADING QUEUE",
+                    size = 11.sp,
+                    weight = FontWeight.Black,
+                    color = c.fgSubtle
+                )
+                BodyText("Wi-Fi only", size = 11.sp, color = c.fgFaint)
+            }
+        }
+
+        if (items.isEmpty()) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.White.copy(alpha = 0.05f))
+                            .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(16.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        androidx.compose.material3.Icon(
+                            MdIcons.Download,
+                            contentDescription = null,
+                            tint = c.fgMuted,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    BodyText("No active downloads", size = 16.sp, weight = FontWeight.Bold)
+                    BodyText("Downloaded chapters will appear here and can be exported as CBZ or EPUB.", size = 13.sp, color = c.fgMuted, maxLines = 2)
+                }
+            }
+        } else {
+            LazyColumn(
+                Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(items, key = { it.id }) { d ->
+                    DownloadCard(d, onAction = { onItemAction(d) })
+                }
             }
         }
     }
@@ -125,8 +226,8 @@ fun DownloadCard(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(c.surface)
-            .border(1.dp, c.surfaceHigh, RoundedCornerShape(14.dp))
+            .background(Color.White.copy(alpha = 0.05f))
+            .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -135,7 +236,7 @@ fun DownloadCard(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             BodyText("${d.manga.title} · ${d.chapter}", weight = FontWeight.Bold, maxLines = 1)
             BodyText(d.status, size = 12.sp, weight = FontWeight.SemiBold, color = stateColor)
-            ProgressBar(d.progress, color = barColor)
+            ProgressBar(d.progress, color = barColor, height = 5.dp)
         }
         MdIconButton(icon, label, onAction, background = c.surfaceHigh, iconSize = 18.dp)
     }

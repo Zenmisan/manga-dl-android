@@ -61,6 +61,7 @@ import com.mangadl.android.ui.components.MdButton
 import com.mangadl.android.ui.components.MdIconButton
 import com.mangadl.android.ui.components.MdIcons
 import com.mangadl.android.ui.components.MdSlider
+import com.mangadl.android.ui.components.bounceClick
 import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.theme.Inter
 import com.mangadl.android.ui.theme.MdTheme
@@ -279,7 +280,7 @@ fun NovelReaderScreen(
                                     .clip(CircleShape)
                                     .background(t.bg)
                                     .border(if (t == theme) 2.dp else 1.dp, if (t == theme) c.accent else c.fg.copy(alpha = 0.2f), CircleShape)
-                                    .clickable(role = Role.RadioButton) {
+                                    .bounceClick(role = Role.RadioButton, pressedScale = 0.90f) {
                                         theme = t
                                         scope.launch { appPrefs.set(PrefKeys.NOVEL_THEME, t.label) }
                                     },
@@ -366,7 +367,7 @@ private fun NovelSizeButton(label: String, fontSize: Int, description: String, o
             .size(44.dp)
             .clip(shape)
             .border(1.dp, MdTheme.colors.border, shape)
-            .clickable(role = Role.Button, onClickLabel = description, onClick = onClick),
+            .bounceClick(role = Role.Button, pressedScale = 0.90f, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         BodyText(label, size = fontSize.sp, weight = FontWeight.ExtraBold)
@@ -383,7 +384,7 @@ private fun NovelFontOption(label: String, selected: Boolean, family: androidx.c
             .clip(shape)
             .background(if (selected) c.accent.copy(alpha = 0.14f) else Color.Transparent)
             .border(1.dp, if (selected) c.accent else c.border, shape)
-            .clickable(role = Role.RadioButton, onClick = onClick),
+            .bounceClick(role = Role.RadioButton, pressedScale = 0.92f, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         androidx.compose.material3.Text(label, style = TextStyle(fontFamily = family, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (selected) c.fg else c.fg.copy(alpha = 0.8f)))

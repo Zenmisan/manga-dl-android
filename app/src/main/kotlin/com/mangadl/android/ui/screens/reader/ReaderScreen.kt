@@ -75,6 +75,7 @@ import com.mangadl.android.ui.components.MdIcons
 import com.mangadl.android.ui.components.MdSlider
 import com.mangadl.android.ui.components.PagePlaceholder
 import com.mangadl.android.ui.components.ZoomableBox
+import com.mangadl.android.ui.components.bounceClick
 import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.theme.MdTheme
 import com.mangadl.android.ui.viewmodels.NavStateHolder
@@ -688,7 +689,7 @@ private fun ToolButton(icon: ImageVector, label: String, modifier: Modifier, onC
         modifier
             .height(56.dp)
             .clip(RoundedCornerShape(14.dp))
-            .clickable(role = Role.Button, onClick = onClick),
+            .bounceClick(role = Role.Button, pressedScale = 0.92f, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
     ) {

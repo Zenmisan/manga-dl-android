@@ -58,6 +58,7 @@ import com.mangadl.android.ui.components.Eyebrow
 import com.mangadl.android.ui.components.MdButton
 import com.mangadl.android.ui.components.MdIconButton
 import com.mangadl.android.ui.components.MdIcons
+import com.mangadl.android.ui.components.bounceClick
 import com.mangadl.android.ui.theme.MdTheme
 import com.mangadl.android.ui.viewmodels.AuthViewModel
 import com.mangadl.android.ui.viewmodels.ProfileViewModel
@@ -247,9 +248,9 @@ fun ProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
-                    .background(c.surface)
-                    .border(1.dp, c.surfaceHigh, RoundedCornerShape(14.dp))
-                    .clickable(onClick = onOpenLeaderboard)
+                    .background(Color.White.copy(alpha = 0.05f))
+                    .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
+                    .bounceClick(onClick = onOpenLeaderboard)
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -465,7 +466,7 @@ private fun HunterStandingCard(
 
                 BodyText(
                     "View Milestones →",
-                    modifier = Modifier.clickable { onViewMilestones() },
+                    modifier = Modifier.bounceClick { onViewMilestones() },
                     size = 11.sp,
                     weight = FontWeight.Bold,
                     color = rank.color
@@ -501,7 +502,7 @@ private fun PinnedBadgesSection(
             }
             BodyText(
                 "Customize",
-                modifier = Modifier.clickable { onManagePins() },
+                modifier = Modifier.bounceClick { onManagePins() },
                 size = 11.sp,
                 weight = FontWeight.Bold,
                 color = Color(0xFFEF4444)
@@ -513,8 +514,9 @@ private fun PinnedBadgesSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
-                    .clickable { onManagePins() }
+                    .background(Color.White.copy(alpha = 0.04f))
+                    .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
+                    .bounceClick { onManagePins() }
                     .padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -534,9 +536,9 @@ private fun PinnedBadgesSection(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(c.surfaceHigh)
+                            .background(Color.White.copy(alpha = 0.05f))
                             .border(1.dp, badge.tier.borderColor, RoundedCornerShape(12.dp))
-                            .clickable { onManagePins() }
+                            .bounceClick { onManagePins() }
                             .padding(10.dp)
                     ) {
                         Column(
@@ -591,8 +593,8 @@ private fun StatCard(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(c.surfaceHigh)
-            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.05f))
+            .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
             .padding(12.dp)
     ) {
         Column(
@@ -618,8 +620,8 @@ private fun MilestonesCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(c.surfaceHigh)
-            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+            .background(Color.White.copy(alpha = 0.05f))
+            .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -652,7 +654,7 @@ private fun MilestonesCard(
                 }
 
                 Row(
-                    modifier = Modifier.clickable { onViewAll() },
+                    modifier = Modifier.bounceClick { onViewAll() },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
@@ -746,7 +748,7 @@ private fun MilestonesCard(
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(badge.tier.bgColor)
                                     .border(1.dp, badge.tier.borderColor, RoundedCornerShape(10.dp))
-                                    .clickable { onViewAll() }
+                                    .bounceClick { onViewAll() }
                                     .padding(8.dp)
                             ) {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -811,7 +813,7 @@ private fun MilestonesGalleryModal(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
-                    .background(c.surfaceHigh)
+                    .background(Color(0xFF0F0F12))
                     .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(20.dp))
                     .clickable(enabled = false) {}
                     .padding(18.dp)
@@ -917,7 +919,8 @@ private fun CategoryTabButton(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(if (selected) Color(0xFFEF4444) else Color.White.copy(alpha = 0.05f))
-            .clickable { onClick() }
+            .border(1.dp, if (selected) Color(0xFFEF4444) else Color.White.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+            .bounceClick { onClick() }
             .padding(vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -1023,7 +1026,7 @@ private fun MilestoneBadgeRow(
                         .size(32.dp)
                         .clip(CircleShape)
                         .background(if (isPinned) Color(0xFFF59E0B).copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f))
-                        .clickable { onTogglePin() },
+                        .bounceClick { onTogglePin() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
