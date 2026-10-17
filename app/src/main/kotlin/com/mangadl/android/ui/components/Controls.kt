@@ -82,7 +82,7 @@ fun MdButton(
             .clip(shape)
             .background(bg)
             .border(1.dp, border, shape)
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .bounceClick(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = horizontalPadding),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -130,7 +130,7 @@ fun PillChip(
             .clip(shape)
             .background(if (selected) c.fg else Color.Transparent)
             .border(1.dp, if (selected) Color.Transparent else c.border, shape)
-            .clickable(role = Role.Tab, onClick = onClick)
+            .bounceClick(role = Role.Tab, pressedScale = 0.94f, onClick = onClick)
             .semantics { this.selected = selected }
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,

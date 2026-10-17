@@ -46,7 +46,7 @@ fun SettingRow(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = 60.dp)
-                .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+                .then(if (onClick != null) Modifier.bounceClick(role = Role.Button, pressedScale = 0.98f, onClick = onClick) else Modifier)
                 .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),

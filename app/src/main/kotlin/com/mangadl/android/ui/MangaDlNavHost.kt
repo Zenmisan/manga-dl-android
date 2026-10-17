@@ -1,8 +1,11 @@
 package com.mangadl.android.ui
 
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -141,10 +144,30 @@ fun MangaDlNavHost(onAccentChange: (Accent) -> Unit, startDestination: String = 
         navController = nav,
         startDestination = startDestination,
         modifier = Modifier.fillMaxSize().background(MdTheme.colors.bg),
-        enterTransition = { fadeIn(tween(300)) },
-        exitTransition = { fadeOut(tween(300)) },
-        popEnterTransition = { fadeIn(tween(300)) },
-        popExitTransition = { fadeOut(tween(300)) },
+        enterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { fullWidth -> fullWidth / 4 },
+                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+            ) + fadeIn(animationSpec = tween(280))
+        },
+        exitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { fullWidth -> -fullWidth / 6 },
+                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+            ) + fadeOut(animationSpec = tween(280))
+        },
+        popEnterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { fullWidth -> -fullWidth / 6 },
+                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+            ) + fadeIn(animationSpec = tween(280))
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { fullWidth -> fullWidth / 4 },
+                animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing),
+            ) + fadeOut(animationSpec = tween(280))
+        },
     ) {
         composable(Routes.Welcome) {
             WelcomeScreen(onStartReading = { nav.navigate(Routes.Register) }, onSignIn = { nav.navigate(Routes.Login) })

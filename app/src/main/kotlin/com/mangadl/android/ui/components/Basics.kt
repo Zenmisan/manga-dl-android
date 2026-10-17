@@ -103,7 +103,7 @@ fun MdIconButton(
             .size(size)
             .clip(shape)
             .background(background)
-            .clickable(role = Role.Button, onClick = onClick),
+            .bounceClick(role = Role.Button, pressedScale = 0.90f, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = contentDescription, tint = tint, modifier = Modifier.size(iconSize))
@@ -221,7 +221,12 @@ fun CoverArt(
         } else ""
     }
 
-    Box(modifier.clip(shape).background(placeholderColor)) {
+    Box(
+        modifier
+            .clip(shape)
+            .background(placeholderColor)
+            .border(1.dp, Color.White.copy(alpha = 0.10f), shape),
+    ) {
         if (!resolvedUrl.isNullOrBlank()) {
             coil.compose.AsyncImage(
                 model = coil.request.ImageRequest.Builder(context)

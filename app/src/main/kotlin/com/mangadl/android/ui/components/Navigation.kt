@@ -89,7 +89,7 @@ private fun NavItem(tab: MainTab, selected: Boolean, onClick: () -> Unit, modifi
     val c = MdTheme.colors
     Column(
         modifier
-            .clickable(role = Role.Tab, onClick = onClick)
+            .bounceClick(role = Role.Tab, pressedScale = 0.92f, onClick = onClick)
             .semantics { this.selected = selected },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
@@ -101,13 +101,19 @@ private fun NavItem(tab: MainTab, selected: Boolean, onClick: () -> Unit, modifi
                 .background(if (selected) c.accentNav else Color.Transparent),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(tab.icon, contentDescription = null, tint = if (selected) c.accentLight else c.fgSubtle, modifier = Modifier.size(22.dp))
+            Icon(
+                tab.icon,
+                contentDescription = tab.label,
+                tint = if (selected) c.accentLight else c.fgSubtle,
+                modifier = Modifier.size(22.dp),
+            )
         }
         BodyText(
             tab.label,
             size = 11.sp,
-            weight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+            weight = if (selected) FontWeight.Bold else FontWeight.Medium,
             color = if (selected) c.fg else c.fgSubtle,
         )
     }
 }
+

@@ -1,24 +1,32 @@
 package com.mangadl.android.ui.screens.browse
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mangadl.android.data.ui.Manga
@@ -29,6 +37,7 @@ import com.mangadl.android.ui.components.MdIconButton
 import com.mangadl.android.ui.components.MdIcons
 import com.mangadl.android.ui.components.PillChip
 import com.mangadl.android.ui.components.Screen
+import com.mangadl.android.ui.components.bounceClick
 import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.screens.library.CoverCell
 import com.mangadl.android.ui.theme.MdTheme
@@ -126,6 +135,37 @@ fun BrowseSourceScreen(
                         CoverCell(m, { onOpenManga(m) }, showInLibraryTag = true, dimInLibrary = true)
                     }
                 }
+            }
+        }
+
+        // Floating Action Button matching Stitch Mobile blueprint
+        if (!isSearching && items.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 20.dp, bottom = 24.dp)
+                    .height(52.dp)
+                    .clip(CircleShape)
+                    .background(c.accent)
+                    .bounceClick(role = Role.Button) {
+                        isSearching = true
+                    }
+                    .padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    MdIcons.Filter,
+                    contentDescription = "Filters",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp),
+                )
+                BodyText(
+                    "Filters",
+                    size = 14.sp,
+                    weight = FontWeight.Bold,
+                    color = Color.White,
+                )
             }
         }
     }

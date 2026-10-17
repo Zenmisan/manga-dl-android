@@ -63,6 +63,7 @@ import com.mangadl.android.ui.components.SurfaceCard
 import com.mangadl.android.ui.components.Divider
 import com.mangadl.android.ui.components.SearchField
 import com.mangadl.android.ui.components.TabHeader
+import com.mangadl.android.ui.components.bounceClick
 import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.theme.MdTheme
 
@@ -443,7 +444,7 @@ fun CoverCell(
 ) {
     val c = MdTheme.colors
     Column(
-        modifier.clickable(role = Role.Button, onClick = onClick),
+        modifier = modifier.bounceClick(role = Role.Button, pressedScale = 0.95f, onClick = onClick),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
@@ -478,7 +479,11 @@ fun CoverCell(
 @Composable
 private fun ContinueCard(item: ContinueItem, onResume: () -> Unit, modifier: Modifier = Modifier) {
     val c = MdTheme.colors
-    SurfaceCard(modifier.fillMaxWidth()) {
+    SurfaceCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .bounceClick(role = Role.Button, pressedScale = 0.98f, onClick = onResume),
+    ) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
             CoverArt(item.manga.cover, Modifier.size(64.dp, 96.dp), RoundedCornerShape(8.dp), imageUrl = item.manga.coverUrl)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {

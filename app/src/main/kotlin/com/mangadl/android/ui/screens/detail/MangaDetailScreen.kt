@@ -61,6 +61,7 @@ import com.mangadl.android.ui.components.MdIconButton
 import com.mangadl.android.ui.components.MdIcons
 import com.mangadl.android.ui.components.MdTextField
 import com.mangadl.android.ui.components.VSpace
+import com.mangadl.android.ui.components.bounceClick
 import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.screens.tracking.TrackingSheet
 import com.mangadl.android.ui.theme.MdTheme
@@ -530,12 +531,14 @@ private fun MangaTag(text: String) {
 @Composable
 private fun ActionTile(label: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier = Modifier, active: Boolean = false) {
     val c = MdTheme.colors
+    val shape = RoundedCornerShape(12.dp)
     Column(
         modifier
             .height(60.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(shape)
             .background(if (active) c.accentMuted else c.surfaceRaised)
-            .clickable(role = Role.Button, onClick = onClick)
+            .border(1.dp, if (active) c.accentLight.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.08f), shape)
+            .bounceClick(role = Role.Button, pressedScale = 0.92f, onClick = onClick)
             .semantics { if (active) selected = true },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
@@ -553,7 +556,7 @@ private fun ChapterRow(ch: UiChapter, onClick: () -> Unit, onDownload: () -> Uni
         Modifier
             .fillMaxWidth()
             .heightIn(min = 60.dp)
-            .clickable(onClick = onClick)
+            .bounceClick(role = Role.Button, pressedScale = 0.98f, onClick = onClick)
             .padding(start = 20.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),

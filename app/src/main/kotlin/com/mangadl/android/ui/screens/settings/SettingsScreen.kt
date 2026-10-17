@@ -1,7 +1,7 @@
 package com.mangadl.android.ui.screens.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,9 +16,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +34,10 @@ import com.mangadl.android.ui.components.BodyText
 import com.mangadl.android.ui.components.Divider
 import com.mangadl.android.ui.components.MdIcons
 import com.mangadl.android.ui.components.Screen
+import com.mangadl.android.ui.components.SearchField
+import com.mangadl.android.ui.components.VSpace
+import com.mangadl.android.ui.components.bounceClick
+import com.mangadl.android.ui.components.rememberState
 import com.mangadl.android.ui.theme.MdTheme
 
 enum class SettingsPage(val label: String, val description: String, val icon: ImageVector) {
@@ -44,6 +52,16 @@ enum class SettingsPage(val label: String, val description: String, val icon: Im
 @Composable
 fun SettingsScreen(onBack: () -> Unit, onOpen: (SettingsPage) -> Unit) {
     val c = MdTheme.colors
+    var searchQuery by rememberState("")
+
+    val filteredPages = remember(searchQuery) {
+        if (searchQuery.isBlank()) SettingsPage.entries
+        else SettingsPage.entries.filter {
+            it.label.contains(searchQuery, ignoreCase = true) ||
+                it.description.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
     Screen {
         BackHeader("Settings", onBack)
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
@@ -54,16 +72,33 @@ fun SettingsScreen(onBack: () -> Unit, onOpen: (SettingsPage) -> Unit) {
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 8.dp)
             ) {
-                SettingsPage.entries.forEach { page ->
+                // Search bar matching Stitch Mobile blueprint
+                SearchField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = "Search settings…",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                VSpace(14.dp)
+
+                filteredPages.forEach { page ->
                     Row(
                         Modifier
                             .fillMaxWidth()
                             .heightIn(min = 68.dp)
-                            .clickable(role = Role.Button) { onOpen(page) },
+                            .bounceClick(role = Role.Button, pressedScale = 0.97f) { onOpen(page) },
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(c.surfaceRaised), contentAlignment = Alignment.Center) {
+                        Box(
+                            Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(c.surfaceRaised)
+                                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             Icon(page.icon, null, tint = c.fg, modifier = Modifier.size(20.dp))
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -73,6 +108,17 @@ fun SettingsScreen(onBack: () -> Unit, onOpen: (SettingsPage) -> Unit) {
                         Icon(MdIcons.ChevronRight, null, tint = c.fgFaint, modifier = Modifier.size(18.dp))
                     }
                     Divider()
+                }
+
+                if (filteredPages.isEmpty()) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 36.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        BodyText("No settings match \"$searchQuery\"", size = 14.sp, color = c.fgMuted)
+                    }
                 }
             }
         }

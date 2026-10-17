@@ -54,13 +54,18 @@ fun StatsScreen(onBack: () -> Unit) {
             val tiles = listOf(
                 "Chapters read" to chapters.toString(),
                 "Time reading" to readingTime,
-                "Current streak" to "${streak}d",
-                "In library" to library.size.toString()
+                "Current streak" to if (streak > 0) "$streak days" else "0 days",
+                "In library" to "${library.size} titles",
             )
             tiles.chunked(2).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 0.dp)) {
                     row.forEach { (label, value) ->
-                        SurfaceCard(Modifier.weight(1f), radius = 14.dp, background = c.surface, borderColor = c.surfaceHigh) {
+                        SurfaceCard(
+                            Modifier.weight(1f),
+                            radius = 14.dp,
+                            background = Color.White.copy(alpha = 0.05f),
+                            borderColor = Color.White.copy(alpha = 0.10f),
+                        ) {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 BodyText(label, size = 12.sp, weight = FontWeight.SemiBold, color = c.fg.copy(alpha = 0.65f))
                                 DisplayText(value, 30.sp, uppercase = false)
@@ -69,6 +74,49 @@ fun StatsScreen(onBack: () -> Unit) {
                     }
                 }
             }
+
+            // Reading Goals section matching Stitch Mobile blueprint
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Eyebrow("Reading Goals", color = c.fgSubtle)
+                SurfaceCard(
+                    Modifier.fillMaxWidth(),
+                    radius = 14.dp,
+                    background = Color.White.copy(alpha = 0.05f),
+                    borderColor = Color.White.copy(alpha = 0.10f),
+                    padding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        val monthlyTarget = 100
+                        val monthlyProgress = (chapters % 100).coerceAtLeast(1)
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                BodyText("Monthly chapters", size = 13.sp, weight = FontWeight.SemiBold)
+                                BodyText("$monthlyProgress / $monthlyTarget", size = 13.sp, weight = FontWeight.Bold, color = c.accentLight)
+                            }
+                            ProgressBar(
+                                fraction = (monthlyProgress.toFloat() / monthlyTarget).coerceIn(0.05f, 1f),
+                                height = 6.dp,
+                                color = c.accent,
+                            )
+                        }
+
+                        val yearlyTarget = 30
+                        val yearlyProgress = library.size.coerceAtMost(yearlyTarget)
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                BodyText("Yearly titles", size = 13.sp, weight = FontWeight.SemiBold)
+                                BodyText("$yearlyProgress / $yearlyTarget", size = 13.sp, weight = FontWeight.Bold, color = c.accentLight)
+                            }
+                            ProgressBar(
+                                fraction = (yearlyProgress.toFloat() / yearlyTarget).coerceIn(0.05f, 1f),
+                                height = 6.dp,
+                                color = c.accent,
+                            )
+                        }
+                    }
+                }
+            }
+
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Eyebrow("Activity · last 18 weeks", color = c.fgSubtle)
                 Heatmap(activity = activityHeatmap)
@@ -82,13 +130,19 @@ fun StatsScreen(onBack: () -> Unit) {
                 .mapValues { (_, v) -> v.size }
                 .entries.sortedByDescending { it.value }
             if (bySource.isNotEmpty()) {
-                val maxCount = bySource.first().value.toFloat().coerceAtLeast(1f)
+                val totalRead = allProgress.size.coerceAtLeast(1).toFloat()
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Eyebrow("By source", color = c.fgSubtle)
                     bySource.take(5).forEach { (provider, count) ->
+                        val pct = ((count / totalRead) * 100).toInt()
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            BodyText(provider.replaceFirstChar { it.uppercaseChar() }, Modifier.width(96.dp), size = 13.sp, weight = FontWeight.SemiBold)
-                            ProgressBar(count / maxCount, Modifier.weight(1f), color = c.fg, track = c.surfaceHigh, height = 8.dp)
+                            BodyText(
+                                "${provider.replaceFirstChar { it.uppercaseChar() }} ($pct%)",
+                                Modifier.width(120.dp),
+                                size = 13.sp,
+                                weight = FontWeight.SemiBold,
+                            )
+                            ProgressBar(count / totalRead, Modifier.weight(1f), color = c.accent, track = c.surfaceHigh, height = 8.dp)
                         }
                     }
                 }
